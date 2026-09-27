@@ -69,13 +69,8 @@ flowchart TB
 
     subgraph S3["DOM 조작 Python"]
         direction TB
-        C1["pyodide-terminal<br/>xterm 결합"] --> C2["pyodide-core<br/>프로토콜 + worker 부팅"]
-        C3["pyodide-dom-bridge<br/>DOM 프록시 플러그인"] --> C2
-    end
-
-    subgraph S4["React 앱 임베드"]
-        direction TB
-        D1["pyodide-repl-react<br/>PythonRunner / PythonRepl"] --> D2["위 세 조합 중 하나를 내부에서 선택"]
+        C1["pyodide-repl-react<br/>(React일 때만)"] --> C2["pyodide-terminal<br/>xterm 결합"] --> C3["pyodide-core<br/>프로토콜 + worker 부팅"]
+        C4["pyodide-dom-bridge<br/>DOM 프록시 플러그인"] --> C3
     end
 ```
 
@@ -91,8 +86,7 @@ flowchart TB
 - **DOM 조작 Python** — worker의 Python이 main의 `window`·`document`를 동기 프록시로 건드린다(`from runo.browser import document`). REPL과의 조합은 미지원.
   - 위 실행창 조합(`pyodide-core` + `pyodide-terminal`) 그대로
   - `pyodide-dom-bridge`: worker 부팅에 끼어드는 플러그인. Python → DOM 프록시 통로만 추가(coincident에 의존하는 유일한 패키지)
-- **React 앱에 임베드** — 온라인 코딩 에디터, 인터랙티브 튜토리얼, 대시보드에 붙는 Python 콘솔 등.
-  - `pyodide-repl-react`: `PythonRunner`/`PythonRepl` 컴포넌트, `PythonRunnerHandle`/`PythonReplHandle`로 명령형 제어. 내부적으로 위 세 조합 중 하나를 골라 씀
+  - (React) `pyodide-repl-react`: `PythonRunner`에 dom-bridge worker를 `createWorker`로 넘기면 그대로 조합된다(데모 `?view=dom-bridge`). 실행창과 같은 컴포넌트라 별도 진입점은 없다.
 
 공통: `pyodide-terminal`·`pyodide-repl`은 줄 편집·history·Tab 완성에 `xterm-readline`을 쓴다(직접 다루지 않음).
 
