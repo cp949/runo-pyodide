@@ -1,0 +1,539 @@
+{
+ "os.sep": {
+  "typed": [
+   ">>> os.sep"
+  ],
+  "log": [
+   {
+    "stem": "os.sep",
+    "buf": "os.sep",
+    "pos": 6,
+    "res": [
+     "os.sep"
+    ]
+   },
+   {
+    "stem": "os.sep",
+    "buf": "os.sep",
+    "pos": 6,
+    "res": [
+     "os.sep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.sep"
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> os.sep"
+  ]
+ },
+ "os.environ": {
+  "typed": [
+   ">>> os.environ"
+  ],
+  "log": [
+   {
+    "stem": "os.environ",
+    "buf": "os.environ",
+    "pos": 10,
+    "res": [
+     "os.environ",
+     "os.environb"
+    ]
+   },
+   {
+    "stem": "os.environ",
+    "buf": "os.environ",
+    "pos": 10,
+    "res": [
+     "os.environ",
+     "os.environb"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.environ",
+   "[ complete but not unique ]"
+  ],
+  "cursor1": [
+   0,
+   14
+  ],
+  "screen2": [
+   ">>> os.environ",
+   "os.environ   os.environb"
+  ]
+ },
+ "os.path": {
+  "typed": [
+   ">>> os.path"
+  ],
+  "log": [
+   {
+    "stem": "os.path",
+    "buf": "os.path",
+    "pos": 7,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.path",
+    "buf": "os.path",
+    "pos": 7,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.path",
+   "[ complete but not unique ]"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> os.path",
+   "os.path            os.pathconf(       os.pathconf_names  os.pathsep"
+  ]
+ },
+ "len": {
+  "typed": [
+   ">>> len"
+  ],
+  "log": [
+   {
+    "stem": "len",
+    "buf": "len",
+    "pos": 3,
+    "res": [
+     "len("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "len(",
+    "pos": 4,
+    "res": [
+     "    "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> len("
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> len("
+  ]
+ },
+ "i": {
+  "typed": [
+   ">>> i"
+  ],
+  "log": [
+   {
+    "stem": "i",
+    "buf": "i",
+    "pos": 1,
+    "res": [
+     "id(",
+     "if ",
+     "import ",
+     "in ",
+     "input(",
+     "int(",
+     "is ",
+     "isinstance(",
+     "issubclass(",
+     "iter("
+    ]
+   },
+   {
+    "stem": "i",
+    "buf": "i",
+    "pos": 1,
+    "res": [
+     "id(",
+     "if ",
+     "import ",
+     "in ",
+     "input(",
+     "int(",
+     "is ",
+     "isinstance(",
+     "issubclass(",
+     "iter("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> i",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   5
+  ],
+  "screen2": [
+   ">>> i",
+   "id(          import       input(       is           issubclass(",
+   "if           in           int(         isinstance(  iter("
+  ]
+ },
+ "os.getcwd": {
+  "typed": [
+   ">>> os.getcwd"
+  ],
+  "log": [
+   {
+    "stem": "os.getcwd",
+    "buf": "os.getcwd",
+    "pos": 9,
+    "res": [
+     "os.getcwd()",
+     "os.getcwdb()"
+    ]
+   },
+   {
+    "stem": "os.getcwd",
+    "buf": "os.getcwd",
+    "pos": 9,
+    "res": [
+     "os.getcwd()",
+     "os.getcwdb()"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.getcwd",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> os.getcwd",
+   "os.getcwd()   os.getcwdb()"
+  ]
+ },
+ "a.prop": {
+  "typed": [
+   ">>> a.prop"
+  ],
+  "log": [
+   {
+    "stem": "a.prop",
+    "buf": "a.prop",
+    "pos": 6,
+    "res": [
+     "a.prop"
+    ]
+   },
+   {
+    "stem": "a.prop",
+    "buf": "a.prop",
+    "pos": 6,
+    "res": [
+     "a.prop"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a.prop"
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> a.prop"
+  ]
+ },
+ "a.meth": {
+  "typed": [
+   ">>> a.meth"
+  ],
+  "log": [
+   {
+    "stem": "a.meth",
+    "buf": "a.meth",
+    "pos": 6,
+    "res": [
+     "a.meth()"
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "a.meth()",
+    "pos": 8,
+    "res": [
+     "    "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a.meth()"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> a.meth()"
+  ]
+ },
+ "f": {
+  "typed": [
+   ">>> f"
+  ],
+  "log": [
+   {
+    "stem": "f",
+    "buf": "f",
+    "pos": 1,
+    "res": [
+     "f(",
+     "filter(",
+     "finally:",
+     "float(",
+     "for ",
+     "format(",
+     "from ",
+     "frozenset("
+    ]
+   },
+   {
+    "stem": "f",
+    "buf": "f",
+    "pos": 1,
+    "res": [
+     "f(",
+     "filter(",
+     "finally:",
+     "float(",
+     "for ",
+     "format(",
+     "from ",
+     "frozenset("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> f",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   5
+  ],
+  "screen2": [
+   ">>> f",
+   "f(          finally:    for         from",
+   "filter(     float(      format(     frozenset("
+  ]
+ },
+ "A": {
+  "typed": [
+   ">>> A"
+  ],
+  "log": [
+   {
+    "stem": "A",
+    "buf": "A",
+    "pos": 1,
+    "res": [
+     "A()",
+     "ArithmeticError(",
+     "AssertionError(",
+     "AttributeError("
+    ]
+   },
+   {
+    "stem": "A",
+    "buf": "A",
+    "pos": 1,
+    "res": [
+     "A()",
+     "ArithmeticError(",
+     "AssertionError(",
+     "AttributeError("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> A",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   5
+  ],
+  "screen2": [
+   ">>> A",
+   "A()               ArithmeticError(  AssertionError(   AttributeError("
+  ]
+ },
+ "abs": {
+  "typed": [
+   ">>> abs"
+  ],
+  "log": [
+   {
+    "stem": "abs",
+    "buf": "abs",
+    "pos": 3,
+    "res": [
+     "abs("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "abs(",
+    "pos": 4,
+    "res": [
+     "    "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> abs("
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> abs("
+  ]
+ },
+ "os.p": {
+  "typed": [
+   ">>> os.p"
+  ],
+  "log": [
+   {
+    "stem": "os.p",
+    "buf": "os.p",
+    "pos": 4,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep",
+     "os.pipe()",
+     "os.pipe2(",
+     "os.popen(",
+     "os.posix_fadvise(",
+     "os.posix_fallocate(",
+     "os.posix_openpt(",
+     "os.posix_spawn(",
+     "os.posix_spawnp(",
+     "os.pread(",
+     "os.preadv(",
+     "os.process_cpu_count()",
+     "os.ptsname(",
+     "os.putenv(",
+     "os.pwrite(",
+     "os.pwritev("
+    ]
+   },
+   {
+    "stem": "os.p",
+    "buf": "os.p",
+    "pos": 4,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep",
+     "os.pipe()",
+     "os.pipe2(",
+     "os.popen(",
+     "os.posix_fadvise(",
+     "os.posix_fallocate(",
+     "os.posix_openpt(",
+     "os.posix_spawn(",
+     "os.posix_spawnp(",
+     "os.pread(",
+     "os.preadv(",
+     "os.process_cpu_count()",
+     "os.ptsname(",
+     "os.putenv(",
+     "os.pwrite(",
+     "os.pwritev("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.p",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> os.p",
+   "os.pardir               os.popen(               os.preadv(",
+   "os.path                 os.posix_fadvise(       os.process_cpu_count()",
+   "os.pathconf(            os.posix_fallocate(     os.ptsname(",
+   "os.pathconf_names       os.posix_openpt(        os.putenv(",
+   "os.pathsep              os.posix_spawn(         os.pwrite(",
+   "os.pipe()               os.posix_spawnp(        os.pwritev(",
+   "os.pipe2(               os.pread("
+  ]
+ },
+ "print": {
+  "typed": [
+   ">>> print"
+  ],
+  "log": [
+   {
+    "stem": "print",
+    "buf": "print",
+    "pos": 5,
+    "res": [
+     "print("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "print(",
+    "pos": 6,
+    "res": [
+     "  "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> print("
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> print("
+  ]
+ }
+}

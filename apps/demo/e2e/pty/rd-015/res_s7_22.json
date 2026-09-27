@@ -1,0 +1,424 @@
+{
+ "print(": {
+  "typed": [
+   ">>> print("
+  ],
+  "log": [
+   {
+    "stem": "",
+    "buf": "print(",
+    "pos": 6,
+    "res": [
+     "  "
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "print(  ",
+    "pos": 8,
+    "res": [
+     "    "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> print("
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> print("
+  ]
+ },
+ "os.pa;os.pat": {
+  "typed": [
+   ">>> os.pa;os.pat"
+  ],
+  "log": [
+   {
+    "stem": "os.pat",
+    "buf": "os.pa;os.pat",
+    "pos": 12,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.path",
+    "buf": "os.pa;os.path",
+    "pos": 13,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.pa;os.path",
+   "[ complete but not unique ]"
+  ],
+  "cursor1": [
+   0,
+   17
+  ],
+  "screen2": [
+   ">>> os.pa;os.path",
+   "os.path            os.pathconf(       os.pathconf_names  os.pathsep"
+  ]
+ },
+ "x=os.pat": {
+  "typed": [
+   ">>> x=os.pat"
+  ],
+  "log": [
+   {
+    "stem": "os.pat",
+    "buf": "x=os.pat",
+    "pos": 8,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.path",
+    "buf": "x=os.path",
+    "pos": 9,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x=os.path",
+   "[ complete but not unique ]"
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> x=os.path",
+   "os.path            os.pathconf(       os.pathconf_names  os.pathsep"
+  ]
+ },
+ "@os.pat": {
+  "typed": [
+   ">>> @os.pat"
+  ],
+  "log": [
+   {
+    "stem": "os.pat",
+    "buf": "@os.pat",
+    "pos": 7,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.path",
+    "buf": "@os.path",
+    "pos": 8,
+    "res": [
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> @os.path",
+   "[ complete but not unique ]"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> @os.path",
+   "os.path            os.pathconf(       os.pathconf_names  os.pathsep"
+  ]
+ },
+ "None.": {
+  "typed": [
+   ">>> None."
+  ],
+  "log": [
+   {
+    "stem": "None.",
+    "buf": "None.",
+    "pos": 5,
+    "res": [
+     "None.__bool__(",
+     "None.__class__()",
+     "None.__delattr__(",
+     "None.__dir__(",
+     "None.__doc__",
+     "None.__eq__(",
+     "None.__format__(",
+     "None.__ge__(",
+     "None.__getattribute__(",
+     "None.__getstate__(",
+     "None.__gt__(",
+     "None.__hash__(",
+     "None.__init__(",
+     "None.__init_subclass__()",
+     "None.__le__(",
+     "None.__lt__(",
+     "None.__ne__(",
+     "None.__new__(",
+     "None.__reduce__(",
+     "None.__reduce_ex__(",
+     "None.__repr__(",
+     "None.__setattr__(",
+     "None.__sizeof__(",
+     "None.__str__(",
+     "None.__subclasshook__("
+    ]
+   },
+   {
+    "stem": "None.__",
+    "buf": "None.__",
+    "pos": 7,
+    "res": [
+     "None.__bool__(",
+     "None.__class__()",
+     "None.__delattr__(",
+     "None.__dir__(",
+     "None.__doc__",
+     "None.__eq__(",
+     "None.__format__(",
+     "None.__ge__(",
+     "None.__getattribute__(",
+     "None.__getstate__(",
+     "None.__gt__(",
+     "None.__hash__(",
+     "None.__init__(",
+     "None.__init_subclass__()",
+     "None.__le__(",
+     "None.__lt__(",
+     "None.__ne__(",
+     "None.__new__(",
+     "None.__reduce__(",
+     "None.__reduce_ex__(",
+     "None.__repr__(",
+     "None.__setattr__(",
+     "None.__sizeof__(",
+     "None.__str__(",
+     "None.__subclasshook__("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> None.__",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> None.__",
+   "None.__bool__(            None.__getstate__(        None.__reduce__(",
+   "None.__class__()          None.__gt__(              None.__reduce_ex__(",
+   "None.__delattr__(         None.__hash__(            None.__repr__(",
+   "None.__dir__(             None.__init__(            None.__setattr__(",
+   "None.__doc__              None.__init_subclass__()  None.__sizeof__(",
+   "None.__eq__(              None.__le__(              None.__str__(",
+   "None.__format__(          None.__lt__(              None.__subclasshook__(",
+   "None.__ge__(              None.__ne__(",
+   "None.__getattribute__(    None.__new__("
+  ]
+ },
+ "(1).": {
+  "typed": [
+   ">>> (1)."
+  ],
+  "log": [
+   {
+    "stem": ".",
+    "buf": "(1).",
+    "pos": 4,
+    "res": []
+   },
+   {
+    "stem": ".",
+    "buf": "(1).",
+    "pos": 4,
+    "res": []
+   }
+  ],
+  "screen1": [
+   ">>> (1)."
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> (1)."
+  ]
+ },
+ "1.0.": {
+  "typed": [
+   ">>> 1.0."
+  ],
+  "log": [
+   {
+    "stem": "1.0.",
+    "buf": "1.0.",
+    "pos": 4,
+    "res": [
+     "1.0.as_integer_ratio()",
+     "1.0.conjugate()",
+     "1.0.from_number(",
+     "1.0.fromhex(",
+     "1.0.hex()",
+     "1.0.imag",
+     "1.0.is_integer()",
+     "1.0.real"
+    ]
+   },
+   {
+    "stem": "1.0.",
+    "buf": "1.0.",
+    "pos": 4,
+    "res": [
+     "1.0.as_integer_ratio()",
+     "1.0.conjugate()",
+     "1.0.from_number(",
+     "1.0.fromhex(",
+     "1.0.hex()",
+     "1.0.imag",
+     "1.0.is_integer()",
+     "1.0.real"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> 1.0.",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> 1.0.",
+   "1.0.as_integer_ratio()  1.0.fromhex(            1.0.is_integer()",
+   "1.0.conjugate()         1.0.hex()               1.0.real",
+   "1.0.from_number(        1.0.imag"
+  ]
+ },
+ "1 .": {
+  "typed": [
+   ">>> 1 ."
+  ],
+  "log": [
+   {
+    "stem": ".",
+    "buf": "1 .",
+    "pos": 3,
+    "res": []
+   },
+   {
+    "stem": ".",
+    "buf": "1 .",
+    "pos": 3,
+    "res": []
+   }
+  ],
+  "screen1": [
+   ">>> 1 ."
+  ],
+  "cursor1": [
+   0,
+   7
+  ],
+  "screen2": [
+   ">>> 1 ."
+  ]
+ },
+ "os . pa": {
+  "typed": [
+   ">>> os . pa"
+  ],
+  "log": [
+   {
+    "stem": "pa",
+    "buf": "os . pa",
+    "pos": 7,
+    "res": [
+     "pass"
+    ]
+   },
+   {
+    "stem": "pass",
+    "buf": "os . pass",
+    "pos": 9,
+    "res": [
+     "pass"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os . pass"
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> os . pass"
+  ]
+ },
+ "os.path.jo(x)": {
+  "typed": [
+   ">>> os.path.jo(x)"
+  ],
+  "log": [
+   {
+    "stem": "",
+    "buf": "os.path.jo(x)",
+    "pos": 13,
+    "res": [
+     "   "
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "os.path.jo(x)   ",
+    "pos": 16,
+    "res": [
+     "    "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.path.jo(x)"
+  ],
+  "cursor1": [
+   0,
+   20
+  ],
+  "screen2": [
+   ">>> os.path.jo(x)"
+  ]
+ }
+}

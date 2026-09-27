@@ -1,0 +1,10 @@
+{
+  "deviations": ["AD"],
+  "unrun": [],
+  "absorbed": [{ "id": "I", "by": "EC" }],
+  "expectedPageErrors": [
+    { "file": "session-reset-check-dev.json", "count": 1 },
+    { "file": "session-reset-check-preview.json", "count": 1 },
+    { "file": "tla-check-dev.json", "count": 1 }
+  ]
+}

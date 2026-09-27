@@ -1,0 +1,10 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // 벤더링한 원본 소스가 `input[0]` 같은 인덱스 접근을 그대로 쓴다. 원본 무수정을 위해 끈다.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src", "test", "tsdown.config.ts", "vitest.config.ts"]
+}

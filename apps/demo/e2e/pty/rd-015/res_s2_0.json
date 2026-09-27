@@ -1,0 +1,72 @@
+{
+ "os.getc": {
+  "typed": [
+   ">>> os.getc"
+  ],
+  "log": [
+   {
+    "stem": "os.getc",
+    "buf": "os.getc",
+    "pos": 7,
+    "res": [
+     "os.getcwd()",
+     "os.getcwdb()"
+    ]
+   },
+   {
+    "stem": "os.getcwd",
+    "buf": "os.getcwd",
+    "pos": 9,
+    "res": [
+     "os.getcwd()",
+     "os.getcwdb()"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.getcwd",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> os.getcwd",
+   "os.getcwd()   os.getcwdb()"
+  ]
+ },
+ "os.path.exist": {
+  "typed": [
+   ">>> os.path.exist"
+  ],
+  "log": [
+   {
+    "stem": "os.path.exist",
+    "buf": "os.path.exist",
+    "pos": 13,
+    "res": [
+     "os.path.exists("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "os.path.exists(",
+    "pos": 15,
+    "res": [
+     " "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.path.exists("
+  ],
+  "cursor1": [
+   0,
+   19
+  ],
+  "screen2": [
+   ">>> os.path.exists("
+  ]
+ }
+}

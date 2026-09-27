@@ -1,0 +1,13 @@
+{
+ "setup": [
+  "import os",
+  "x = [1, 2]; _x = 1; __y__ = 2",
+  "f = lambda a: a",
+  "A = type('A', (), {'attr_one': 1, '_priv': 2, 'meth': lambda self: 0, 'prop': property(lambda self: 1)})",
+  "a = A()"
+ ],
+ "s1": ["impor", "os.getc", "pri", "whil", "Tru", "finall", "pas", "lambd", "Non", "matc"],
+ "s2": ["os.getc", "os.path.exist"],
+ "s7": ["print(os.pa", "x = os.pa", "a, os.pa", "\"os.pa", "os.path.jo", "[1,2].ap", "1.", "x.ap", "x[0].re", "\"abc\".up", "f(os.pa", "os.path.join(os.pa", "{'k': os.pa", "lambda: os.pa", "a.at", "a.pr", "import os.pa", "from os import pa", "import o", "from o", "os.path.", "x = ", "print(", "os.pa;os.pat", "x=os.pat", "@os.pat", "None.", "(1).", "1.0.", "1 .", "os . pa", "os.path.jo(x)"],
+ "s10": ["_", "__", "_x", "__y", "x._", "x.__", "x.__cl", "a.", "a._", "a._p", "A.", "str.up", "x.app", "os.sep", "os.environ", "os.path", "len", "i", "os.getcwd", "a.prop", "a.meth", "f", "A", "abs", "os.p", "print"]
+}

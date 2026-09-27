@@ -1,0 +1,24 @@
+{
+  "name": "runo-pyodide",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --filter=demo",
+    "preview": "turbo run preview --filter=demo",
+    "lint": "turbo run lint",
+    "test": "turbo run test check-dist",
+    "check-dist": "turbo run check-dist",
+    "smoke:pack": "pnpm build && node scripts/pack-smoke.mjs",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "prettier": "3.9.8",
+    "turbo": "^2.11.2",
+    "typescript": "6.0.3"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24"
+  }
+}

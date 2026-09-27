@@ -1,0 +1,173 @@
+버전 확인: "Python 3.14.4 / 첫 바이트 b'\\x1b[?2004h\\x1b[?1h\\x1b=\\x1b[?25l>>> \\x1b[?12l\\x1b[?25h'"
+인터프리터: /home/jjfive/.local/bin/python3.14
+
+=== P1 필수: 실행 중 `abc`
+  실행 줄: "import time; print('RUN01'); time.sleep(2)" (마커 'RUN01' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN01'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@0\x1b[1@1\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN01\r\n"
+  [실행 중 입력] 보냄=b'abc'
+    받음=b'abc'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@a\x1b[1@b\x1b[1@c'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN01'); time.sleep(2)", 'RUN01', 'abc>>> abc'] 커서=(행 2, 열 10) NUL 0개 처리 못한 시퀀스=[]
+
+=== P2 필수: 실행 중 `print('P2OUT')`+Enter
+  실행 줄: "import time; print('RUN02'); time.sleep(2)" (마커 'RUN02' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN02'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@0\x1b[1@2\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN02\r\n"
+  [실행 중 입력] 보냄=b"print('P2OUT')\r"
+    받음=b"print('P2OUT')\r\n"
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b"\x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@P\x1b[1@2\x1b[1@O\x1b[1@U\x1b[1@T\x1b[1@'\x1b[1@)\x1b[18D\n\r\x1b[?2004l\x1b[?1l\x1b>P2OUT\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h"
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN02'); time.sleep(2)", 'RUN02', "print('P2OUT')", ">>> print('P2OUT')", 'P2OUT', '>>>'] 커서=(행 5, 열 4) NUL 0개 처리 못한 시퀀스=[]
+
+=== P3 필수: 실행 중 `xyz`+Enter, 다음 읽기가 `input()`
+  실행 줄: "import time; print('RUN03'); time.sleep(2); v = input()" (마커 'RUN03' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN03'); time.sleep(2); v = input()\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@0\x1b[1@3\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@v\x1b[1@ \x1b[1@=\x1b[1@ \x1b[1@i\x1b[1@n\x1b[1@p\x1b[1@u\x1b[1@t\x1b[1@(\x1b[1@)\x1b[59D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN03\r\n"
+  [실행 중 입력] 보냄=b'xyz\r'
+    받음=b'xyz\r\n'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l\x1b[?12l\x1b[?25h\x1b[1@x\x1b[1@y\x1b[1@z\x1b[3D\n\r\x1b[?2004l\x1b[?1l\x1b>\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [repr(v) 조회] 보냄=b'repr(v)\r'
+    받음=b'\x1b[1@r\x1b[1@e\x1b[1@p\x1b[1@r\x1b[1@(\x1b[1@v\x1b[1@)\x1b[11D\n\r\x1b[?2004l\x1b[?1l\x1b>"\'xyz\'"\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN03'); time.sleep(2); v = input()", 'RUN03', 'xyz', 'xyz', '>>>'] 커서=(행 4, 열 4) NUL 0개 처리 못한 시퀀스=[]
+  화면 해석(후속 단계 뒤): 마지막 행=['RUN03', 'xyz', 'xyz', '>>> repr(v)', '"\'xyz\'"', '>>>'] 커서=(행 6, 열 4) NUL 0개 처리 못한 시퀀스=[]
+
+=== P4 필수: 실행 중 `abc` 뒤 Ctrl+C(0x03)
+  실행 줄: "import time; print('RUN04'); time.sleep(30)" (마커 'RUN04' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN04'); time.sleep(30)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@0\x1b[1@4\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@3\x1b[1@0\x1b[1@)\x1b[47D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN04\r\n"
+  [실행 중 입력] 보냄=b'abc'
+    받음=b'abc'
+  [실행 중 Ctrl+C] 보냄=b'\x03'
+    받음=b'^CTraceback (most recent call last):\r\n  File "<python-input-0>", line 1, in <module>\r\n    import time; print(\'RUN04\'); time.sleep(30)\r\n                                 ~~~~~~~~~~^^^^\r\nKeyboardInterrupt\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [폐기 확인: 마커 제출] 보냄=b"print('P4M')\r"
+    받음=b"\x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@P\x1b[1@4\x1b[1@M\x1b[1@'\x1b[1@)\x1b[16D\n\r\x1b[?2004l\x1b[?1l\x1b>P4M\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h"
+  화면 해석(프롬프트 복귀 직후): 마지막 행=['abc^CTraceback (most recent call last):', '  File "<python-input-0>", line 1, in <module>', "    import time; print('RUN04'); time.sleep(30)", '                                 ~~~~~~~~~~^^^^', 'KeyboardInterrupt', '>>>'] 커서=(행 7, 열 4) NUL 0개 처리 못한 시퀀스=[]
+  화면 해석(후속 단계 뒤): 마지막 행=["    import time; print('RUN04'); time.sleep(30)", '                                 ~~~~~~~~~~^^^^', 'KeyboardInterrupt', ">>> print('P4M')", 'P4M', '>>>'] 커서=(행 9, 열 4) NUL 0개 처리 못한 시퀀스=[]
+
+=== C1 관찰: Backspace `abx`+0x7f+`c`
+  실행 줄: "import time; print('RUN11'); time.sleep(2)" (마커 'RUN11' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN11'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@1\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN11\r\n"
+  [실행 중 입력] 보냄=b'abx\x7fc'
+    받음=b'abx\x08 \x08c'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@a\x1b[1@b\x1b[1@c'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN11'); time.sleep(2)", 'RUN11', 'abc>>> abc'] 커서=(행 2, 열 10) NUL 0개 처리 못한 시퀀스=[]
+
+=== C2 관찰: ←(ESC[D)+글자 `ab`+ESC[D+`c`, 이어서 Enter로 제출된 버퍼 확인
+  실행 줄: "import time; print('RUN12'); time.sleep(2)" (마커 'RUN12' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN12'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@2\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN12\r\n"
+  [실행 중 입력] 보냄=b'ab\x1b[Dc'
+    받음=b'ab^[[Dc'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h\x1b[1@a'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@b'
+  [Enter 제출(실제 버퍼 확인)] 보냄=b'\r'
+    받음=b'\x1b[6D\n\r\x1b[?2004l\x1b[?1l\x1b>Traceback (most recent call last):\r\n  File "<python-input-1>", line 1, in <module>\r\n    ab\r\nNameError: name \'ab\' is not defined. Did you mean: \'abs\'?\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN12'); time.sleep(2)", 'RUN12', 'ab^[[Dc>>> ab'] 커서=(행 2, 열 13) NUL 0개 처리 못한 시퀀스=[]
+  화면 해석(후속 단계 뒤): 마지막 행=['ab^[[Dc>>> ab', 'Traceback (most recent call last):', '  File "<python-input-1>", line 1, in <module>', '    ab', "NameError: name 'ab' is not defined. Did you mean: 'abs'?", '>>>'] 커서=(행 7, 열 4) NUL 0개 처리 못한 시퀀스=[]
+
+=== C2b 관찰: 애플리케이션 모드 ←(ESC O D)+글자 `ab`+ESC O D+`c`, 이어서 Enter
+  실행 줄: "import time; print('RUN18'); time.sleep(2)" (마커 'RUN18' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN18'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@8\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN18\r\n"
+  [실행 중 입력] 보냄=b'ab\x1bODc'
+    받음=b'ab^[ODc'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@a\x1b[1@b\x1b[1D\x1b[1@c'
+  [Enter 제출(실제 버퍼 확인)] 보냄=b'\r'
+    받음=b'\x1b[6D\n\r\x1b[?2004l\x1b[?1l\x1b>Traceback (most recent call last):\r\n  File "<python-input-1>", line 1, in <module>\r\n    acb\r\nNameError: name \'acb\' is not defined\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN18'); time.sleep(2)", 'RUN18', 'ab^[ODc>>> acb'] 커서=(행 2, 열 13) NUL 0개 처리 못한 시퀀스=[]
+  화면 해석(후속 단계 뒤): 마지막 행=['ab^[ODc>>> acb', 'Traceback (most recent call last):', '  File "<python-input-1>", line 1, in <module>', '    acb', "NameError: name 'acb' is not defined", '>>>'] 커서=(행 7, 열 4) NUL 0개 처리 못한 시퀀스=[]
+
+=== C3 관찰: Ctrl+U `abc`+0x15+`de`
+  실행 줄: "import time; print('RUN13'); time.sleep(2)" (마커 'RUN13' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN13'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@3\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN13\r\n"
+  [실행 중 입력] 보냄=b'abc\x15de'
+    받음=b'abc\x08 \x08\x08 \x08\x08 \x08de'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@d\x1b[1@e'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN13'); time.sleep(2)", 'RUN13', 'de>>> de'] 커서=(행 2, 열 8) NUL 0개 처리 못한 시퀀스=[]
+
+=== C4a 관찰: Ctrl+D `abc`+0x04
+  실행 줄: "import time; print('RUN14'); time.sleep(2)" (마커 'RUN14' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN14'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@4\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN14\r\n"
+  [실행 중 입력] 보냄=b'abc\x04'
+    받음=b'abc'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@a\x1b[1@b\x1b[1@c\x1b[1@\x00'
+  [Enter 제출(실제 버퍼 확인)] 보냄=b'\r'
+    받음=b'\x1b[8D\n\r\x1b[?2004l\x1b[?1l\x1b>SyntaxError: source code string cannot contain null bytes (<python-input-1>)\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN14'); time.sleep(2)", 'RUN14', 'abc>>> abc'] 커서=(행 2, 열 10) NUL 1개 처리 못한 시퀀스=[]
+  화면 해석(후속 단계 뒤): 마지막 행=[">>> import time; print('RUN14'); time.sleep(2)", 'RUN14', 'abc>>> abc', 'SyntaxError: source code string cannot contain null bytes (<python-input-1>)', '>>>'] 커서=(행 4, 열 4) NUL 1개 처리 못한 시퀀스=[]
+
+=== C4b 관찰: Ctrl+D 단독 0x04(빈 입력)
+  실행 줄: "import time; print('RUN15'); time.sleep(2)" (마커 'RUN15' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN15'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@5\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN15\r\n"
+  [실행 중 입력] 보냄=b'\x04'
+    받음=b''
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@\x00'
+  [Enter 제출(실제 버퍼 확인)] 보냄=b'\r'
+    받음=b'\x1b[5D\n\r\x1b[?2004l\x1b[?1l\x1b>SyntaxError: source code string cannot contain null bytes (<python-input-1>)\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=[">>> import time; print('RUN15'); time.sleep(2)", 'RUN15', '>>>'] 커서=(행 2, 열 4) NUL 1개 처리 못한 시퀀스=[]
+  화면 해석(후속 단계 뒤): 마지막 행=[">>> import time; print('RUN15'); time.sleep(2)", 'RUN15', '>>>', 'SyntaxError: source code string cannot contain null bytes (<python-input-1>)', '>>>'] 커서=(행 4, 열 4) NUL 1개 처리 못한 시퀀스=[]
+
+=== C5a 관찰: Tab이 마지막 키 `os.getc`+Tab
+  실행 줄: "import time; print('RUN16'); time.sleep(2)" (마커 'RUN16' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN16'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@6\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN16\r\n"
+  [실행 중 입력] 보냄=b'os.getc\t'
+    받음=b'os.getc\t'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@o\x1b[1@s\x1b[1@.\x1b[1@g\x1b[1@e\x1b[1@t\x1b[1@c\x1b[?25l\x1b[11D\n\x1b[11C\x1b[1Awd\x1b[13D\x1b[1B[ not unique ]\x1b[?12l\x1b[?25h\x1b[1D\x1b[1A'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=['>>> import os', ">>> import time; print('RUN16'); time.sleep(2)", 'RUN16', 'os.getc >>> os.getcwd', '        [ not unique ]'] 커서=(행 3, 열 21) NUL 0개 처리 못한 시퀀스=[]
+
+=== C5b 관찰: Tab 뒤 키가 이어짐 `os.getc`+Tab+`()`
+  실행 줄: "import time; print('RUN17'); time.sleep(2)" (마커 'RUN17' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN17'); time.sleep(2)\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@7\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[46D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN17\r\n"
+  [실행 중 입력] 보냄=b'os.getc\t()'
+    받음=b'os.getc\t()'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [프롬프트 뒤 잔여] 보냄=b''
+    받음=b'\x1b[1@o\x1b[1@s\x1b[1@.\x1b[1@g\x1b[1@e\x1b[1@t\x1b[1@c\x1b[?25l\x1b[11D\n\x1b[11C\x1b[1Awd\x1b[13D\x1b[1B[ not unique ]\x1b[?12l\x1b[?25h\x1b[1D\x1b[1A\x1b[1@(\x1b[?25l\x1b[14D\x1b[1B\x1b[K\x1b[?12l\x1b[?25h\x1b[14C\x1b[1A\x1b[1@)'
+  화면 해석(프롬프트 복귀 직후): 마지막 행=['>>> import os', ">>> import time; print('RUN17'); time.sleep(2)", 'RUN17', 'os.getc ()>>> os.getcwd()'] 커서=(행 3, 열 25) NUL 0개 처리 못한 시퀀스=[]
+
+=== L1 관찰: 실행 중 한 줄 5000자+Enter(4096 초과), 다음 읽기가 `input()`
+  실행 줄: "import time; print('RUN19'); time.sleep(2); v = input()" (마커 'RUN19' 확인=True)
+  [실행 줄 제출] 보냄=b"import time; print('RUN19'); time.sleep(2); v = input()\r"
+    받음=b"\x1b[1@i\x1b[1@m\x1b[1@p\x1b[1@o\x1b[1@r\x1b[1@t\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@;\x1b[1@ \x1b[1@p\x1b[1@r\x1b[1@i\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@R\x1b[1@U\x1b[1@N\x1b[1@1\x1b[1@9\x1b[1@'\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@t\x1b[1@i\x1b[1@m\x1b[1@e\x1b[1@.\x1b[1@s\x1b[1@l\x1b[1@e\x1b[1@e\x1b[1@p\x1b[1@(\x1b[1@2\x1b[1@)\x1b[1@;\x1b[1@ \x1b[1@v\x1b[1@ \x1b[1@=\x1b[1@ \x1b[1@i\x1b[1@n\x1b[1@p\x1b[1@u\x1b[1@t\x1b[1@(\x1b[1@)\x1b[59D\n\r\x1b[?2004l\x1b[?1l\x1b>RUN19\r\n"
+  [실행 중 입력] 보냄=b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' ...(총 5001바이트, 벨 x07 0개, 'a' 5000개)... b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r'
+    받음=b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' ...(총 5002바이트, 벨 x07 0개, 'a' 5000개)... b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n'
+  [종료 뒤 프롬프트] 보냄=b''
+    받음=b'\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l\x1b[?12l\x1b[?25h\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[1@a\x1b[' ...(총 57458바이트, 벨 x07 0개, 'a' 4095개)... b'a\x1b[24;65H\x1b[24;65H\x1b[1@a\x1b[24;66H\x1b[24;66H\x1b[1@a\x1b[24;67H\x1b[24;67H\x1b[24;1H\n\r\x1b[?2004l\x1b[?1l\x1b>\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h'
+  [받은 길이 조회] 보냄=b"repr((len(v), v.count('a')))\r"
+    받음=b"\x1b[1@r\x1b[1@e\x1b[1@p\x1b[1@r\x1b[1@(\x1b[1@(\x1b[1@l\x1b[1@e\x1b[1@n\x1b[1@(\x1b[1@v\x1b[1@)\x1b[1@,\x1b[1@ \x1b[1@v\x1b[1@.\x1b[1@c\x1b[1@o\x1b[1@u\x1b[1@n\x1b[1@t\x1b[1@(\x1b[1@'\x1b[1@a\x1b[1@'\x1b[1@)\x1b[1@)\x1b[1@)\x1b[32D\n\r\x1b[?2004l\x1b[?1l\x1b>'(4095, 4095)'\r\n\x1b[?2004h\x1b[?1h\x1b=\x1b[?25l>>> \x1b[?12l\x1b[?25h"
+  화면 해석(프롬프트 복귀 직후): 마지막 행=['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '                                                                               \\', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '                                                                               \\', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '>>>'] 커서=(행 145, 열 4) NUL 0개 처리 못한 시퀀스=4456개 ['CSI 24;1H', 'CSI 23;80H', 'CSI 24;1H']...
+  화면 해석(후속 단계 뒤): 마지막 행=['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '                                                                               \\', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ">>> repr((len(v), v.count('a')))", "'(4095, 4095)'", '>>>'] 커서=(행 147, 열 4) NUL 0개 처리 못한 시퀀스=4456개 ['CSI 24;1H', 'CSI 23;80H', 'CSI 24;1H']...

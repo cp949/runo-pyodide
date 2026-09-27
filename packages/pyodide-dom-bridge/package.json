@@ -1,0 +1,77 @@
+{
+  "name": "@cp949/runo-pyodide-dom-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cp949/runo-pyodide.git",
+    "directory": "packages/pyodide-dom-bridge"
+  },
+  "homepage": "https://github.com/cp949/runo-pyodide#readme",
+  "bugs": {
+    "url": "https://github.com/cp949/runo-pyodide/issues"
+  },
+  "type": "module",
+  "sideEffects": [
+    "./dist/worker.mjs",
+    "./dist/bootstrap-observer-install*.mjs",
+    "./src/worker.ts",
+    "./src/bootstrap-observer-install.ts"
+  ],
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./worker": {
+      "development": "./src/worker.ts",
+      "types": "./dist/worker.d.mts",
+      "default": "./dist/worker.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./worker": {
+        "types": "./dist/worker.d.mts",
+        "default": "./dist/worker.mjs"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "lint": "eslint --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "check-dist": "node ../../scripts/check-dist.mjs --allow-sync-bridge dist",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "coincident": "4.1.1",
+    "reflected-ffi": "0.7.2"
+  },
+  "peerDependencies": {
+    "@cp949/runo-pyodide-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@cp949/runo-pyodide-core": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/pyodide-testkit": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "eslint": "10.11.0",
+    "jsdom": "30.1.0",
+    "pyodide": "catalog:",
+    "tsdown": "0.23.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

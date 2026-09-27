@@ -1,0 +1,83 @@
+{
+ "cases": 53,
+ "gate_regex_js": "/\\b(import|from)\\b/ (플래그 없음)",
+ "counts_native": {
+  "gate 거짓·None(건전)": 25,
+  "gate 거짓·비None(예외)": 5,
+  "gate 참·None(오탐)": 17,
+  "gate 참·비None(참 양성 또는 [])": 6
+ },
+ "counts_pyodide": {
+  "gate 거짓·None(건전)": 25,
+  "gate 거짓·비None(예외)": 5,
+  "gate 참·None(오탐)": 17,
+  "gate 참·비None(참 양성 또는 [])": 6
+ },
+ "gate_false_non_none_native": [
+  "1import os",
+  "1from os",
+  "1jimport os",
+  "1.5from os",
+  "0x1fimport os"
+ ],
+ "gate_false_non_none_pyodide": [
+  "1import os",
+  "1from os",
+  "1jimport os",
+  "1.5from os",
+  "0x1fimport os"
+ ],
+ "gate_true_none_native": [
+  "x = \"import os\"",
+  "# from",
+  "# import os",
+  "\"from a\"",
+  "print('import')",
+  "x = 'from os import path'",
+  "foo.import",
+  "print(from",
+  "import",
+  "from",
+  "x = 1  # import",
+  "yield from",
+  "raise X from",
+  "이import os",
+  "import이 os",
+  "import os; os.pa",
+  "import os\nos.pa"
+ ],
+ "gate_true_none_pyodide": [
+  "x = \"import os\"",
+  "# from",
+  "# import os",
+  "\"from a\"",
+  "print('import')",
+  "x = 'from os import path'",
+  "foo.import",
+  "print(from",
+  "import",
+  "from",
+  "x = 1  # import",
+  "yield from",
+  "raise X from",
+  "이import os",
+  "import이 os",
+  "import os; os.pa",
+  "import os\nos.pa"
+ ],
+ "native_vs_pyodide_differs": [],
+ "gate_js_vs_py_differs": [
+  "이import os",
+  "import이 os"
+ ],
+ "sys_modules_added": {
+  "native": [],
+  "pyodide": []
+ },
+ "sys_modules_removed": {
+  "native": [],
+  "pyodide": []
+ },
+ "result_pkgnone_differs_native": [],
+ "result_pkgnone_differs_pyodide": []
+}

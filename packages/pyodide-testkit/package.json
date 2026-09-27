@@ -1,0 +1,34 @@
+{
+  "name": "@repo/pyodide-testkit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./thread": "./src/thread.ts",
+    "./async": "./src/async.ts",
+    "./clipboard": "./src/clipboard.ts",
+    "./fake-terminal": "./src/fake-terminal.ts",
+    "./vt-screen": "./src/vt-screen.ts",
+    "./package-boundary": "./src/package-boundary.ts",
+    "./ts-resolve-hook.mjs": "./src/ts-resolve-hook.mjs",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "lint": "eslint --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@xterm/xterm": "^6.0.0",
+    "vitest": "^5.0.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@xterm/xterm": "6.0.0",
+    "eslint": "10.11.0",
+    "jsdom": "30.1.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

@@ -1,0 +1,668 @@
+{
+ "_": {
+  "typed": [
+   ">>> _"
+  ],
+  "log": [
+   {
+    "stem": "_",
+    "buf": "_",
+    "pos": 1,
+    "res": [
+     "_",
+     "_IncompleteInputError(",
+     "__build_class__(",
+     "__debug__",
+     "__doc__",
+     "__import__(",
+     "__loader__",
+     "__name__",
+     "__package__",
+     "__spec__",
+     "__y__",
+     "_x"
+    ]
+   },
+   {
+    "stem": "_",
+    "buf": "_",
+    "pos": 1,
+    "res": [
+     "_",
+     "_IncompleteInputError(",
+     "__build_class__(",
+     "__debug__",
+     "__doc__",
+     "__import__(",
+     "__loader__",
+     "__name__",
+     "__package__",
+     "__spec__",
+     "__y__",
+     "_x"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> _",
+   "[ complete but not unique ]"
+  ],
+  "cursor1": [
+   0,
+   5
+  ],
+  "screen2": [
+   ">>> _",
+   "_                       __doc__                 __package__",
+   "_IncompleteInputError(  __import__(             __spec__",
+   "__build_class__(        __loader__              __y__",
+   "__debug__               __name__                _x"
+  ]
+ },
+ "__": {
+  "typed": [
+   ">>> __"
+  ],
+  "log": [
+   {
+    "stem": "__",
+    "buf": "__",
+    "pos": 2,
+    "res": [
+     "__build_class__(",
+     "__debug__",
+     "__doc__",
+     "__import__(",
+     "__loader__",
+     "__name__",
+     "__package__",
+     "__spec__",
+     "__y__"
+    ]
+   },
+   {
+    "stem": "__",
+    "buf": "__",
+    "pos": 2,
+    "res": [
+     "__build_class__(",
+     "__debug__",
+     "__doc__",
+     "__import__(",
+     "__loader__",
+     "__name__",
+     "__package__",
+     "__spec__",
+     "__y__"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> __",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   6
+  ],
+  "screen2": [
+   ">>> __",
+   "__build_class__(  __import__(       __package__",
+   "__debug__         __loader__        __spec__",
+   "__doc__           __name__          __y__"
+  ]
+ },
+ "_x": {
+  "typed": [
+   ">>> _x"
+  ],
+  "log": [
+   {
+    "stem": "_x",
+    "buf": "_x",
+    "pos": 2,
+    "res": [
+     "_x"
+    ]
+   },
+   {
+    "stem": "_x",
+    "buf": "_x",
+    "pos": 2,
+    "res": [
+     "_x"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> _x"
+  ],
+  "cursor1": [
+   0,
+   6
+  ],
+  "screen2": [
+   ">>> _x"
+  ]
+ },
+ "__y": {
+  "typed": [
+   ">>> __y"
+  ],
+  "log": [
+   {
+    "stem": "__y",
+    "buf": "__y",
+    "pos": 3,
+    "res": [
+     "__y__"
+    ]
+   },
+   {
+    "stem": "__y__",
+    "buf": "__y__",
+    "pos": 5,
+    "res": [
+     "__y__"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> __y__"
+  ],
+  "cursor1": [
+   0,
+   9
+  ],
+  "screen2": [
+   ">>> __y__"
+  ]
+ },
+ "x._": {
+  "typed": [
+   ">>> x._"
+  ],
+  "log": [
+   {
+    "stem": "x._",
+    "buf": "x._",
+    "pos": 3,
+    "res": [
+     "x.__add__(",
+     "x.__class__(",
+     "x.__class_getitem__(",
+     "x.__contains__(",
+     "x.__delattr__(",
+     "x.__delitem__(",
+     "x.__dir__()",
+     "x.__doc__",
+     "x.__eq__(",
+     "x.__format__(",
+     "x.__ge__(",
+     "x.__getattribute__(",
+     "x.__getitem__(",
+     "x.__getstate__()",
+     "x.__gt__(",
+     "x.__hash__",
+     "x.__iadd__(",
+     "x.__imul__(",
+     "x.__init__(",
+     "x.__init_subclass__()",
+     "x.__iter__()",
+     "x.__le__(",
+     "x.__len__()",
+     "x.__lt__(",
+     "x.__mul__(",
+     "x.__ne__(",
+     "x.__new__(",
+     "x.__reduce__()",
+     "x.__reduce_ex__(",
+     "x.__repr__()",
+     "x.__reversed__()",
+     "x.__rmul__(",
+     "x.__setattr__(",
+     "x.__setitem__(",
+     "x.__sizeof__()",
+     "x.__str__()",
+     "x.__subclasshook__("
+    ]
+   },
+   {
+    "stem": "x.__",
+    "buf": "x.__",
+    "pos": 4,
+    "res": [
+     "x.__add__(",
+     "x.__class__(",
+     "x.__class_getitem__(",
+     "x.__contains__(",
+     "x.__delattr__(",
+     "x.__delitem__(",
+     "x.__dir__()",
+     "x.__doc__",
+     "x.__eq__(",
+     "x.__format__(",
+     "x.__ge__(",
+     "x.__getattribute__(",
+     "x.__getitem__(",
+     "x.__getstate__()",
+     "x.__gt__(",
+     "x.__hash__",
+     "x.__iadd__(",
+     "x.__imul__(",
+     "x.__init__(",
+     "x.__init_subclass__()",
+     "x.__iter__()",
+     "x.__le__(",
+     "x.__len__()",
+     "x.__lt__(",
+     "x.__mul__(",
+     "x.__ne__(",
+     "x.__new__(",
+     "x.__reduce__()",
+     "x.__reduce_ex__(",
+     "x.__repr__()",
+     "x.__reversed__()",
+     "x.__rmul__(",
+     "x.__setattr__(",
+     "x.__setitem__(",
+     "x.__sizeof__()",
+     "x.__str__()",
+     "x.__subclasshook__("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x.__",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> x.__",
+   "x.__add__(             x.__getstate__()       x.__new__(",
+   "x.__class__(           x.__gt__(              x.__reduce__()",
+   "x.__class_getitem__(   x.__hash__             x.__reduce_ex__(",
+   "x.__contains__(        x.__iadd__(            x.__repr__()",
+   "x.__delattr__(         x.__imul__(            x.__reversed__()",
+   "x.__delitem__(         x.__init__(            x.__rmul__(",
+   "x.__dir__()            x.__init_subclass__()  x.__setattr__(",
+   "x.__doc__              x.__iter__()           x.__setitem__(",
+   "x.__eq__(              x.__le__(              x.__sizeof__()",
+   "x.__format__(          x.__len__()            x.__str__()",
+   "x.__ge__(              x.__lt__(              x.__subclasshook__(",
+   "x.__getattribute__(    x.__mul__(",
+   "x.__getitem__(         x.__ne__("
+  ]
+ },
+ "x.__": {
+  "typed": [
+   ">>> x.__"
+  ],
+  "log": [
+   {
+    "stem": "x.__",
+    "buf": "x.__",
+    "pos": 4,
+    "res": [
+     "x.__add__(",
+     "x.__class__(",
+     "x.__class_getitem__(",
+     "x.__contains__(",
+     "x.__delattr__(",
+     "x.__delitem__(",
+     "x.__dir__()",
+     "x.__doc__",
+     "x.__eq__(",
+     "x.__format__(",
+     "x.__ge__(",
+     "x.__getattribute__(",
+     "x.__getitem__(",
+     "x.__getstate__()",
+     "x.__gt__(",
+     "x.__hash__",
+     "x.__iadd__(",
+     "x.__imul__(",
+     "x.__init__(",
+     "x.__init_subclass__()",
+     "x.__iter__()",
+     "x.__le__(",
+     "x.__len__()",
+     "x.__lt__(",
+     "x.__mul__(",
+     "x.__ne__(",
+     "x.__new__(",
+     "x.__reduce__()",
+     "x.__reduce_ex__(",
+     "x.__repr__()",
+     "x.__reversed__()",
+     "x.__rmul__(",
+     "x.__setattr__(",
+     "x.__setitem__(",
+     "x.__sizeof__()",
+     "x.__str__()",
+     "x.__subclasshook__("
+    ]
+   },
+   {
+    "stem": "x.__",
+    "buf": "x.__",
+    "pos": 4,
+    "res": [
+     "x.__add__(",
+     "x.__class__(",
+     "x.__class_getitem__(",
+     "x.__contains__(",
+     "x.__delattr__(",
+     "x.__delitem__(",
+     "x.__dir__()",
+     "x.__doc__",
+     "x.__eq__(",
+     "x.__format__(",
+     "x.__ge__(",
+     "x.__getattribute__(",
+     "x.__getitem__(",
+     "x.__getstate__()",
+     "x.__gt__(",
+     "x.__hash__",
+     "x.__iadd__(",
+     "x.__imul__(",
+     "x.__init__(",
+     "x.__init_subclass__()",
+     "x.__iter__()",
+     "x.__le__(",
+     "x.__len__()",
+     "x.__lt__(",
+     "x.__mul__(",
+     "x.__ne__(",
+     "x.__new__(",
+     "x.__reduce__()",
+     "x.__reduce_ex__(",
+     "x.__repr__()",
+     "x.__reversed__()",
+     "x.__rmul__(",
+     "x.__setattr__(",
+     "x.__setitem__(",
+     "x.__sizeof__()",
+     "x.__str__()",
+     "x.__subclasshook__("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x.__",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> x.__",
+   "x.__add__(             x.__getstate__()       x.__new__(",
+   "x.__class__(           x.__gt__(              x.__reduce__()",
+   "x.__class_getitem__(   x.__hash__             x.__reduce_ex__(",
+   "x.__contains__(        x.__iadd__(            x.__repr__()",
+   "x.__delattr__(         x.__imul__(            x.__reversed__()",
+   "x.__delitem__(         x.__init__(            x.__rmul__(",
+   "x.__dir__()            x.__init_subclass__()  x.__setattr__(",
+   "x.__doc__              x.__iter__()           x.__setitem__(",
+   "x.__eq__(              x.__le__(              x.__sizeof__()",
+   "x.__format__(          x.__len__()            x.__str__()",
+   "x.__ge__(              x.__lt__(              x.__subclasshook__(",
+   "x.__getattribute__(    x.__mul__(",
+   "x.__getitem__(         x.__ne__("
+  ]
+ },
+ "x.__cl": {
+  "typed": [
+   ">>> x.__cl"
+  ],
+  "log": [
+   {
+    "stem": "x.__cl",
+    "buf": "x.__cl",
+    "pos": 6,
+    "res": [
+     "x.__class__(",
+     "x.__class_getitem__("
+    ]
+   },
+   {
+    "stem": "x.__class_",
+    "buf": "x.__class_",
+    "pos": 10,
+    "res": [
+     "x.__class__(",
+     "x.__class_getitem__("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x.__class_",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   14
+  ],
+  "screen2": [
+   ">>> x.__class_",
+   "x.__class__(          x.__class_getitem__("
+  ]
+ },
+ "a.": {
+  "typed": [
+   ">>> a."
+  ],
+  "log": [
+   {
+    "stem": "a.",
+    "buf": "a.",
+    "pos": 2,
+    "res": [
+     "a.attr_one",
+     "a.meth()",
+     "a.prop"
+    ]
+   },
+   {
+    "stem": "a.",
+    "buf": "a.",
+    "pos": 2,
+    "res": [
+     "a.attr_one",
+     "a.meth()",
+     "a.prop"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a.",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   6
+  ],
+  "screen2": [
+   ">>> a.",
+   "a.attr_one  a.meth()    a.prop"
+  ]
+ },
+ "a._": {
+  "typed": [
+   ">>> a._"
+  ],
+  "log": [
+   {
+    "stem": "a._",
+    "buf": "a._",
+    "pos": 3,
+    "res": [
+     "a._priv"
+    ]
+   },
+   {
+    "stem": "a._priv",
+    "buf": "a._priv",
+    "pos": 7,
+    "res": [
+     "a._priv"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a._priv"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> a._priv"
+  ]
+ },
+ "a._p": {
+  "typed": [
+   ">>> a._p"
+  ],
+  "log": [
+   {
+    "stem": "a._p",
+    "buf": "a._p",
+    "pos": 4,
+    "res": [
+     "a._priv"
+    ]
+   },
+   {
+    "stem": "a._priv",
+    "buf": "a._priv",
+    "pos": 7,
+    "res": [
+     "a._priv"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a._priv"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> a._priv"
+  ]
+ },
+ "A.": {
+  "typed": [
+   ">>> A."
+  ],
+  "log": [
+   {
+    "stem": "A.",
+    "buf": "A.",
+    "pos": 2,
+    "res": [
+     "A.attr_one",
+     "A.meth(",
+     "A.mro()",
+     "A.prop"
+    ]
+   },
+   {
+    "stem": "A.",
+    "buf": "A.",
+    "pos": 2,
+    "res": [
+     "A.attr_one",
+     "A.meth(",
+     "A.mro()",
+     "A.prop"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> A.",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   6
+  ],
+  "screen2": [
+   ">>> A.",
+   "A.attr_one  A.meth(     A.mro()     A.prop"
+  ]
+ },
+ "str.up": {
+  "typed": [
+   ">>> str.up"
+  ],
+  "log": [
+   {
+    "stem": "str.up",
+    "buf": "str.up",
+    "pos": 6,
+    "res": [
+     "str.upper("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "str.upper(",
+    "pos": 10,
+    "res": [
+     "  "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> str.upper("
+  ],
+  "cursor1": [
+   0,
+   14
+  ],
+  "screen2": [
+   ">>> str.upper("
+  ]
+ },
+ "x.app": {
+  "typed": [
+   ">>> x.app"
+  ],
+  "log": [
+   {
+    "stem": "x.app",
+    "buf": "x.app",
+    "pos": 5,
+    "res": [
+     "x.append("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "x.append(",
+    "pos": 9,
+    "res": [
+     "   "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x.append("
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> x.append("
+  ]
+ }
+}

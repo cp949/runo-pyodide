@@ -1,0 +1,563 @@
+{
+ "impor": {
+  "typed": [
+   ">>> impor"
+  ],
+  "log": [
+   {
+    "stem": "impor",
+    "buf": "impor",
+    "pos": 5,
+    "res": [
+     "import "
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "import ",
+    "pos": 7,
+    "res": [
+     "abc",
+     "annotationlib",
+     "antigravity",
+     "argparse",
+     "array",
+     "ast",
+     "asyncio",
+     "atexit",
+     "base64",
+     "bdb",
+     "binascii",
+     "bisect",
+     "builtins",
+     "bz2",
+     "cProfile",
+     "calendar",
+     "cmath",
+     "cmd",
+     "code",
+     "codecs",
+     "codeop",
+     "collections",
+     "colorsys",
+     "common",
+     "compileall",
+     "compression",
+     "concurrent",
+     "configparser",
+     "contextlib",
+     "contextvars",
+     "copy",
+     "copyreg",
+     "csv",
+     "ctypes",
+     "curses",
+     "dataclasses",
+     "datetime",
+     "dbm",
+     "decimal",
+     "difflib",
+     "dis",
+     "doctest",
+     "email",
+     "encodings",
+     "ensurepip",
+     "enum",
+     "errno",
+     "faulthandler",
+     "fcntl",
+     "filecmp",
+     "fileinput",
+     "fnmatch",
+     "fractions",
+     "ftplib",
+     "functools",
+     "gc",
+     "genericpath",
+     "getopt",
+     "getpass",
+     "gettext",
+     "glob",
+     "graphlib",
+     "grp",
+     "gzip",
+     "hashlib",
+     "heapq",
+     "hmac",
+     "hook_startup",
+     "html",
+     "http",
+     "idlelib",
+     "imaplib",
+     "importlib",
+     "inspect",
+     "io",
+     "ipaddress",
+     "itertools",
+     "json",
+     "keyword",
+     "linecache",
+     "locale",
+     "logging",
+     "lzma",
+     "mailbox",
+     "marshal",
+     "math",
+     "mimetypes",
+     "mmap",
+     "modulefinder",
+     "multiprocessing",
+     "netrc",
+     "ntpath",
+     "nturl2path",
+     "numbers",
+     "opcode",
+     "operator",
+     "optparse",
+     "os",
+     "pathlib",
+     "pdb",
+     "pickle",
+     "pickletools",
+     "pip",
+     "pkgutil",
+     "platform",
+     "plistlib",
+     "poplib",
+     "posix",
+     "posixpath",
+     "pprint",
+     "profile",
+     "pstats",
+     "pty",
+     "ptyrepl",
+     "pwd",
+     "py_compile",
+     "pyclbr",
+     "pydoc",
+     "pydoc_data",
+     "pyexpat",
+     "pyodide_console",
+     "pyodide_rlcompleter",
+     "queue",
+     "quopri",
+     "random",
+     "re",
+     "readline",
+     "reprlib",
+     "resource",
+     "rlcompleter",
+     "runcases",
+     "runpy",
+     "s1",
+     "s2",
+     "s3",
+     "s3b",
+     "s4",
+     "s5",
+     "s6",
+     "s7",
+     "sched",
+     "secrets",
+     "select",
+     "selectors",
+     "shelve",
+     "shlex",
+     "shutil",
+     "signal",
+     "site",
+     "smtplib",
+     "socket",
+     "socketserver",
+     "sqlite3",
+     "sre_compile",
+     "sre_constants",
+     "sre_parse",
+     "ssl",
+     "stat",
+     "statistics",
+     "string",
+     "stringprep",
+     "struct",
+     "subprocess",
+     "symtable",
+     "sys",
+     "sysconfig",
+     "syslog",
+     "tabnanny",
+     "tarfile",
+     "tempfile",
+     "termios",
+     "textwrap",
+     "this",
+     "threading",
+     "time",
+     "timeit",
+     "tkinter",
+     "token",
+     "tokenize",
+     "tomllib",
+     "trace",
+     "traceback",
+     "tracemalloc",
+     "tty",
+     "turtle",
+     "turtledemo",
+     "types",
+     "typing",
+     "unicodedata",
+     "unittest",
+     "urllib",
+     "uuid",
+     "venv",
+     "warnings",
+     "wave",
+     "weakref",
+     "webbrowser",
+     "wsgiref",
+     "xml",
+     "xmlrpc",
+     "xxsubtype",
+     "zipapp",
+     "zipfile",
+     "zipimport",
+     "zlib",
+     "zoneinfo"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> import"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> import",
+   "abc                  http                 s6",
+   "annotationlib        idlelib              s7",
+   "antigravity          imaplib              sched",
+   "argparse             importlib            secrets",
+   "array                inspect              select",
+   "ast                  io                   selectors",
+   "asyncio              ipaddress            shelve",
+   "atexit               itertools            shlex",
+   "base64               json                 shutil",
+   "bdb                  keyword              signal",
+   "binascii             linecache            site",
+   "bisect               locale               smtplib",
+   "builtins             logging              socket",
+   "bz2                  lzma                 socketserver",
+   "cProfile             mailbox              sqlite3",
+   "calendar             marshal              sre_compile",
+   "cmath                math                 sre_constants",
+   "cmd                  mimetypes            sre_parse",
+   "code                 mmap                 ssl",
+   "codecs               modulefinder         stat",
+   "codeop               multiprocessing      statistics",
+   "   144 more..."
+  ]
+ },
+ "os.getc": {
+  "typed": [
+   ">>> os.getc"
+  ],
+  "log": [
+   {
+    "stem": "os.getc",
+    "buf": "os.getc",
+    "pos": 7,
+    "res": [
+     "os.getcwd()",
+     "os.getcwdb()"
+    ]
+   },
+   {
+    "stem": "os.getcwd",
+    "buf": "os.getcwd",
+    "pos": 9,
+    "res": [
+     "os.getcwd()",
+     "os.getcwdb()"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.getcwd",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> os.getcwd",
+   "os.getcwd()   os.getcwdb()"
+  ]
+ },
+ "pri": {
+  "typed": [
+   ">>> pri"
+  ],
+  "log": [
+   {
+    "stem": "pri",
+    "buf": "pri",
+    "pos": 3,
+    "res": [
+     "print("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "print(",
+    "pos": 6,
+    "res": [
+     "  "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> print("
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> print("
+  ]
+ },
+ "whil": {
+  "typed": [
+   ">>> whil"
+  ],
+  "log": [
+   {
+    "stem": "whil",
+    "buf": "whil",
+    "pos": 4,
+    "res": [
+     "while "
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "while ",
+    "pos": 6,
+    "res": [
+     "  "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> while"
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> while"
+  ]
+ },
+ "Tru": {
+  "typed": [
+   ">>> Tru"
+  ],
+  "log": [
+   {
+    "stem": "Tru",
+    "buf": "Tru",
+    "pos": 3,
+    "res": [
+     "True"
+    ]
+   },
+   {
+    "stem": "True",
+    "buf": "True",
+    "pos": 4,
+    "res": [
+     "True"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> True"
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> True"
+  ]
+ },
+ "finall": {
+  "typed": [
+   ">>> finall"
+  ],
+  "log": [
+   {
+    "stem": "finall",
+    "buf": "finall",
+    "pos": 6,
+    "res": [
+     "finally:"
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "finally:",
+    "pos": 8,
+    "res": [
+     "    "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> finally:"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> finally:"
+  ]
+ },
+ "pas": {
+  "typed": [
+   ">>> pas"
+  ],
+  "log": [
+   {
+    "stem": "pas",
+    "buf": "pas",
+    "pos": 3,
+    "res": [
+     "pass"
+    ]
+   },
+   {
+    "stem": "pass",
+    "buf": "pass",
+    "pos": 4,
+    "res": [
+     "pass"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> pass"
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> pass"
+  ]
+ },
+ "lambd": {
+  "typed": [
+   ">>> lambd"
+  ],
+  "log": [
+   {
+    "stem": "lambd",
+    "buf": "lambd",
+    "pos": 5,
+    "res": [
+     "lambda "
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "lambda ",
+    "pos": 7,
+    "res": [
+     " "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> lambda"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> lambda"
+  ]
+ },
+ "Non": {
+  "typed": [
+   ">>> Non"
+  ],
+  "log": [
+   {
+    "stem": "Non",
+    "buf": "Non",
+    "pos": 3,
+    "res": [
+     "None"
+    ]
+   },
+   {
+    "stem": "None",
+    "buf": "None",
+    "pos": 4,
+    "res": [
+     "None"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> None"
+  ],
+  "cursor1": [
+   0,
+   8
+  ],
+  "screen2": [
+   ">>> None"
+  ]
+ },
+ "matc": {
+  "typed": [
+   ">>> matc"
+  ],
+  "log": [
+   {
+    "stem": "matc",
+    "buf": "matc",
+    "pos": 4,
+    "res": [
+     "match "
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "match ",
+    "pos": 6,
+    "res": [
+     "  "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> match"
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> match"
+  ]
+ }
+}

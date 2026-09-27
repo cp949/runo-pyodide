@@ -1,0 +1,300 @@
+{
+ "setup": [
+  "import os",
+  "x = [1, 2]; _x = 1; __y__ = 2",
+  "f = lambda a: a",
+  "A = type(\"A\", (), {\"attr_one\": 1, \"_priv\": 2, \"meth\": lambda self: 0, \"prop\": property(lambda self: 1)})",
+  "a = A()"
+ ],
+ "import": [
+  {
+   "id": "A01",
+   "group": "모듈 완성",
+   "text": "import os.pa",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A02",
+   "group": "모듈 완성",
+   "text": "from os import pa",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A03",
+   "group": "모듈 완성",
+   "text": "import o",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A04",
+   "group": "모듈 완성",
+   "text": "from o",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A05",
+   "group": "모듈 완성",
+   "text": "import xml.dom.m",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A06",
+   "group": "모듈 완성",
+   "text": "from xml.dom import m",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A07",
+   "group": "모듈 완성",
+   "text": "import os, sy",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A08",
+   "group": "모듈 완성",
+   "text": "import os as o, sy",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A09",
+   "group": "모듈 완성",
+   "text": "import collections.a",
+   "tabs": 1,
+   "note": "zip stdlib 보정 대상(Q7)"
+  },
+  {
+   "id": "A10",
+   "group": "모듈 완성",
+   "text": "from collections import a",
+   "tabs": 1,
+   "note": "zip stdlib 보정 대상(Q7)"
+  },
+  {
+   "id": "A11",
+   "group": "빈 스템",
+   "text": "import ",
+   "tabs": 2,
+   "note": "Tab 2회: 목록"
+  },
+  {
+   "id": "A12",
+   "group": "빈 스템",
+   "text": "from ",
+   "tabs": 2,
+   "note": "Tab 2회: 목록"
+  },
+  {
+   "id": "A13",
+   "group": "빈 스템",
+   "text": "from os import ",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A14",
+   "group": "무동작 []",
+   "text": "import zzzz",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A15",
+   "group": "무동작 []",
+   "text": "import os.zzz",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A16",
+   "group": "무동작 []",
+   "text": "from . import x",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A17",
+   "group": "무동작 []",
+   "text": "from .",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A18",
+   "group": "무동작 []",
+   "text": "from .a",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A19",
+   "group": "무동작 []",
+   "text": "from . import ",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A20",
+   "group": "무동작 []",
+   "text": "from math import s",
+   "tabs": 1,
+   "note": "math는 C 확장/빌트인이라 서브모듈 없음"
+  },
+  {
+   "id": "A21",
+   "group": "무동작 []",
+   "text": "from os import (path, s",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A22",
+   "group": "None 폴백",
+   "text": "import os ",
+   "tabs": 1,
+   "note": "공백 삽입 기대"
+  },
+  {
+   "id": "A23",
+   "group": "None 폴백",
+   "text": "import os.path ",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A24",
+   "group": "None 폴백",
+   "text": "from os import path ",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A25",
+   "group": "None 폴백",
+   "text": "import os; os.pa",
+   "tabs": 1,
+   "note": "속성 완성 기대"
+  },
+  {
+   "id": "A26",
+   "group": "None 폴백",
+   "text": "import os\nos.pa",
+   "tabs": 1,
+   "note": "다중 줄, 속성 완성 기대"
+  },
+  {
+   "id": "A27",
+   "group": "None 폴백",
+   "text": "x = 1",
+   "tabs": 1,
+   "note": "대조군"
+  },
+  {
+   "id": "A28",
+   "group": "; · 다중 줄",
+   "text": "import os; import s",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A29",
+   "group": "; · 다중 줄",
+   "text": "x = 1; import o",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A30",
+   "group": "; · 다중 줄",
+   "text": "x = 1\nimport o",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A31",
+   "group": "; · 다중 줄",
+   "text": "if True:\n    import o",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A32",
+   "group": "; · 다중 줄",
+   "text": "from os import (\n    p",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A33",
+   "group": "; · 다중 줄",
+   "text": "from os import (\n    path,\n    ",
+   "tabs": 1,
+   "note": "빈 스템"
+  },
+  {
+   "id": "A34",
+   "group": "from 키워드",
+   "text": "def f():\n    yield from o",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A35",
+   "group": "from 키워드",
+   "text": "def f():\n    yield from ",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A36",
+   "group": "from 키워드",
+   "text": "raise ValueError from o",
+   "tabs": 1,
+   "note": ""
+  },
+  {
+   "id": "A37",
+   "group": "특이 동작",
+   "text": "import os  # c\n",
+   "tabs": 1,
+   "note": "다음 빈 줄에서 Tab"
+  }
+ ],
+ "import_extra": [
+  {
+   "id": "X01",
+   "group": "스템 불일치 quirk",
+   "text": "import os.pa  # c",
+   "tabs": 1,
+   "note": "주석 뒤: ModuleCompleter는 os.pa로 파싱하지만 스템은 c"
+  },
+  {
+   "id": "X02",
+   "group": "스템 불일치 quirk",
+   "text": "import os.pa\n",
+   "tabs": 1,
+   "note": "줄바꿈 뒤 빈 줄: 파싱은 os.pa, 스템은 빈 문자열"
+  },
+  {
+   "id": "X03",
+   "group": "스템 불일치 quirk",
+   "text": "import os, ",
+   "tabs": 1,
+   "note": "콤마+공백: 빈 스템 모듈 목록"
+  },
+  {
+   "id": "X04",
+   "group": "스템 불일치 quirk",
+   "text": "from os import path,",
+   "tabs": 1,
+   "note": "후행 콤마: 스템은 빈 문자열"
+  }
+ ]
+}

@@ -1,0 +1,110 @@
+[
+  {
+    "name": "decorator",
+    "source": "def deco(f):\n    return f\n\n@deco\ndef foo():\n    return 1\n\nprint(foo())"
+  },
+  {
+    "name": "semicolon",
+    "source": "a = 1; b = 2\nprint(a + b); print(a)"
+  },
+  {
+    "name": "comments",
+    "source": "# header\n\nx = 1  # trailing\n\n# between\ndef f():\n    # inside\n    return x\n\n    # trailing in block\n\nprint(f())\n# end"
+  },
+  {
+    "name": "triple_str",
+    "source": "s = \"\"\"line1\n\nline3\"\"\"\nprint(repr(s))\ndef g():\n    t = \"\"\"a\n\nb\"\"\"\n    return t\nprint(repr(g()))"
+  },
+  {
+    "name": "fstring_multi",
+    "source": "n = 5\nu = f\"\"\"val\n\n{n}\"\"\"\nprint(repr(u))"
+  },
+  {
+    "name": "try_block",
+    "source": "try:\n    1/0\nexcept ZeroDivisionError:\n    print(\"zde\")\nelse:\n    print(\"else\")\nfinally:\n    print(\"fin\")\nprint(\"after\")"
+  },
+  {
+    "name": "if_elif",
+    "source": "x = 2\nif x == 1:\n    print(\"one\")\nelif x == 2:\n    print(\"two\")\nelse:\n    print(\"other\")\nprint(\"done\")"
+  },
+  {
+    "name": "loops",
+    "source": "for i in range(3):\n    if i == 1:\n        continue\n    print(i)\nelse:\n    print(\"for-else\")\nj = 0\nwhile j < 2:\n    j += 1\nprint(j)"
+  },
+  {
+    "name": "with_stmt",
+    "source": "import contextlib\nwith contextlib.suppress(ValueError):\n    raise ValueError\nprint(\"ok\")"
+  },
+  {
+    "name": "match_stmt",
+    "source": "v = (1, 2)\nmatch v:\n    case (a, b):\n        print(a + b)\n    case _:\n        print(\"no\")\nprint(\"m\")"
+  },
+  {
+    "name": "class_nested",
+    "source": "class A:\n    x = 1\n\n    class B:\n        y = 2\n\n    @staticmethod\n    def s():\n        return A.x + A.B.y\n\n    def m(self):\n        return self.s()\n\nprint(A().m())"
+  },
+  {
+    "name": "bracket_blank",
+    "source": "data = [\n    1,\n\n    2,\n]\nprint(data)\nd = {\n    \"a\": 1,\n\n    \"b\": 2}\nprint(d)"
+  },
+  {
+    "name": "backslash",
+    "source": "x = 1 + \\\n    2\nprint(x)"
+  },
+  {
+    "name": "oneliner_compound",
+    "source": "for i in range(2): print(i)\nif True: print(\"a\")\nprint(\"b\")\nclass C: pass\nprint(C.__name__)"
+  },
+  {
+    "name": "async_run",
+    "source": "import asyncio\nasync def co():\n    return 7\n\nprint(asyncio.run(co()))"
+  },
+  {
+    "name": "globals_del",
+    "source": "g = 1\ndef f():\n    global g\n    g += 1\nf()\nprint(g)\ndel g\nassert \"g\" not in globals()\nprint(\"del ok\")"
+  },
+  {
+    "name": "korean",
+    "source": "print(\"한글 출력\")\ndef 인사(이름):\n    return f\"안녕 {이름}\"\n\nprint(인사(\"세계\"))"
+  },
+  {
+    "name": "main_guard",
+    "source": "def main():\n    print(\"main\")\n\nif __name__ == \"__main__\":\n    main()"
+  },
+  {
+    "name": "lambda_walrus",
+    "source": "f = lambda x: (y := x + 1, y)\nprint(f(1))\nprint([z for z in range(3)\n\n       if z])"
+  },
+  {
+    "name": "trailing_block_comment",
+    "source": "for i in range(2):\n    print(i)\n# end comment"
+  },
+  {
+    "name": "only_comments",
+    "source": "# only\n\n# comments"
+  },
+  {
+    "name": "string_expr_doc",
+    "source": "\"\"\"doc\n\nstring\"\"\"\nprint(\"after doc\")"
+  },
+  {
+    "name": "blank_in_func_many",
+    "source": "def f():\n    a = 1\n\n\n    b = 2\n\n    return a + b\n\n\n\nprint(f())"
+  },
+  {
+    "name": "def_then_call_oneliner",
+    "source": "def f(): return 3\nprint(f())"
+  },
+  {
+    "name": "future_stmt_like",
+    "source": "x: int = 3\ny: list[int] = [x]\nprint(y)"
+  },
+  {
+    "name": "ws_only_lines",
+    "source": "x = 1\n   \n\t\nprint(x)"
+  },
+  {
+    "name": "tabs",
+    "source": "def f():\n\treturn 1\nprint(f())"
+  }
+]

@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pyodide 고정 버전의 유일한 원천(ADR-0007). 코드·시험은 `pyodide/package.json`의 version에서 유도한다.
+# publish·pack 시 pnpm이 `catalog:`를 실제 버전으로 치환한다.
+catalog:
+  pyodide: 314.0.7

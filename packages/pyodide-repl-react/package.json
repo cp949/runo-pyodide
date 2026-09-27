@@ -1,0 +1,70 @@
+{
+  "name": "@cp949/runo-pyodide-repl-react",
+  "version": "0.0.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cp949/runo-pyodide.git",
+    "directory": "packages/pyodide-repl-react"
+  },
+  "homepage": "https://github.com/cp949/runo-pyodide#readme",
+  "bugs": {
+    "url": "https://github.com/cp949/runo-pyodide/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "lint": "eslint --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "check-dist": "node ../../scripts/check-dist.mjs dist",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cp949/runo-pyodide-core": "workspace:*",
+    "@cp949/runo-pyodide-repl": "workspace:*",
+    "@cp949/runo-pyodide-terminal": "workspace:*",
+    "@xterm/addon-fit": "0.11.0"
+  },
+  "peerDependencies": {
+    "@xterm/xterm": "^6.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/pyodide-testkit": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@xterm/xterm": "6.0.0",
+    "eslint": "10.11.0",
+    "jsdom": "30.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tsdown": "0.23.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

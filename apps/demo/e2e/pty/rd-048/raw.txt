@@ -1,0 +1,208 @@
+인터프리터(PTY_PYTHON): /home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/bin/python3.14
+버전: 3.14.4 (main, Apr 14 2026, 14:26:14) [Clang 22.1.3 ] (기대 3.14.4, 불일치=False)
+
+=== P1 >>> 빈 줄 Ctrl+D ===
+--- P1 boot ---
+ 0|>>>
+cursor(row=0, col=4)
+--- P1 Ctrl+D 직후 ---
+ 0|>>>
+cursor(row=1, col=0)
+종료 코드: 0
+
+=== P2 if True: ... 빈 줄 Ctrl+D(무동작), pass Enter Enter로 블록 생존 확인 ===
+--- P2 if True: Enter 뒤(... 프롬프트) ---
+ 0|>>> if True:
+ 1|...
+cursor(row=1, col=8)
+--- P2 ... 빈 줄 Ctrl+D 뒤 ---
+ 0|>>> if True:
+ 1|...
+cursor(row=1, col=8)
+--- P2 pass Enter Enter 뒤 ---
+ 0|>>> if True:
+ 1|...     pass
+ 2|...
+ 3|>>>
+cursor(row=3, col=4)
+
+=== P3 x = input("p: ") 빈 줄 Ctrl+D → EOFError ===
+--- P3 input() 제출 뒤(p: 프롬프트) ---
+ 0|>>> x = input("p: ")
+ 1|p:
+cursor(row=1, col=3)
+--- P3 빈 줄 Ctrl+D 뒤 ---
+ 0|p:
+ 1|Traceback (most recent call last):
+ 2|  File "<python-input-0>", line 1, in <module>
+ 3|    x = input("p: ")
+ 4|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+ 5|python3.14/_pyrepl/readline.py", line 377, in input
+ 6|    result = reader.readline(startup_hook=self.startup_hook)
+ 7|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+ 8|python3.14/_pyrepl/reader.py", line 758, in readline
+ 9|    self.handle1()
+10|    ~~~~~~~~~~~~^^
+11|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+12|python3.14/_pyrepl/reader.py", line 741, in handle1
+13|    self.do_cmd(cmd)
+14|    ~~~~~~~~~~~^^^^^
+15|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+16|python3.14/_pyrepl/reader.py", line 666, in do_cmd
+17|    command.do()
+18|    ~~~~~~~~~~^^
+19|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+20|python3.14/_pyrepl/commands.py", line 432, in do
+21|    raise EOFError
+22|EOFError
+23|>>>
+cursor(row=23, col=4)
+
+=== P4 x = input("p: ") abc ← ← Ctrl+D(커서 뒤 삭제) → Enter → x 값 ===
+--- P4 abc 입력 뒤 ---
+ 0|>>> x = input("p: ")
+ 1|p: abc
+cursor(row=1, col=6)
+--- P4 ← ← 뒤(커서 a와 b 사이) ---
+ 0|>>> x = input("p: ")
+ 1|p: abc
+cursor(row=1, col=4)
+--- P4 Ctrl+D 뒤(커서 뒤 글자 삭제 여부) ---
+ 0|>>> x = input("p: ")
+ 1|p: ac
+cursor(row=1, col=4)
+--- P4 Enter 뒤 ---
+ 0|>>> x = input("p: ")
+ 1|p: ac
+ 2|>>>
+cursor(row=2, col=4)
+--- P4 x 값 ---
+ 0|>>> x = input("p: ")
+ 1|p: ac
+ 2|>>> print(repr(x))
+ 3|'ac'
+ 4|>>>
+cursor(row=4, col=4)
+
+=== P5 x = input("p: ") abc Ctrl+D(커서 끝, 무동작 여부) ===
+--- P5 abc 입력 뒤(커서 끝) ---
+ 0|>>> x = input("p: ")
+ 1|p: abc
+cursor(row=1, col=6)
+--- P5 Ctrl+D 뒤(커서 끝, 무동작 여부) ---
+ 0|>>> x = input("p: ")
+ 1|p: abc
+cursor(row=1, col=6)
+--- P5 x 값 ---
+ 0|>>> x = input("p: ")
+ 1|p: abc
+ 2|>>> print(repr(x))
+ 3|'abc'
+ 4|>>>
+cursor(row=4, col=4)
+
+=== P6 import sys; d = sys.stdin.read() → l1 Enter → 빈 줄 Ctrl+D → print(repr(d)) ===
+--- P6 sys.stdin.read() 제출 뒤(읽기 대기) ---
+ 0|>>> import sys; d = sys.stdin.read()
+cursor(row=1, col=0)
+--- P6 l1 Enter 뒤 ---
+ 0|>>> import sys; d = sys.stdin.read()
+ 1|l1
+cursor(row=2, col=0)
+--- P6 빈 줄 Ctrl+D 뒤(EOF) ---
+ 0|>>> import sys; d = sys.stdin.read()
+ 1|l1
+ 2|>>>
+cursor(row=2, col=4)
+--- P6 repr(d) ---
+ 0|>>> import sys; d = sys.stdin.read()
+ 1|l1
+ 2|>>> print(repr(d))
+ 3|'l1\n'
+ 4|>>>
+cursor(row=4, col=4)
+
+=== P7 for line in sys.stdin: print(line, end="") 블록 → a Enter b Enter → 빈 줄 Ctrl+D → 루프 종료, 이어서 input() ===
+--- P7 for line in sys.stdin: Enter 뒤(... 프롬프트) ---
+ 0|>>> import sys
+ 1|>>> for line in sys.stdin:
+ 2|...
+cursor(row=2, col=8)
+--- P7 print 본문 Enter 뒤 ---
+ 0|>>> import sys
+ 1|>>> for line in sys.stdin:
+ 2|...         print(line, end="")
+ 3|...
+cursor(row=3, col=12)
+--- P7 빈 줄로 블록 제출 뒤(stdin 읽기 대기) ---
+ 0|>>> import sys
+ 1|>>> for line in sys.stdin:
+ 2|...         print(line, end="")
+ 3|...
+cursor(row=4, col=0)
+--- P7 a Enter 뒤 ---
+ 0|>>> import sys
+ 1|>>> for line in sys.stdin:
+ 2|...         print(line, end="")
+ 3|...
+ 4|a
+ 5|a
+cursor(row=6, col=0)
+--- P7 b Enter 뒤 ---
+ 0|>>> import sys
+ 1|>>> for line in sys.stdin:
+ 2|...         print(line, end="")
+ 3|...
+ 4|a
+ 5|a
+ 6|b
+ 7|b
+cursor(row=8, col=0)
+--- P7 빈 줄 Ctrl+D 뒤(루프 종료, 다음 >>> 여부) ---
+ 0|>>> import sys
+ 1|>>> for line in sys.stdin:
+ 2|...         print(line, end="")
+ 3|...
+ 4|a
+ 5|a
+ 6|b
+ 7|b
+ 8|>>>
+cursor(row=8, col=4)
+--- P7 input() 재호출 뒤(EOF 기억 여부) ---
+ 0|>>> import sys
+ 1|>>> for line in sys.stdin:
+ 2|...         print(line, end="")
+ 3|...
+ 4|a
+ 5|a
+ 6|b
+ 7|b
+ 8|>>> input()
+cursor(row=9, col=0)
+--- P7 정리용 Ctrl+D 뒤 ---
+ 0|Traceback (most recent call last):
+ 1|  File "<python-input-2>", line 1, in <module>
+ 2|    input()
+ 3|    ~~~~~^^
+ 4|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+ 5|python3.14/_pyrepl/readline.py", line 377, in input
+ 6|    result = reader.readline(startup_hook=self.startup_hook)
+ 7|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+ 8|python3.14/_pyrepl/reader.py", line 758, in readline
+ 9|    self.handle1()
+10|    ~~~~~~~~~~~~^^
+11|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+12|python3.14/_pyrepl/reader.py", line 741, in handle1
+13|    self.do_cmd(cmd)
+14|    ~~~~~~~~~~~^^^^^
+15|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+16|python3.14/_pyrepl/reader.py", line 666, in do_cmd
+17|    command.do()
+18|    ~~~~~~~~~~^^
+19|  File "/home/jjfive/.local/share/uv/python/cpython-3.14.4-linux-x86_64-gnu/lib/
+20|python3.14/_pyrepl/commands.py", line 432, in do
+21|    raise EOFError
+22|EOFError
+23|>>>
+cursor(row=23, col=4)

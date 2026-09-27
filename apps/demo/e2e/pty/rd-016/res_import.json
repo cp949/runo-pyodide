@@ -1,0 +1,3515 @@
+{
+ "import os.pa": {
+  "id": "A01",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import os.pa"
+  ],
+  "typed_cursor": [
+   0,
+   16
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os.path"
+    ],
+    "cursor": [
+     0,
+     18
+    ],
+    "log": [
+     {
+      "stem": "os.pa",
+      "buf": "import os.pa",
+      "pos": 12,
+      "res": [
+       "os.path"
+      ],
+      "mc": [
+       "os.path"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from os import pa": {
+  "id": "A02",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from os import pa"
+  ],
+  "typed_cursor": [
+   0,
+   21
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from os import path"
+    ],
+    "cursor": [
+     0,
+     23
+    ],
+    "log": [
+     {
+      "stem": "pa",
+      "buf": "from os import pa",
+      "pos": 17,
+      "res": [
+       "path"
+      ],
+      "mc": [
+       "path"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import o": {
+  "id": "A03",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import o"
+  ],
+  "typed_cursor": [
+   0,
+   12
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import o",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     12
+    ],
+    "log": [
+     {
+      "stem": "o",
+      "buf": "import o",
+      "pos": 8,
+      "res": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ],
+      "mc": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from o": {
+  "id": "A04",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from o"
+  ],
+  "typed_cursor": [
+   0,
+   10
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from o",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     10
+    ],
+    "log": [
+     {
+      "stem": "o",
+      "buf": "from o",
+      "pos": 6,
+      "res": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ],
+      "mc": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import xml.dom.m": {
+  "id": "A05",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import xml.dom.m"
+  ],
+  "typed_cursor": [
+   0,
+   20
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import xml.dom.mini",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     23
+    ],
+    "log": [
+     {
+      "stem": "xml.dom.m",
+      "buf": "import xml.dom.m",
+      "pos": 16,
+      "res": [
+       "xml.dom.minicompat",
+       "xml.dom.minidom"
+      ],
+      "mc": [
+       "xml.dom.minicompat",
+       "xml.dom.minidom"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from xml.dom import m": {
+  "id": "A06",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from xml.dom import m"
+  ],
+  "typed_cursor": [
+   0,
+   25
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from xml.dom import mini",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     28
+    ],
+    "log": [
+     {
+      "stem": "m",
+      "buf": "from xml.dom import m",
+      "pos": 21,
+      "res": [
+       "minicompat",
+       "minidom"
+      ],
+      "mc": [
+       "minicompat",
+       "minidom"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import os, sy": {
+  "id": "A07",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import os, sy"
+  ],
+  "typed_cursor": [
+   0,
+   17
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os, sy",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     17
+    ],
+    "log": [
+     {
+      "stem": "sy",
+      "buf": "import os, sy",
+      "pos": 13,
+      "res": [
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog"
+      ],
+      "mc": [
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import os as o, sy": {
+  "id": "A08",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import os as o, sy"
+  ],
+  "typed_cursor": [
+   0,
+   22
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os as o, sy",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     22
+    ],
+    "log": [
+     {
+      "stem": "sy",
+      "buf": "import os as o, sy",
+      "pos": 18,
+      "res": [
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog"
+      ],
+      "mc": [
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import collections.a": {
+  "id": "A09",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "zip stdlib 보정 대상(Q7)",
+  "typed": [
+   ">>> import collections.a"
+  ],
+  "typed_cursor": [
+   0,
+   24
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import collections.abc"
+    ],
+    "cursor": [
+     0,
+     26
+    ],
+    "log": [
+     {
+      "stem": "collections.a",
+      "buf": "import collections.a",
+      "pos": 20,
+      "res": [
+       "collections.abc"
+      ],
+      "mc": [
+       "collections.abc"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from collections import a": {
+  "id": "A10",
+  "group": "모듈 완성",
+  "tabs": 1,
+  "note": "zip stdlib 보정 대상(Q7)",
+  "typed": [
+   ">>> from collections import a"
+  ],
+  "typed_cursor": [
+   0,
+   29
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from collections import abc"
+    ],
+    "cursor": [
+     0,
+     31
+    ],
+    "log": [
+     {
+      "stem": "a",
+      "buf": "from collections import a",
+      "pos": 25,
+      "res": [
+       "abc"
+      ],
+      "mc": [
+       "abc"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import ": {
+  "id": "A11",
+  "group": "빈 스템",
+  "tabs": 2,
+  "note": "Tab 2회: 목록",
+  "typed": [
+   ">>> import"
+  ],
+  "typed_cursor": [
+   0,
+   11
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     11
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "import ",
+      "pos": 7,
+      "res": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ],
+      "mc": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ]
+     }
+    ]
+   },
+   {
+    "tab": 2,
+    "screen": [
+     ">>> import",
+     "abc              filecmp          pathlib          statistics",
+     "annotationlib    fileinput        pdb              string",
+     "antigravity      fnmatch          pickle           stringprep",
+     "argparse         fractions        pickletools      struct",
+     "array            ftplib           pip              subprocess",
+     "ast              functools        pkgutil          symtable",
+     "asyncio          gc               platform         sys",
+     "atexit           genericpath      plistlib         sysconfig",
+     "base64           getopt           poplib           syslog",
+     "bdb              getpass          posix            tabnanny",
+     "binascii         gettext          posixpath        tarfile",
+     "bisect           glob             pprint           tempfile",
+     "builtins         graphlib         profile          termios",
+     "bz2              grp              pstats           textwrap",
+     "cProfile         gzip             pty              this",
+     "calendar         hashlib          pwd              threading",
+     "cmath            heapq            py_compile       time",
+     "cmd              hmac             pyclbr           timeit",
+     "code             html             pydoc            tkinter",
+     "codecs           http             pydoc_data       token",
+     "codeop           idlelib          pyexpat          tokenize",
+     "   108 more..."
+    ],
+    "cursor": [
+     0,
+     11
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "import ",
+      "pos": 7,
+      "res": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ],
+      "mc": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from ": {
+  "id": "A12",
+  "group": "빈 스템",
+  "tabs": 2,
+  "note": "Tab 2회: 목록",
+  "typed": [
+   ">>> from"
+  ],
+  "typed_cursor": [
+   0,
+   9
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     9
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "from ",
+      "pos": 5,
+      "res": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ],
+      "mc": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ]
+     }
+    ]
+   },
+   {
+    "tab": 2,
+    "screen": [
+     ">>> from",
+     "abc              filecmp          pathlib          statistics",
+     "annotationlib    fileinput        pdb              string",
+     "antigravity      fnmatch          pickle           stringprep",
+     "argparse         fractions        pickletools      struct",
+     "array            ftplib           pip              subprocess",
+     "ast              functools        pkgutil          symtable",
+     "asyncio          gc               platform         sys",
+     "atexit           genericpath      plistlib         sysconfig",
+     "base64           getopt           poplib           syslog",
+     "bdb              getpass          posix            tabnanny",
+     "binascii         gettext          posixpath        tarfile",
+     "bisect           glob             pprint           tempfile",
+     "builtins         graphlib         profile          termios",
+     "bz2              grp              pstats           textwrap",
+     "cProfile         gzip             pty              this",
+     "calendar         hashlib          pwd              threading",
+     "cmath            heapq            py_compile       time",
+     "cmd              hmac             pyclbr           timeit",
+     "code             html             pydoc            tkinter",
+     "codecs           http             pydoc_data       token",
+     "codeop           idlelib          pyexpat          tokenize",
+     "   108 more..."
+    ],
+    "cursor": [
+     0,
+     9
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "from ",
+      "pos": 5,
+      "res": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ],
+      "mc": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from os import ": {
+  "id": "A13",
+  "group": "빈 스템",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from os import"
+  ],
+  "typed_cursor": [
+   0,
+   19
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from os import path"
+    ],
+    "cursor": [
+     0,
+     23
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "from os import ",
+      "pos": 15,
+      "res": [
+       "path"
+      ],
+      "mc": [
+       "path"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import zzzz": {
+  "id": "A14",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import zzzz"
+  ],
+  "typed_cursor": [
+   0,
+   15
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import zzzz"
+    ],
+    "cursor": [
+     0,
+     15
+    ],
+    "log": [
+     {
+      "stem": "zzzz",
+      "buf": "import zzzz",
+      "pos": 11,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "import os.zzz": {
+  "id": "A15",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import os.zzz"
+  ],
+  "typed_cursor": [
+   0,
+   17
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os.zzz"
+    ],
+    "cursor": [
+     0,
+     17
+    ],
+    "log": [
+     {
+      "stem": "os.zzz",
+      "buf": "import os.zzz",
+      "pos": 13,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "from . import x": {
+  "id": "A16",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from . import x"
+  ],
+  "typed_cursor": [
+   0,
+   19
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from . import x"
+    ],
+    "cursor": [
+     0,
+     19
+    ],
+    "log": [
+     {
+      "stem": "x",
+      "buf": "from . import x",
+      "pos": 15,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "from .": {
+  "id": "A17",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from ."
+  ],
+  "typed_cursor": [
+   0,
+   10
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from ."
+    ],
+    "cursor": [
+     0,
+     10
+    ],
+    "log": [
+     {
+      "stem": ".",
+      "buf": "from .",
+      "pos": 6,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "from .a": {
+  "id": "A18",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from .a"
+  ],
+  "typed_cursor": [
+   0,
+   11
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from .a"
+    ],
+    "cursor": [
+     0,
+     11
+    ],
+    "log": [
+     {
+      "stem": ".a",
+      "buf": "from .a",
+      "pos": 7,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "from . import ": {
+  "id": "A19",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from . import"
+  ],
+  "typed_cursor": [
+   0,
+   18
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from . import"
+    ],
+    "cursor": [
+     0,
+     18
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "from . import ",
+      "pos": 14,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "from math import s": {
+  "id": "A20",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "math는 C 확장/빌트인이라 서브모듈 없음",
+  "typed": [
+   ">>> from math import s"
+  ],
+  "typed_cursor": [
+   0,
+   22
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from math import s"
+    ],
+    "cursor": [
+     0,
+     22
+    ],
+    "log": [
+     {
+      "stem": "s",
+      "buf": "from math import s",
+      "pos": 18,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "from os import (path, s": {
+  "id": "A21",
+  "group": "무동작 []",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from os import (path, s"
+  ],
+  "typed_cursor": [
+   0,
+   27
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from os import (path, s"
+    ],
+    "cursor": [
+     0,
+     27
+    ],
+    "log": [
+     {
+      "stem": "s",
+      "buf": "from os import (path, s",
+      "pos": 23,
+      "res": [],
+      "mc": []
+     }
+    ]
+   }
+  ]
+ },
+ "import os ": {
+  "id": "A22",
+  "group": "None 폴백",
+  "tabs": 1,
+  "note": "공백 삽입 기대",
+  "typed": [
+   ">>> import os"
+  ],
+  "typed_cursor": [
+   0,
+   14
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os"
+    ],
+    "cursor": [
+     0,
+     16
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "import os ",
+      "pos": 10,
+      "res": [
+       "  "
+      ],
+      "mc": null
+     }
+    ]
+   }
+  ]
+ },
+ "import os.path ": {
+  "id": "A23",
+  "group": "None 폴백",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import os.path"
+  ],
+  "typed_cursor": [
+   0,
+   19
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os.path"
+    ],
+    "cursor": [
+     0,
+     20
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "import os.path ",
+      "pos": 15,
+      "res": [
+       " "
+      ],
+      "mc": null
+     }
+    ]
+   }
+  ]
+ },
+ "from os import path ": {
+  "id": "A24",
+  "group": "None 폴백",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from os import path"
+  ],
+  "typed_cursor": [
+   0,
+   24
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from os import path"
+    ],
+    "cursor": [
+     0,
+     28
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "from os import path ",
+      "pos": 20,
+      "res": [
+       "    "
+      ],
+      "mc": null
+     }
+    ]
+   }
+  ]
+ },
+ "import os; os.pa": {
+  "id": "A25",
+  "group": "None 폴백",
+  "tabs": 1,
+  "note": "속성 완성 기대",
+  "typed": [
+   ">>> import os; os.pa"
+  ],
+  "typed_cursor": [
+   0,
+   20
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os; os.pa",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     20
+    ],
+    "log": [
+     {
+      "stem": "os.pa",
+      "buf": "import os; os.pa",
+      "pos": 16,
+      "res": [
+       "os.pardir",
+       "os.path",
+       "os.pathconf(",
+       "os.pathconf_names",
+       "os.pathsep"
+      ],
+      "mc": null
+     }
+    ]
+   }
+  ]
+ },
+ "import os\nos.pa": {
+  "id": "A26",
+  "group": "None 폴백",
+  "tabs": 1,
+  "note": "다중 줄, 속성 완성 기대",
+  "typed": [
+   ">>> import os",
+   "... os.pa"
+  ],
+  "typed_cursor": [
+   1,
+   9
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os",
+     "... os.pa",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     1,
+     9
+    ],
+    "log": [
+     {
+      "stem": "os.pa",
+      "buf": "import os\nos.pa",
+      "pos": 15,
+      "res": [
+       "os.pardir",
+       "os.path",
+       "os.pathconf(",
+       "os.pathconf_names",
+       "os.pathsep"
+      ],
+      "mc": null
+     }
+    ]
+   }
+  ]
+ },
+ "x = 1": {
+  "id": "A27",
+  "group": "None 폴백",
+  "tabs": 1,
+  "note": "대조군",
+  "typed": [
+   ">>> x = 1"
+  ],
+  "typed_cursor": [
+   0,
+   9
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> x = 1"
+    ],
+    "cursor": [
+     0,
+     9
+    ],
+    "log": [
+     {
+      "stem": "1",
+      "buf": "x = 1",
+      "pos": 5,
+      "res": [],
+      "mc": null
+     }
+    ]
+   }
+  ]
+ },
+ "import os; import s": {
+  "id": "A28",
+  "group": "; · 다중 줄",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> import os; import s"
+  ],
+  "typed_cursor": [
+   0,
+   23
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os; import s",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     23
+    ],
+    "log": [
+     {
+      "stem": "s",
+      "buf": "import os; import s",
+      "pos": 19,
+      "res": [
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog"
+      ],
+      "mc": [
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "x = 1; import o": {
+  "id": "A29",
+  "group": "; · 다중 줄",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> x = 1; import o"
+  ],
+  "typed_cursor": [
+   0,
+   19
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> x = 1; import o",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     19
+    ],
+    "log": [
+     {
+      "stem": "o",
+      "buf": "x = 1; import o",
+      "pos": 15,
+      "res": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ],
+      "mc": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "x = 1\nimport o": {
+  "id": "A30",
+  "group": "; · 다중 줄",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> x = 1",
+   "... import o"
+  ],
+  "typed_cursor": [
+   1,
+   12
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> x = 1",
+     "... import o",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     1,
+     12
+    ],
+    "log": [
+     {
+      "stem": "o",
+      "buf": "x = 1\nimport o",
+      "pos": 14,
+      "res": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ],
+      "mc": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "if True:\n    import o": {
+  "id": "A31",
+  "group": "; · 다중 줄",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> if True:",
+   "...     import o"
+  ],
+  "typed_cursor": [
+   1,
+   16
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> if True:",
+     "...     import o",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     1,
+     16
+    ],
+    "log": [
+     {
+      "stem": "o",
+      "buf": "if True:\n    import o",
+      "pos": 21,
+      "res": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ],
+      "mc": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from os import (\n    p": {
+  "id": "A32",
+  "group": "; · 다중 줄",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> from os import (",
+   "...     p"
+  ],
+  "typed_cursor": [
+   1,
+   9
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from os import (",
+     "...     path"
+    ],
+    "cursor": [
+     1,
+     12
+    ],
+    "log": [
+     {
+      "stem": "p",
+      "buf": "from os import (\n    p",
+      "pos": 22,
+      "res": [
+       "path"
+      ],
+      "mc": [
+       "path"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "from os import (\n    path,\n    ": {
+  "id": "A33",
+  "group": "; · 다중 줄",
+  "tabs": 1,
+  "note": "빈 스템",
+  "typed": [
+   ">>> from os import (",
+   "...     path,",
+   "..."
+  ],
+  "typed_cursor": [
+   2,
+   8
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> from os import (",
+     "...     path,",
+     "...     path"
+    ],
+    "cursor": [
+     2,
+     12
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "from os import (\n    path,\n    ",
+      "pos": 31,
+      "res": [
+       "path"
+      ],
+      "mc": [
+       "path"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "def f():\n    yield from o": {
+  "id": "A34",
+  "group": "from 키워드",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> def f():",
+   "...     yield from o"
+  ],
+  "typed_cursor": [
+   1,
+   20
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> def f():",
+     "...     yield from o",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     1,
+     20
+    ],
+    "log": [
+     {
+      "stem": "o",
+      "buf": "def f():\n    yield from o",
+      "pos": 25,
+      "res": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ],
+      "mc": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "def f():\n    yield from ": {
+  "id": "A35",
+  "group": "from 키워드",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> def f():",
+   "...     yield from"
+  ],
+  "typed_cursor": [
+   1,
+   19
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> def f():",
+     "...     yield from",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     1,
+     19
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "def f():\n    yield from ",
+      "pos": 24,
+      "res": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ],
+      "mc": [
+       "abc",
+       "annotationlib",
+       "antigravity",
+       "argparse",
+       "array",
+       "ast",
+       "asyncio",
+       "atexit",
+       "base64",
+       "bdb",
+       "binascii",
+       "bisect",
+       "builtins",
+       "bz2",
+       "cProfile",
+       "calendar",
+       "cmath",
+       "cmd",
+       "code",
+       "codecs",
+       "codeop",
+       "collections",
+       "colorsys",
+       "compileall",
+       "compression",
+       "concurrent",
+       "configparser",
+       "contextlib",
+       "contextvars",
+       "copy",
+       "copyreg",
+       "csv",
+       "ctypes",
+       "curses",
+       "dataclasses",
+       "datetime",
+       "dbm",
+       "decimal",
+       "difflib",
+       "dis",
+       "doctest",
+       "email",
+       "encodings",
+       "ensurepip",
+       "enum",
+       "errno",
+       "faulthandler",
+       "fcntl",
+       "filecmp",
+       "fileinput",
+       "fnmatch",
+       "fractions",
+       "ftplib",
+       "functools",
+       "gc",
+       "genericpath",
+       "getopt",
+       "getpass",
+       "gettext",
+       "glob",
+       "graphlib",
+       "grp",
+       "gzip",
+       "hashlib",
+       "heapq",
+       "hmac",
+       "html",
+       "http",
+       "idlelib",
+       "imaplib",
+       "importlib",
+       "inspect",
+       "io",
+       "ipaddress",
+       "itertools",
+       "json",
+       "keyword",
+       "linecache",
+       "locale",
+       "logging",
+       "lzma",
+       "mailbox",
+       "marshal",
+       "math",
+       "mimetypes",
+       "mmap",
+       "modulefinder",
+       "multiprocessing",
+       "netrc",
+       "ntpath",
+       "nturl2path",
+       "numbers",
+       "opcode",
+       "operator",
+       "optparse",
+       "os",
+       "pathlib",
+       "pdb",
+       "pickle",
+       "pickletools",
+       "pip",
+       "pkgutil",
+       "platform",
+       "plistlib",
+       "poplib",
+       "posix",
+       "posixpath",
+       "pprint",
+       "profile",
+       "pstats",
+       "pty",
+       "pwd",
+       "py_compile",
+       "pyclbr",
+       "pydoc",
+       "pydoc_data",
+       "pyexpat",
+       "queue",
+       "quopri",
+       "random",
+       "re",
+       "readline",
+       "reprlib",
+       "resource",
+       "rlcompleter",
+       "runpy",
+       "sched",
+       "secrets",
+       "select",
+       "selectors",
+       "shelve",
+       "shlex",
+       "shutil",
+       "signal",
+       "site",
+       "smtplib",
+       "socket",
+       "socketserver",
+       "sqlite3",
+       "sre_compile",
+       "sre_constants",
+       "sre_parse",
+       "ssl",
+       "stat",
+       "statistics",
+       "string",
+       "stringprep",
+       "struct",
+       "subprocess",
+       "symtable",
+       "sys",
+       "sysconfig",
+       "syslog",
+       "tabnanny",
+       "tarfile",
+       "tempfile",
+       "termios",
+       "textwrap",
+       "this",
+       "threading",
+       "time",
+       "timeit",
+       "tkinter",
+       "token",
+       "tokenize",
+       "tomllib",
+       "trace",
+       "traceback",
+       "tracemalloc",
+       "tty",
+       "turtle",
+       "turtledemo",
+       "types",
+       "typing",
+       "unicodedata",
+       "unittest",
+       "urllib",
+       "uuid",
+       "venv",
+       "warnings",
+       "wave",
+       "weakref",
+       "webbrowser",
+       "wsgiref",
+       "xml",
+       "xmlrpc",
+       "xxsubtype",
+       "zipapp",
+       "zipfile",
+       "zipimport",
+       "zlib",
+       "zoneinfo"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "raise ValueError from o": {
+  "id": "A36",
+  "group": "from 키워드",
+  "tabs": 1,
+  "note": "",
+  "typed": [
+   ">>> raise ValueError from o"
+  ],
+  "typed_cursor": [
+   0,
+   27
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> raise ValueError from o",
+     "[ not unique ]"
+    ],
+    "cursor": [
+     0,
+     27
+    ],
+    "log": [
+     {
+      "stem": "o",
+      "buf": "raise ValueError from o",
+      "pos": 23,
+      "res": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ],
+      "mc": [
+       "opcode",
+       "operator",
+       "optparse",
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "import os  # c\n": {
+  "id": "A37",
+  "group": "특이 동작",
+  "tabs": 1,
+  "note": "다음 빈 줄에서 Tab",
+  "typed": [
+   ">>> import os  # c",
+   "..."
+  ],
+  "typed_cursor": [
+   1,
+   4
+  ],
+  "steps": [
+   {
+    "tab": 1,
+    "screen": [
+     ">>> import os  # c",
+     "... os"
+    ],
+    "cursor": [
+     1,
+     6
+    ],
+    "log": [
+     {
+      "stem": "",
+      "buf": "import os  # c\n",
+      "pos": 15,
+      "res": [
+       "os"
+      ],
+      "mc": [
+       "os"
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

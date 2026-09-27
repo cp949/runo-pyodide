@@ -1,0 +1,433 @@
+{
+ "print(os.pa": {
+  "typed": [
+   ">>> print(os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "print(os.pa",
+    "pos": 11,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "print(os.pa",
+    "pos": 11,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> print(os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   15
+  ],
+  "screen2": [
+   ">>> print(os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ },
+ "x = os.pa": {
+  "typed": [
+   ">>> x = os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "x = os.pa",
+    "pos": 9,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "x = os.pa",
+    "pos": 9,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x = os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> x = os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ },
+ "a, os.pa": {
+  "typed": [
+   ">>> a, os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "a, os.pa",
+    "pos": 8,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "a, os.pa",
+    "pos": 8,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a, os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> a, os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ },
+ "\"os.pa": {
+  "typed": [
+   ">>> \"os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "\"os.pa",
+    "pos": 6,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "\"os.pa",
+    "pos": 6,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> \"os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> \"os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ },
+ "os.path.jo": {
+  "typed": [
+   ">>> os.path.jo"
+  ],
+  "log": [
+   {
+    "stem": "os.path.jo",
+    "buf": "os.path.jo",
+    "pos": 10,
+    "res": [
+     "os.path.join("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "os.path.join(",
+    "pos": 13,
+    "res": [
+     "   "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.path.join("
+  ],
+  "cursor1": [
+   0,
+   17
+  ],
+  "screen2": [
+   ">>> os.path.join("
+  ]
+ },
+ "[1,2].ap": {
+  "typed": [
+   ">>> [1,2].ap"
+  ],
+  "log": [
+   {
+    "stem": ".ap",
+    "buf": "[1,2].ap",
+    "pos": 8,
+    "res": []
+   },
+   {
+    "stem": ".ap",
+    "buf": "[1,2].ap",
+    "pos": 8,
+    "res": []
+   }
+  ],
+  "screen1": [
+   ">>> [1,2].ap"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> [1,2].ap"
+  ]
+ },
+ "1.": {
+  "typed": [
+   ">>> 1."
+  ],
+  "log": [
+   {
+    "stem": "1.",
+    "buf": "1.",
+    "pos": 2,
+    "res": [
+     "1.as_integer_ratio()",
+     "1.bit_count()",
+     "1.bit_length()",
+     "1.conjugate()",
+     "1.denominator",
+     "1.from_bytes(",
+     "1.imag",
+     "1.is_integer()",
+     "1.numerator",
+     "1.real",
+     "1.to_bytes("
+    ]
+   },
+   {
+    "stem": "1.",
+    "buf": "1.",
+    "pos": 2,
+    "res": [
+     "1.as_integer_ratio()",
+     "1.bit_count()",
+     "1.bit_length()",
+     "1.conjugate()",
+     "1.denominator",
+     "1.from_bytes(",
+     "1.imag",
+     "1.is_integer()",
+     "1.numerator",
+     "1.real",
+     "1.to_bytes("
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> 1.",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   6
+  ],
+  "screen2": [
+   ">>> 1.",
+   "1.as_integer_ratio()  1.denominator         1.numerator",
+   "1.bit_count()         1.from_bytes(         1.real",
+   "1.bit_length()        1.imag                1.to_bytes(",
+   "1.conjugate()         1.is_integer()"
+  ]
+ },
+ "x.ap": {
+  "typed": [
+   ">>> x.ap"
+  ],
+  "log": [
+   {
+    "stem": "x.ap",
+    "buf": "x.ap",
+    "pos": 4,
+    "res": [
+     "x.append("
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "x.append(",
+    "pos": 9,
+    "res": [
+     "   "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x.append("
+  ],
+  "cursor1": [
+   0,
+   13
+  ],
+  "screen2": [
+   ">>> x.append("
+  ]
+ },
+ "x[0].re": {
+  "typed": [
+   ">>> x[0].re"
+  ],
+  "log": [
+   {
+    "stem": ".re",
+    "buf": "x[0].re",
+    "pos": 7,
+    "res": []
+   },
+   {
+    "stem": ".re",
+    "buf": "x[0].re",
+    "pos": 7,
+    "res": []
+   }
+  ],
+  "screen1": [
+   ">>> x[0].re"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> x[0].re"
+  ]
+ },
+ "\"abc\".up": {
+  "typed": [
+   ">>> \"abc\".up"
+  ],
+  "log": [
+   {
+    "stem": ".up",
+    "buf": "\"abc\".up",
+    "pos": 8,
+    "res": []
+   },
+   {
+    "stem": ".up",
+    "buf": "\"abc\".up",
+    "pos": 8,
+    "res": []
+   }
+  ],
+  "screen1": [
+   ">>> \"abc\".up"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> \"abc\".up"
+  ]
+ },
+ "f(os.pa": {
+  "typed": [
+   ">>> f(os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "f(os.pa",
+    "pos": 7,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "f(os.pa",
+    "pos": 7,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> f(os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   11
+  ],
+  "screen2": [
+   ">>> f(os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ }
+}

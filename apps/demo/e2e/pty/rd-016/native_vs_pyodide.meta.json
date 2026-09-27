@@ -1,0 +1,121 @@
+{
+ "native": {
+  "python": "3.14.4 (main, Apr 14 2026, 14:26:14) [Clang 22.1.3 ]",
+  "cwd": "/tmp/tmpk6bzqth9",
+  "stdlib_path": "/tmp/claude-1000/-work-cp949-pyodide-samples/e3ab0d65-493f-428d-9c7e-79d054ce47c8/scratchpad/uvpy/cpython-3.14.4-linux-x86_64-gnu/lib/python3.14",
+  "sys_path": [
+   "",
+   "/tmp/claude-1000/-work-cp949-pyodide-samples/e3ab0d65-493f-428d-9c7e-79d054ce47c8/scratchpad/uvpy/cpython-3.14.4-linux-x86_64-gnu/lib/python314.zip",
+   "/tmp/claude-1000/-work-cp949-pyodide-samples/e3ab0d65-493f-428d-9c7e-79d054ce47c8/scratchpad/uvpy/cpython-3.14.4-linux-x86_64-gnu/lib/python3.14",
+   "/tmp/claude-1000/-work-cp949-pyodide-samples/e3ab0d65-493f-428d-9c7e-79d054ce47c8/scratchpad/uvpy/cpython-3.14.4-linux-x86_64-gnu/lib/python3.14/lib-dynload",
+   "/tmp/claude-1000/-work-cp949-pyodide-samples/e3ab0d65-493f-428d-9c7e-79d054ce47c8/scratchpad/uvpy/cpython-3.14.4-linux-x86_64-gnu/lib/python3.14/site-packages"
+  ],
+  "sys_modules_added": [],
+  "sys_modules_removed": []
+ },
+ "pyodide": {
+  "version": "314.0.7",
+  "python": "3.14.2 (main, Sep 14 2026, 03:03:51) [Clang 23.0.0git (https:/github.com/llvm/llvm-project e5927fecf8a6ce89e1a4eac5b8",
+  "cwd": "/home/pyodide",
+  "stdlib_path": "/lib/python314.zip",
+  "sys_path": [
+   "",
+   "/lib/python314.zip",
+   "/lib/python3.14/lib-dynload",
+   "/lib/python3.14/site-packages"
+  ],
+  "sys_modules_added": [],
+  "sys_modules_removed": []
+ },
+ "cases": 95,
+ "counts": {
+  "same": 75,
+  "diff": 20,
+  "env": 16,
+  "zip stdlib": 4,
+  "기타": 0,
+  "parse 불일치": 0,
+  "순서만 다름": 0
+ },
+ "counts_by_origin": {
+  "A(측정 A 텍스트)": {
+   "cases": 37,
+   "same": 29,
+   "diff": 8,
+   "env": 6,
+   "zip stdlib": 2,
+   "기타": 0
+  },
+  "추가 패턴": {
+   "cases": 16,
+   "same": 12,
+   "diff": 4,
+   "env": 2,
+   "zip stdlib": 2,
+   "기타": 0
+  },
+  "기대값 확인": {
+   "cases": 6,
+   "same": 6,
+   "diff": 0,
+   "env": 0,
+   "zip stdlib": 0,
+   "기타": 0
+  },
+  "보강": {
+   "cases": 36,
+   "same": 28,
+   "diff": 8,
+   "env": 8,
+   "zip stdlib": 0,
+   "기타": 0
+  }
+ },
+ "env_native_only_top_level": [
+  "_aix_support",
+  "_android_support",
+  "_apple_support",
+  "_curses",
+  "_curses_panel",
+  "_dbm",
+  "_hashlib",
+  "_interpchannels",
+  "_interpqueues",
+  "_interpreters",
+  "_ios_support",
+  "_multiprocessing",
+  "_osx_support",
+  "_posixshmem",
+  "_pydecimal",
+  "_tkinter",
+  "_uuid",
+  "curses",
+  "dbm",
+  "ensurepip",
+  "grp",
+  "idlelib",
+  "pip",
+  "pwd",
+  "pydoc_data",
+  "readline",
+  "resource",
+  "syslog",
+  "tkinter",
+  "turtle",
+  "turtledemo",
+  "venv"
+ ],
+ "env_pyodide_only_top_level": [
+  "_pyodide",
+  "_pyodide_core",
+  "_testbuffer",
+  "_testcapi",
+  "_testclinic",
+  "_testclinic_limited",
+  "_testlimitedcapi",
+  "pyodide"
+ ],
+ "result_pkgnone_differs_native": [],
+ "result_pkgnone_differs_pyodide": [],
+ "note": "result는 null=None(폴백), []=무동작, 목록=후보. 분류 규칙은 compare_native_pyodide.py 상단 주석."
+}

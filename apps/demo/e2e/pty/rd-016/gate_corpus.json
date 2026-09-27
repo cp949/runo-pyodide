@@ -1,0 +1,925 @@
+{
+ "x = 1": {
+  "id": "C01",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "os.pa": {
+  "id": "C02",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "print(": {
+  "id": "C03",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "__import__('os')": {
+  "id": "C04",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "important.x": {
+  "id": "C05",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "imports.pa": {
+  "id": "C06",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "reimport": {
+  "id": "C07",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "": {
+  "id": "C08",
+  "tag": "gate-false 예상",
+  "note": "빈 줄",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "   ": {
+  "id": "C09",
+  "tag": "gate-false 예상",
+  "note": "공백만",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "\t": {
+  "id": "C10",
+  "tag": "gate-false 예상",
+  "note": "탭만",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "def f():": {
+  "id": "C11",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "    return x": {
+  "id": "C12",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "fromage.x": {
+  "id": "C13",
+  "tag": "gate-false 예상",
+  "note": "from으로 시작하는 식별자",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "from_ = 1": {
+  "id": "C14",
+  "tag": "gate-false 예상",
+  "note": "from_ 식별자",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "print(from_)": {
+  "id": "C15",
+  "tag": "gate-false 예상",
+  "note": "from_ 식별자",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "_import": {
+  "id": "C16",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "import_x": {
+  "id": "C17",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "x.imported": {
+  "id": "C18",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "os.path.join(a, b)": {
+  "id": "C19",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "for x in range(3):": {
+  "id": "C20",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "x = [i for i in y]": {
+  "id": "C21",
+  "tag": "gate-false 예상",
+  "note": "",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "x = 1\ny = 2": {
+  "id": "C22",
+  "tag": "gate-false 예상",
+  "note": "다중 줄, 토큰 없음",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "def f():\n    return": {
+  "id": "C23",
+  "tag": "gate-false 예상",
+  "note": "다중 줄, 토큰 없음",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "1import os": {
+  "id": "C24",
+  "tag": "gate-false 예상",
+  "note": "적대: 숫자 리터럴 바로 뒤 import(JS \\b 경계 없음)",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "list(1)",
+  "native_head": [
+   "os"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "os"
+  ],
+  "parse_native": [
+   null,
+   "os"
+  ],
+  "parse_pyodide": [
+   null,
+   "os"
+  ],
+  "class_native": "gate 거짓·비None(예외)",
+  "class_pyodide": "gate 거짓·비None(예외)"
+ },
+ "1from os": {
+  "id": "C25",
+  "tag": "gate-false 예상",
+  "note": "적대: 숫자 리터럴 바로 뒤 from",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "list(1)",
+  "native_head": [
+   "os"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "os"
+  ],
+  "parse_native": [
+   "os",
+   null
+  ],
+  "parse_pyodide": [
+   "os",
+   null
+  ],
+  "class_native": "gate 거짓·비None(예외)",
+  "class_pyodide": "gate 거짓·비None(예외)"
+ },
+ "1jimport os": {
+  "id": "C26",
+  "tag": "gate-false 예상",
+  "note": "적대: 허수 리터럴 뒤",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "list(1)",
+  "native_head": [
+   "os"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "os"
+  ],
+  "parse_native": [
+   null,
+   "os"
+  ],
+  "parse_pyodide": [
+   null,
+   "os"
+  ],
+  "class_native": "gate 거짓·비None(예외)",
+  "class_pyodide": "gate 거짓·비None(예외)"
+ },
+ "1.5from os": {
+  "id": "C27",
+  "tag": "gate-false 예상",
+  "note": "적대: 실수 리터럴 뒤",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "list(1)",
+  "native_head": [
+   "os"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "os"
+  ],
+  "parse_native": [
+   "os",
+   null
+  ],
+  "parse_pyodide": [
+   "os",
+   null
+  ],
+  "class_native": "gate 거짓·비None(예외)",
+  "class_pyodide": "gate 거짓·비None(예외)"
+ },
+ "0x1fimport os": {
+  "id": "C28",
+  "tag": "gate-false 예상",
+  "note": "적대: 16진 리터럴 뒤",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "list(1)",
+  "native_head": [
+   "os"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "os"
+  ],
+  "parse_native": [
+   null,
+   "os"
+  ],
+  "parse_pyodide": [
+   null,
+   "os"
+  ],
+  "class_native": "gate 거짓·비None(예외)",
+  "class_pyodide": "gate 거짓·비None(예외)"
+ },
+ "ｉmport os": {
+  "id": "C29",
+  "tag": "gate-false 예상",
+  "note": "적대: 전각 i(NFKC로는 import)",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "def f(from_=1): pass": {
+  "id": "C30",
+  "tag": "gate-false 예상",
+  "note": "from_ 식별자",
+  "gate_js": false,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 거짓·None(건전)",
+  "class_pyodide": "gate 거짓·None(건전)"
+ },
+ "x = \"import os\"": {
+  "id": "C31",
+  "tag": "gate-true 오탐 예상",
+  "note": "문자열 안",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "# from": {
+  "id": "C32",
+  "tag": "gate-true 오탐 예상",
+  "note": "주석",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "# import os": {
+  "id": "C33",
+  "tag": "gate-true 오탐 예상",
+  "note": "주석",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "\"from a\"": {
+  "id": "C34",
+  "tag": "gate-true 오탐 예상",
+  "note": "문자열",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "print('import')": {
+  "id": "C35",
+  "tag": "gate-true 오탐 예상",
+  "note": "문자열",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "x = 'from os import path'": {
+  "id": "C36",
+  "tag": "gate-true 오탐 예상",
+  "note": "문자열",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "foo.import": {
+  "id": "C37",
+  "tag": "gate-true 오탐 예상",
+  "note": "속성 자리 import",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "print(from": {
+  "id": "C38",
+  "tag": "gate-true 오탐 예상",
+  "note": "키워드 뒤 괄호 안",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "import": {
+  "id": "C39",
+  "tag": "gate-true 오탐 예상",
+  "note": "공백 없음",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "from": {
+  "id": "C40",
+  "tag": "gate-true 오탐 예상",
+  "note": "공백 없음",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "x = 1  # import": {
+  "id": "C41",
+  "tag": "gate-true 오탐 예상",
+  "note": "주석",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "yield from": {
+  "id": "C42",
+  "tag": "gate-true 오탐 예상",
+  "note": "공백 없음",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "raise X from": {
+  "id": "C43",
+  "tag": "gate-true 오탐 예상",
+  "note": "공백 없음",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "이import os": {
+  "id": "C44",
+  "tag": "gate-true 오탐 예상",
+  "note": "JS \\b는 참, 파이썬 토크나이저는 한 식별자",
+  "gate_js": true,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "import이 os": {
+  "id": "C45",
+  "tag": "gate-true 오탐 예상",
+  "note": "JS \\b는 참, 파이썬 토크나이저는 한 식별자",
+  "gate_js": true,
+  "gate_py": false,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "import os.pa": {
+  "id": "C46",
+  "tag": "gate-true 참 양성 대조",
+  "note": "",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "list(1)",
+  "native_head": [
+   "os.path"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "os.path"
+  ],
+  "parse_native": [
+   null,
+   "os.pa"
+  ],
+  "parse_pyodide": [
+   null,
+   "os.pa"
+  ],
+  "class_native": "gate 참·비None(참 양성 또는 [])",
+  "class_pyodide": "gate 참·비None(참 양성 또는 [])"
+ },
+ "from os import pa": {
+  "id": "C47",
+  "tag": "gate-true 참 양성 대조",
+  "note": "",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "list(1)",
+  "native_head": [
+   "path"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "path"
+  ],
+  "parse_native": [
+   "os",
+   "pa"
+  ],
+  "parse_pyodide": [
+   "os",
+   "pa"
+  ],
+  "class_native": "gate 참·비None(참 양성 또는 [])",
+  "class_pyodide": "gate 참·비None(참 양성 또는 [])"
+ },
+ "x = 1; import o": {
+  "id": "C48",
+  "tag": "gate-true 참 양성 대조",
+  "note": "",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "list(4)",
+  "native_head": [
+   "opcode",
+   "operator",
+   "optparse",
+   "os"
+  ],
+  "pyodide_kind": "list(4)",
+  "pyodide_head": [
+   "opcode",
+   "operator",
+   "optparse",
+   "os"
+  ],
+  "parse_native": [
+   null,
+   "o"
+  ],
+  "parse_pyodide": [
+   null,
+   "o"
+  ],
+  "class_native": "gate 참·비None(참 양성 또는 [])",
+  "class_pyodide": "gate 참·비None(참 양성 또는 [])"
+ },
+ "x = 1\nimport o": {
+  "id": "C49",
+  "tag": "gate-true 참 양성 대조",
+  "note": "",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "list(4)",
+  "native_head": [
+   "opcode",
+   "operator",
+   "optparse",
+   "os"
+  ],
+  "pyodide_kind": "list(4)",
+  "pyodide_head": [
+   "opcode",
+   "operator",
+   "optparse",
+   "os"
+  ],
+  "parse_native": [
+   null,
+   "o"
+  ],
+  "parse_pyodide": [
+   null,
+   "o"
+  ],
+  "class_native": "gate 참·비None(참 양성 또는 [])",
+  "class_pyodide": "gate 참·비None(참 양성 또는 [])"
+ },
+ "raise ValueError from o": {
+  "id": "C50",
+  "tag": "gate-true 참 양성 대조",
+  "note": "from 키워드 quirk",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "list(4)",
+  "native_head": [
+   "opcode",
+   "operator",
+   "optparse",
+   "os"
+  ],
+  "pyodide_kind": "list(4)",
+  "pyodide_head": [
+   "opcode",
+   "operator",
+   "optparse",
+   "os"
+  ],
+  "parse_native": [
+   "o",
+   null
+  ],
+  "parse_pyodide": [
+   "o",
+   null
+  ],
+  "class_native": "gate 참·비None(참 양성 또는 [])",
+  "class_pyodide": "gate 참·비None(참 양성 또는 [])"
+ },
+ "import os  # c\n": {
+  "id": "C51",
+  "tag": "gate-true 참 양성 대조",
+  "note": "주석 뒤 빈 줄 quirk",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "list(1)",
+  "native_head": [
+   "os"
+  ],
+  "pyodide_kind": "list(1)",
+  "pyodide_head": [
+   "os"
+  ],
+  "parse_native": [
+   null,
+   "os"
+  ],
+  "parse_pyodide": [
+   null,
+   "os"
+  ],
+  "class_native": "gate 참·비None(참 양성 또는 [])",
+  "class_pyodide": "gate 참·비None(참 양성 또는 [])"
+ },
+ "import os; os.pa": {
+  "id": "C52",
+  "tag": "gate-true 참 양성 대조",
+  "note": "None 예상(속성 완성 폴백)",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ },
+ "import os\nos.pa": {
+  "id": "C53",
+  "tag": "gate-true 참 양성 대조",
+  "note": "None 예상",
+  "gate_js": true,
+  "gate_py": true,
+  "native_kind": "None",
+  "native_head": null,
+  "pyodide_kind": "None",
+  "pyodide_head": null,
+  "parse_native": null,
+  "parse_pyodide": null,
+  "class_native": "gate 참·None(오탐)",
+  "class_pyodide": "gate 참·None(오탐)"
+ }
+}

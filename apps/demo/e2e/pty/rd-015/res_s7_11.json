@@ -1,0 +1,529 @@
+{
+ "os.path.join(os.pa": {
+  "typed": [
+   ">>> os.path.join(os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "os.path.join(os.pa",
+    "pos": 18,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "os.path.join(os.pa",
+    "pos": 18,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.path.join(os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   22
+  ],
+  "screen2": [
+   ">>> os.path.join(os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ },
+ "{'k': os.pa": {
+  "typed": [
+   ">>> {'k': os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "{'k': os.pa",
+    "pos": 11,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "{'k': os.pa",
+    "pos": 11,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> {'k': os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   15
+  ],
+  "screen2": [
+   ">>> {'k': os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ },
+ "lambda: os.pa": {
+  "typed": [
+   ">>> lambda: os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "lambda: os.pa",
+    "pos": 13,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   },
+   {
+    "stem": "os.pa",
+    "buf": "lambda: os.pa",
+    "pos": 13,
+    "res": [
+     "os.pardir",
+     "os.path",
+     "os.pathconf(",
+     "os.pathconf_names",
+     "os.pathsep"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> lambda: os.pa",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   17
+  ],
+  "screen2": [
+   ">>> lambda: os.pa",
+   "os.pardir          os.pathconf(       os.pathsep",
+   "os.path            os.pathconf_names"
+  ]
+ },
+ "a.at": {
+  "typed": [
+   ">>> a.at"
+  ],
+  "log": [
+   {
+    "stem": "a.at",
+    "buf": "a.at",
+    "pos": 4,
+    "res": [
+     "a.attr_one"
+    ]
+   },
+   {
+    "stem": "a.attr_one",
+    "buf": "a.attr_one",
+    "pos": 10,
+    "res": [
+     "a.attr_one"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a.attr_one"
+  ],
+  "cursor1": [
+   0,
+   14
+  ],
+  "screen2": [
+   ">>> a.attr_one"
+  ]
+ },
+ "a.pr": {
+  "typed": [
+   ">>> a.pr"
+  ],
+  "log": [
+   {
+    "stem": "a.pr",
+    "buf": "a.pr",
+    "pos": 4,
+    "res": [
+     "a.prop"
+    ]
+   },
+   {
+    "stem": "a.prop",
+    "buf": "a.prop",
+    "pos": 6,
+    "res": [
+     "a.prop"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> a.prop"
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> a.prop"
+  ]
+ },
+ "import os.pa": {
+  "typed": [
+   ">>> import os.pa"
+  ],
+  "log": [
+   {
+    "stem": "os.pa",
+    "buf": "import os.pa",
+    "pos": 12,
+    "res": [
+     "os.path"
+    ]
+   },
+   {
+    "stem": "os.path",
+    "buf": "import os.path",
+    "pos": 14,
+    "res": [
+     "os.path"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> import os.path"
+  ],
+  "cursor1": [
+   0,
+   18
+  ],
+  "screen2": [
+   ">>> import os.path"
+  ]
+ },
+ "from os import pa": {
+  "typed": [
+   ">>> from os import pa"
+  ],
+  "log": [
+   {
+    "stem": "pa",
+    "buf": "from os import pa",
+    "pos": 17,
+    "res": [
+     "path"
+    ]
+   },
+   {
+    "stem": "path",
+    "buf": "from os import path",
+    "pos": 19,
+    "res": [
+     "path"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> from os import path"
+  ],
+  "cursor1": [
+   0,
+   23
+  ],
+  "screen2": [
+   ">>> from os import path"
+  ]
+ },
+ "import o": {
+  "typed": [
+   ">>> import o"
+  ],
+  "log": [
+   {
+    "stem": "o",
+    "buf": "import o",
+    "pos": 8,
+    "res": [
+     "opcode",
+     "operator",
+     "optparse",
+     "os"
+    ]
+   },
+   {
+    "stem": "o",
+    "buf": "import o",
+    "pos": 8,
+    "res": [
+     "opcode",
+     "operator",
+     "optparse",
+     "os"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> import o",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> import o",
+   "opcode    operator  optparse  os"
+  ]
+ },
+ "from o": {
+  "typed": [
+   ">>> from o"
+  ],
+  "log": [
+   {
+    "stem": "o",
+    "buf": "from o",
+    "pos": 6,
+    "res": [
+     "opcode",
+     "operator",
+     "optparse",
+     "os"
+    ]
+   },
+   {
+    "stem": "o",
+    "buf": "from o",
+    "pos": 6,
+    "res": [
+     "opcode",
+     "operator",
+     "optparse",
+     "os"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> from o",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   10
+  ],
+  "screen2": [
+   ">>> from o",
+   "opcode    operator  optparse  os"
+  ]
+ },
+ "os.path.": {
+  "typed": [
+   ">>> os.path."
+  ],
+  "log": [
+   {
+    "stem": "os.path.",
+    "buf": "os.path.",
+    "pos": 8,
+    "res": [
+     "os.path.ALLOW_MISSING",
+     "os.path.abspath(",
+     "os.path.altsep",
+     "os.path.basename(",
+     "os.path.commonpath(",
+     "os.path.commonprefix(",
+     "os.path.curdir",
+     "os.path.defpath",
+     "os.path.devnull",
+     "os.path.dirname(",
+     "os.path.errno",
+     "os.path.exists(",
+     "os.path.expanduser(",
+     "os.path.expandvars(",
+     "os.path.extsep",
+     "os.path.genericpath",
+     "os.path.getatime(",
+     "os.path.getctime(",
+     "os.path.getmtime(",
+     "os.path.getsize(",
+     "os.path.isabs(",
+     "os.path.isdevdrive(",
+     "os.path.isdir(",
+     "os.path.isfile(",
+     "os.path.isjunction(",
+     "os.path.islink(",
+     "os.path.ismount(",
+     "os.path.join(",
+     "os.path.lexists(",
+     "os.path.normcase(",
+     "os.path.normpath(",
+     "os.path.os",
+     "os.path.pardir",
+     "os.path.pathsep",
+     "os.path.realpath(",
+     "os.path.relpath(",
+     "os.path.samefile(",
+     "os.path.sameopenfile(",
+     "os.path.samestat(",
+     "os.path.sep",
+     "os.path.split(",
+     "os.path.splitdrive(",
+     "os.path.splitext(",
+     "os.path.splitroot(",
+     "os.path.stat",
+     "os.path.supports_unicode_filenames",
+     "os.path.sys"
+    ]
+   },
+   {
+    "stem": "os.path.",
+    "buf": "os.path.",
+    "pos": 8,
+    "res": [
+     "os.path.ALLOW_MISSING",
+     "os.path.abspath(",
+     "os.path.altsep",
+     "os.path.basename(",
+     "os.path.commonpath(",
+     "os.path.commonprefix(",
+     "os.path.curdir",
+     "os.path.defpath",
+     "os.path.devnull",
+     "os.path.dirname(",
+     "os.path.errno",
+     "os.path.exists(",
+     "os.path.expanduser(",
+     "os.path.expandvars(",
+     "os.path.extsep",
+     "os.path.genericpath",
+     "os.path.getatime(",
+     "os.path.getctime(",
+     "os.path.getmtime(",
+     "os.path.getsize(",
+     "os.path.isabs(",
+     "os.path.isdevdrive(",
+     "os.path.isdir(",
+     "os.path.isfile(",
+     "os.path.isjunction(",
+     "os.path.islink(",
+     "os.path.ismount(",
+     "os.path.join(",
+     "os.path.lexists(",
+     "os.path.normcase(",
+     "os.path.normpath(",
+     "os.path.os",
+     "os.path.pardir",
+     "os.path.pathsep",
+     "os.path.realpath(",
+     "os.path.relpath(",
+     "os.path.samefile(",
+     "os.path.sameopenfile(",
+     "os.path.samestat(",
+     "os.path.sep",
+     "os.path.split(",
+     "os.path.splitdrive(",
+     "os.path.splitext(",
+     "os.path.splitroot(",
+     "os.path.stat",
+     "os.path.supports_unicode_filenames",
+     "os.path.sys"
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> os.path.",
+   "[ not unique ]"
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> os.path.",
+   "os.path.ALLOW_MISSING               os.path.isjunction(",
+   "os.path.abspath(                    os.path.islink(",
+   "os.path.altsep                      os.path.ismount(",
+   "os.path.basename(                   os.path.join(",
+   "os.path.commonpath(                 os.path.lexists(",
+   "os.path.commonprefix(               os.path.normcase(",
+   "os.path.curdir                      os.path.normpath(",
+   "os.path.defpath                     os.path.os",
+   "os.path.devnull                     os.path.pardir",
+   "os.path.dirname(                    os.path.pathsep",
+   "os.path.errno                       os.path.realpath(",
+   "os.path.exists(                     os.path.relpath(",
+   "os.path.expanduser(                 os.path.samefile(",
+   "os.path.expandvars(                 os.path.sameopenfile(",
+   "os.path.extsep                      os.path.samestat(",
+   "os.path.genericpath                 os.path.sep",
+   "os.path.getatime(                   os.path.split(",
+   "os.path.getctime(                   os.path.splitdrive(",
+   "os.path.getmtime(                   os.path.splitext(",
+   "os.path.getsize(                    os.path.splitroot(",
+   "os.path.isabs(                      os.path.stat",
+   "   6 more..."
+  ]
+ },
+ "x = ": {
+  "typed": [
+   ">>> x ="
+  ],
+  "log": [
+   {
+    "stem": "",
+    "buf": "x = ",
+    "pos": 4,
+    "res": [
+     "    "
+    ]
+   },
+   {
+    "stem": "",
+    "buf": "x =     ",
+    "pos": 8,
+    "res": [
+     "    "
+    ]
+   }
+  ],
+  "screen1": [
+   ">>> x ="
+  ],
+  "cursor1": [
+   0,
+   12
+  ],
+  "screen2": [
+   ">>> x ="
+  ]
+ }
+}
