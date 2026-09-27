@@ -2,7 +2,8 @@
 
 ### Issue tracker
 
-이슈는 `.scratch/<feature-slug>/` 아래 로컬 마크다운 파일로 관리한다. See `docs/agents/issue-tracker.md`.
+이슈는 GitHub Issues로 관리한다(`gh` CLI). 상태는 open/close + 라벨(`deferred`/`wontfix`/`promoted`)로
+표현한다. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 

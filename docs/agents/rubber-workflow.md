@@ -153,8 +153,8 @@ pyodide 시험(`worker/boot`·`console-compat` 등, 1회 약 38초)이었다.
   쓴다. `src/worker/**`·pyodide 쪽 코드를 바꾼 DELTA만 패키지 전체 `test`를 쓴다.
 - 루트 전체 L0(`check-types`·`lint`·`test`·`build`)는 **DELTA의 마지막 코드 변경 뒤 1회**만 돌린다.
   결과 기록·커밋만 한 뒤에는 다시 돌리지 않는다. 문서·주석만 바꾼 DELTA는 `check-types`·`lint`만 돌린다.
-- `.scratch/`에 이미 등록된 간헐 실패(예: `.scratch/sigint-test-isolation/`)가 나면 그 파일만 1회 단독
-  재실행해 판정한다. `git stash`로 변경 전 코드에서 재현하거나 원인을 조사하지 않는다.
+- 이미 `deferred` 라벨로 등록된 간헐 실패 이슈가 있으면 그 시험만 1회 단독 재실행해 판정한다. `git
+  stash`로 변경 전 코드에서 재현하거나 원인을 조사하지 않는다.
 - 변이 검사는 변이 하나마다 "대상 파일을 스크래치에 복사 → 변이 적용 → 대상 시험 파일만 실행 → 복사본으로
   되돌림"을 한 Bash 호출로 묶는다. `git checkout -- <파일>`로 되돌리지 않는다(커밋 전 구현까지 지운다).
   원복은 마지막에 `git diff --stat`으로 한 번 확인한다.
@@ -361,9 +361,10 @@ checklist의 완료 조건을 전부 만족하면:
 - 현재 ROADMAP.md 항목의 범위 안이면 그 항목의 하위 항목으로 `ROADMAP.md`에 삽입한다
   (`ROADMAP.md` 작성 전에는 이 경로가 없다).
 - 범위 밖이거나 ROADMAP.md와 무관한 작업(브레인스토밍 시작, `ROADMAP.md` 작성 전 포함)이면
-  `.scratch/<feature-slug>/issues/`에 등록한다(`docs/agents/issue-tracker.md`).
-- 등록 여부와 `Status`(`open`/`deferred`)는 `docs/agents/issue-tracker.md` "등록·분류 기준"으로 정한다 —
-  사소하면 버려도 된다. 1회 관찰·원인 불명 간헐 실패는 `deferred`로만 남기고 이 작업에서 조사하지 않는다.
+  GitHub 이슈로 등록한다(`docs/agents/issue-tracker.md`).
+- 등록 여부와 상태(open 유지 / `deferred` 라벨)는 `docs/agents/issue-tracker.md` "등록·분류 기준"으로
+  정한다 — 사소하면 버려도 된다. 1회 관찰·원인 불명 간헐 실패는 `deferred` 라벨만 붙이고 이 작업에서
+  조사하지 않는다.
 
 ## 금지
 
