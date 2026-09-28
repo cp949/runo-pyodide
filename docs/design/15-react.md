@@ -160,8 +160,8 @@ function App() {
 ```
 
 - 페이지가 cross-origin isolated여야 한다(COOP/COEP, dev·preview·배포 모두, ADR-0004). 아니면 worker를 만들지 않고 상태
-  `not-isolated`다. 브라우저가 pyodide 런타임 wasm 기능을 지원하지 않아도(빌드 floor 미만, design.md D4) worker를 만들지
-  않고 `unsupported`다(판정 순서: `14-runner.md` 14.3.1).
+  `not-isolated`다. 브라우저가 pyodide 런타임 wasm 기능을 지원하지 않으면(빌드 floor 이상이어도 런타임 floor 미만일 수
+  있다) worker를 만들지 않고 `unsupported`다(상태 규칙: `14-runner.md` 14.3.1).
 - worker 파일은 앱이 만든다(`createWorker`가 마운트 때 함수를 그대로 쓴다). worker 번들러 형식은 `'es'`여야 한다(Vite `worker.format`).
 - `@xterm/xterm`(`^6.0.0`)·`react`·`react-dom`(`^19.0.0`)은 소비자가 설치한다(peer). `xterm.css`는 소비자가 import한다. worker 파일이 `@cp949/runo-pyodide-core/worker`를 import하면 그 타입 때문에 소비자가 `pyodide` 타입(+`@types/node`·`@types/emscripten`)을 설치해야 한다(`packages/pyodide-core/README.md`). react·core·terminal·repl의 `.` 진입점 `.d.mts`에는 `pyodide` import가 없다(`grep`으로 확인. `pyodide`를 뺀 소비자의 `tsc`는 실행하지 않았다: `pnpm smoke:pack` 소비자는 `pyodide`를 설치한다).
 - `fit`이 켜졌으면 컨테이너에 크기를 준다(위 예의 `style`). 높이가 0이거나 `display: none`이면 `fit()`을 건너뛴다.

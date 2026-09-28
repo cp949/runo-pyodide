@@ -45,9 +45,10 @@ function checkWasmSupport(): boolean {
 /**
  * 실행 가능 여부를 판정한다. 예외를 던지지 않는다.
  *
- * 순서 근거(design.md D4): Chrome 84는 `crossOriginIsolated` 속성 자체가 없다(87+에 생긴다). ②를 먼저 보면 "헤더를
- * 고치라"는 틀린 안내가 된다. 브라우저 버전이 근본 원인이므로 wasm 판정이 먼저다. Chrome 92~95는 격리돼도 wasm이
- * 컴파일되지 않는다.
+ * 순서 근거(`docs/design/14-runner.md` 14.3.1): Chrome 84는 `crossOriginIsolated` 속성 자체가 없다(87+에 생긴다). ②를
+ * 먼저 보면 "헤더를 고치라"는 틀린 안내가 된다. 브라우저 버전이 근본 원인이므로 wasm 판정이 먼저다. Chrome 92~95는
+ * 격리돼도 wasm이 컴파일되지 않는다(93만 실측 확인, 92·94·95는 pyodide 314가 요구하는 wasm 기능별 최초 지원 버전
+ * 표에서 정적으로 추정한 범위 — reftypes 96·legacy EH 95·`Object.hasOwn` 93·COI/SAB 게이팅 92).
  */
 export function detectRuntimeSupport(): RuntimeSupport {
   wasmSupportCache ??= checkWasmSupport();

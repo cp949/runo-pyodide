@@ -8,7 +8,8 @@
 # 동일)을 먼저 시도했으나 chromium 84.0.4147.105-1이 buster의 `libc6`(2.28)보다 새로운
 # `libc6 (>= 2.29)`를 요구해 실패했다(실측: `apt-get install`이 "unmet dependencies" 다수 —
 # libc6를 포함한 필수 패키지를 통째로 못 올려 연쇄 실패). 93·97도 같은 부류 문제가 생길 수
-# 있어(비교 대상 buster는 2020-07 고정, chromium은 그 뒤 버전들) 세 버전 모두 `debootstrap`으로
+# 있어(비교 대상 buster의 `libc6`은 최초 안정화(2019) 이후 버전이 안 올라가는데, chromium은 그 뒤 버전들)
+# 세 버전 모두 `debootstrap`으로
 # **그 snapshot 시각의 unstable 자체를 루트 파일시스템으로 새로 만드는** 방식으로 바꿨다 —
 # base 이미지의 낡은 core 패키지와 섞이지 않는다.
 #

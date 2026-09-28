@@ -1,9 +1,12 @@
 /**
  * main 진입점: `createBridgeMain()`은 coincident main을 옵션 없이 한 번만 부르고 `{ Worker, native }`만 돌려준다.
- * `isDomBridgeSupported()`는 `crossOriginIsolated === true`와 growable `SharedArrayBuffer` 생성 성공, 두 조건을 모두 본다
- * (coincident가 `native`를 정하는 조건과 같다). UA 판별은 하지 않는다.
+ * `isDomBridgeSupported()`는 `detectRuntimeSupport() === "supported"`(WebAssembly 판정 포함, `packages/pyodide-core`)와
+ * growable `SharedArrayBuffer` 생성 성공, 두 조건을 모두 본다(coincident가 `native`를 정하는 조건과 같다). UA 판별은 하지
+ * 않는다.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+const originalValidate = WebAssembly.validate;
 
 const fake = vi.hoisted(() => {
   class FakeWorker {}
@@ -31,6 +34,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  WebAssembly.validate = originalValidate;
 });
 
 describe("createBridgeMain", () => {
@@ -106,6 +110,15 @@ describe("isDomBridgeSupported", () => {
     const { isDomBridgeSupported } = await loadIndex();
 
     expect(isDomBridgeSupported()).toBe(true);
+  });
+
+  test("WebAssembly.validate가 false면 격리·growable SAB와 무관하게 false다", async () => {
+    WebAssembly.validate = () => false;
+    vi.stubGlobal("crossOriginIsolated", true);
+    stubSharedArrayBuffer(true);
+    const { isDomBridgeSupported } = await loadIndex();
+
+    expect(isDomBridgeSupported()).toBe(false);
   });
 
   test("이 판정은 coincident를 호출하지 않는다", async () => {

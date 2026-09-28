@@ -21,7 +21,8 @@ const ALLOW_SYNC_BRIDGE_FLAG = "--allow-sync-bridge";
 
 /**
  * CSP(`worker-src 'self'` 등)에서 위반을 내지 않는 coincident 진입점(canvas 저장소 실측 F23). 이 밖의 coincident 지정자는 위반이다.
- * `@cp949/runo-coincident/*`는 coincident 4.1.1을 대체한 포크 패키지 이름이다(2026-09-28, `docs/adr/0008-*`). 옛 이름과 새 이름
+ * `@cp949/runo-coincident/*`는 coincident 4.1.1을 대체한 포크 패키지 이름이다(2026-09-28, `docs/design/16-dom-bridge.md`
+ * "coincident 4.1.1 → 포크 전환"). 옛 이름과 새 이름
  * 둘 다 같은 규칙을 받는다 — 소비자가 어느 쪽을 쓰든(이 저장소는 새 이름만 쓴다) 같은 CSP 허용선을 강제한다.
  */
 const CSP_ALLOWED_SPECIFIERS = new Set([

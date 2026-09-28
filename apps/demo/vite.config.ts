@@ -19,7 +19,8 @@ export default defineConfig({
   optimizeDeps: { entries: ["index.html", "src/*.worker.ts"] },
   // 빌드 floor(ADR-0008). worker 파일은 module worker(es)라 top-level await 문법 자체는 쓸 수 있지만 Chrome 89 미만은 지원하지
   // 않으므로 쓰지 않는다(async IIFE로 감싼다, `check-escompat`가 강제). `format: "es"`를 쓰는 이유는 TLA가 아니라 module worker이기
-  // 때문이다(기본 iife는 정적 import를 쓰는 worker의 프로덕션 빌드에서 실패한다).
+  // 때문이다(기본 iife로는 이 데모의 worker 구성 — 정적 import를 쓰는 여러 worker 진입점 — 이 프로덕션 빌드에서
+  // 실패했다, 실측. 원인을 코드 분할로 좁히지는 않았다).
   build: { target: [...BROWSER_TARGET] },
   worker: { format: "es" },
 });

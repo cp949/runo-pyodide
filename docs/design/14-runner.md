@@ -109,11 +109,11 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
 - REPL의 `ReplStatus`(7종: 이 표의 `running`·`waiting-input`·`restarting` 없이 `terminated`가 있다)와 이 상태 이름을 공유한다 —
   `runDriver`가 `sessionTerminated`를 보내지 않고 `exit`는 결과 값이라 REPL에는 `terminated`가 따로 있다.
 
-#### `detectRuntimeSupport()`: `not-isolated`·`unsupported` 판정 규칙(design.md D4, 이 규칙의 유일한 정의 절)
+#### `detectRuntimeSupport()`: `not-isolated`·`unsupported` 판정 규칙(이 규칙의 유일한 정의 절)
 
 core `.`가 내보내는 `detectRuntimeSupport(): "supported" | "unsupported" | "not-isolated"`(`packages/pyodide-core/src/runtime-support.ts`)가 이 두 상태를 정한다. `createRunner`·`createRepl`·`createTerminalRunner`·dom-bridge `isDomBridgeSupported()`가 모두 이 함수 하나로 판정한다(다른 곳에서 `crossOriginIsolated`나 wasm 기능을 직접 재판정하지 않는다).
 
-1. `typeof WebAssembly !== "object"` 또는 `!WebAssembly.validate(WASM_RUNTIME_PROBE)`(reference types + legacy Wasm 예외 처리를 한 번에 보는 29바이트 최소 모듈) → `unsupported`. **wasm 판정이 격리 판정보다 먼저다** — 빌드 floor Chrome 84는 `crossOriginIsolated` 속성 자체가 없어(87+에 생긴다) 순서를 바꾸면 "헤더를 고치라"는 틀린 안내가 된다. Chrome 92~95는 격리돼도 wasm이 컴파일되지 않는 구간이라 먼저 걸러야 한다.
+1. `typeof WebAssembly !== "object"` 또는 `!WebAssembly.validate(WASM_RUNTIME_PROBE)`(reference types + legacy Wasm 예외 처리를 한 번에 보는 29바이트 최소 모듈) → `unsupported`. **wasm 판정이 격리 판정보다 먼저다** — 빌드 floor Chrome 84는 `crossOriginIsolated` 속성 자체가 없어(87+에 생긴다) 순서를 바꾸면 "헤더를 고치라"는 틀린 안내가 된다. Chrome 92~95는 격리돼도 wasm이 컴파일되지 않는 구간이라 먼저 걸러야 한다(93만 실측 확인, 92·94·95는 pyodide 314가 요구하는 wasm 기능별 최초 지원 버전 표에서 정적으로 추정한 범위 — reftypes 96·legacy EH 95·`Object.hasOwn` 93·COI/SAB 게이팅 92).
 2. `globalThis.crossOriginIsolated !== true` → `not-isolated`.
 3. 그 밖 → `supported`.
 

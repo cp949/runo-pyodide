@@ -91,7 +91,7 @@ describe("check-escompat 스크립트", () => {
       expect(output).toContain(FAIL_MARK);
     });
 
-    test("주석·문자열 리터럴 속 Web API 이름 언급은 오탐하지 않는다(2026-09-28 opus 리뷰)", () => {
+    test("주석 속 Web API 이름 언급은 오탐하지 않는다(2026-09-28 opus 리뷰, 문자열 리터럴은 검사하지 않는다)", () => {
       const dist = makeDist({
         "index.mjs":
           "// structuredClone(x)는 Chrome 98+\n/* crypto.randomUUID() 참고 */\nexport const a = 1;\n",
