@@ -45,7 +45,7 @@ async function evaluateModule() {
 beforeEach(() => {
   fake.coincident.mockClear();
   // 모듈을 시험마다 새로 평가하므로(`vi.resetModules`) 가짜 모듈도 그때마다 새로 만들어져야 평가 시점 훅이 돈다(`vi.doMock`은 호이스팅되지 않고 이후 import에 적용된다).
-  vi.doMock("coincident/window/worker", () => {
+  vi.doMock("@cp949/runo-coincident/window/worker", () => {
     fake.onEvaluate?.();
     return { default: fake.coincident };
   });

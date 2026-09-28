@@ -11,7 +11,7 @@
  */
 // 순서 유지: 관찰기 설치가 `coincident/window/worker`보다 먼저 평가돼야 한다(관찰 리스너가 coincident 리스너보다 먼저 등록).
 import { observer } from "./bootstrap-observer-install";
-import coincident from "coincident/window/worker";
+import coincident from "@cp949/runo-coincident/window/worker";
 import type { WorkerPlugin } from "@cp949/runo-pyodide-core/worker";
 import { createDomBridgePlugin } from "./dom-bridge-plugin";
 import type { WorkerBridge } from "./worker-bridge";
@@ -27,7 +27,7 @@ let bridgePromise: Promise<WorkerBridge> | undefined;
 export function bridge(): Promise<WorkerBridge> {
   bridgePromise ??= coincident().then(({ proxy, window, native }) => ({
     proxy,
-    window,
+    window: window as Window & typeof globalThis,
     native,
   }));
   return bridgePromise;

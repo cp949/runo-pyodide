@@ -56,7 +56,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "coincident": "4.1.1",
+    "@cp949/runo-coincident": "file:/work/cp949/runo/runo-coincident/packages/coincident",
     "reflected-ffi": "0.7.2"
   },
   "peerDependencies": {

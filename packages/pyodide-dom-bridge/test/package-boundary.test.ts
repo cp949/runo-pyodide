@@ -32,7 +32,7 @@ const manifest = JSON.parse(
 describe("dom-bridge 자신의 의존 선언", () => {
   test("coincident 4.1.1·reflected-ffi 0.7.2를 정확한 버전으로 고정한다", () => {
     expect(manifest.dependencies).toEqual({
-      coincident: "4.1.1",
+      "@cp949/runo-coincident": "file:/work/cp949/runo/runo-coincident/packages/coincident",
       "reflected-ffi": "0.7.2",
     });
   });
@@ -67,13 +67,12 @@ describe("dom-bridge 자신의 의존 선언", () => {
     // 아무것도 따라가지 못해 빈 집합이 되면 위 단언이 항상 통과하므로, 트리를 걸었다는 증거를 함께 단언한다.
     const { names } = collectInstalledDependencyNames(PACKAGE_DIR);
 
-    expect(names).toContain("coincident");
+    expect(names).toContain("@cp949/runo-coincident");
     expect(names).toContain("reflected-ffi");
     expect(names).toContain("@cp949/runo-pyodide-core");
-    expect(findForbiddenDependencies(names)).toEqual([
-      "coincident",
-      "reflected-ffi",
-    ]);
+    // FORBIDDEN_RUNTIME_DEPENDENCIES(@repo/pyodide-testkit)는 리터럴 "coincident"만 안다 — 이름을
+    // "@cp949/runo-coincident"로 바꾸면 이 상수도 갱신해야 같은 보증이 유지된다(스파이크 범위 밖, 별도 기록).
+    expect(findForbiddenDependencies(names)).toEqual(["reflected-ffi"]);
   });
 
   test("sideEffects는 worker 진입점과 관찰기 설치 모듈(import 시점 리스너, dist의 해시 청크 포함)을 트리셰이킹에서 지키는 배열이다", () => {

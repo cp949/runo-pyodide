@@ -18,7 +18,7 @@ const fake = vi.hoisted(() => {
   };
 });
 
-vi.mock("coincident/window/main", () => ({ default: fake.coincidentMain }));
+vi.mock("@cp949/runo-coincident/window/main", () => ({ default: fake.coincidentMain }));
 
 async function loadIndex() {
   vi.resetModules();

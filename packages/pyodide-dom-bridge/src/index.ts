@@ -10,7 +10,7 @@
  * `reflected_ffi_timeout`도 걸러내지 않는다). 타입(`BridgeMain.Worker`)이 표준 `WorkerOptions`로 제한해 TS 초과 속성 검사가 1차로
  * 막을 뿐이다.
  */
-import coincidentMain from "coincident/window/main";
+import coincidentMain from "@cp949/runo-coincident/window/main";
 
 /** main에서 만드는 Worker. `proxy`에 main 함수를 등록하면 worker가 `proxy.<name>(...)`으로 호출한다. */
 export interface BridgeMainWorker extends Worker {
