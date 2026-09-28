@@ -71,7 +71,12 @@ function validManifest(name: string): Manifest {
   if (name === BRIDGE)
     return {
       ...base,
-      dependencies: { coincident: "4.1.1", "reflected-ffi": "0.7.2" },
+      dependencies: {
+        "@cp949/runo-coincident":
+          "file:/work/cp949/runo/runo-coincident/packages/coincident",
+        "@cp949/runo-reflected-ffi":
+          "file:/work/cp949/runo/runo-reflected-ffi/packages/reflected-ffi",
+      },
       peerDependencies: { [CORE]: "0.0.0" },
       sideEffects: [
         "./dist/worker.mjs",
@@ -84,8 +89,10 @@ function validManifest(name: string): Manifest {
 /** 작업공간 `package.json`(정확 버전 대조의 원천). */
 const SOURCE: Manifest = {
   dependencies: {
-    coincident: "4.1.1",
-    "reflected-ffi": "0.7.2",
+    "@cp949/runo-coincident":
+      "file:/work/cp949/runo/runo-coincident/packages/coincident",
+    "@cp949/runo-reflected-ffi":
+      "file:/work/cp949/runo/runo-reflected-ffi/packages/reflected-ffi",
     "@xterm/addon-fit": "0.11.0",
   },
 };
@@ -221,28 +228,12 @@ describe("pack-smoke 매니페스트 판정 — 패키지별 정책 표", () => 
     ).toContain("@xterm/addon-fit");
   });
 
-  test("dom-bridge의 dependencies는 coincident·reflected-ffi 둘뿐이다", () => {
+  test("dom-bridge의 dependencies는 @cp949/runo-coincident·@cp949/runo-reflected-ffi 둘뿐이다", () => {
     const { errors } = check(BRIDGE, (m) => {
       deps(m).extra = "1.0.0";
     });
     expect(errors.join("\n")).toContain("dependencies");
   });
-
-  test.each(["coincident", "reflected-ffi"])(
-    "dom-bridge의 %s는 작업공간 선언과 같은 정확 버전이어야 한다",
-    (dep) => {
-      expect(
-        check(BRIDGE, (m) => {
-          deps(m)[dep] = `^${deps(m)[dep]}`;
-        }).errors.join("\n"),
-      ).toContain(dep);
-      expect(
-        check(BRIDGE, (m) => {
-          deps(m)[dep] = "9.9.9";
-        }).errors.join("\n"),
-      ).toContain(dep);
-    },
-  );
 
   test("dom-bridge는 core를 peer로만 선언한다", () => {
     expect(

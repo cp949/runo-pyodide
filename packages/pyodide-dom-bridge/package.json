@@ -57,7 +57,7 @@
   },
   "dependencies": {
     "@cp949/runo-coincident": "file:/work/cp949/runo/runo-coincident/packages/coincident",
-    "reflected-ffi": "0.7.2"
+    "@cp949/runo-reflected-ffi": "file:/work/cp949/runo/runo-reflected-ffi/packages/reflected-ffi"
   },
   "peerDependencies": {
     "@cp949/runo-pyodide-core": "workspace:*"

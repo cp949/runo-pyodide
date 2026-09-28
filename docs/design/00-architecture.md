@@ -113,7 +113,7 @@ packages/
   pyodide-terminal/      @cp949/runo-pyodide-terminal — xterm 실행창 `createTerminalRunner`(RD-022) + repl과 공유하는 부품 5종(`./internal`). coincident 비의존. private, ADR-0006
   pyodide-repl/          @cp949/runo-pyodide-repl — REPL driver + REPL 프런트(main 쪽 + worker 쪽 + Python 스크립트). 프레임워크 무관, 공개 API 유지
   pyodide-repl-react/         @cp949/runo-pyodide-repl-react — `<PythonRunner>`·`<PythonRepl>`·`usePythonRunner`(RD-024). core·terminal·repl을 React 수명에 붙인다(xterm 생성·`FitAddon`·dispose 순서·StrictMode). coincident 비의존. private, ADR-0006, `15-react.md`
-  pyodide-dom-bridge/    @cp949/runo-pyodide-dom-bridge — worker Python이 main의 `window`·`document`를 동기 프록시로 쓰는 플러그인(`runo.browser`, RD-023). coincident `4.1.1`·reflected-ffi `0.7.2` 고정, 저장소에서 coincident에 의존하는 유일한 패키지. private, ADR-0006, `16-dom-bridge.md`
+  pyodide-dom-bridge/    @cp949/runo-pyodide-dom-bridge — worker Python이 main의 `window`·`document`를 동기 프록시로 쓰는 플러그인(`runo.browser`, RD-023). coincident·reflected-ffi 포크(`@cp949/runo-coincident`·`@cp949/runo-reflected-ffi`)를 file:로 고정, 저장소에서 coincident 계열에 의존하는 유일한 패키지. private, ADR-0006, `16-dom-bridge.md`
   pyodide-testkit/       @repo/pyodide-testkit — 시험 전용 도우미(worker_threads 하니스·가짜 터미널·패키지 경계 도우미). private, 빌드·pack 없음
 apps/
   demo/                  Vite + React 19 데모 셸. repl(`?view` 없음)과 terminal 실행창(`?view=runner`)을 `@cp949/runo-pyodide-repl-react`의 `<PythonRepl>`·`<PythonRunner>`로 소비한다(RD-024). core는 `runner.worker.ts`가 `./worker`(`runWorker`·`runDriver`)만, repl은 `repl.worker.ts`가 `./worker`(`runReplWorker`)만 직접 import한다. `?view=dom-bridge`(RD-023)는 `<PythonRunner>`에 dom-bridge worker(`dom-bridge.worker.ts` 등)를 주입하는 화면이고 이 화면만 dom-bridge(coincident)를 지연 import한다. UI 상태(Chip·버튼·스위치)만 가진다.

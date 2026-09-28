@@ -7,10 +7,16 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-/** 이 저장소의 패키지가 런타임에 끌고 가서는 안 되는 이름(동기 브리지 라이브러리, ADR-0001). */
+/**
+ * 이 저장소의 패키지가 런타임에 끌고 가서는 안 되는 이름(동기 브리지 라이브러리, ADR-0001). `coincident`·`reflected-ffi`는
+ * 옛 upstream 이름, `@cp949/runo-coincident`·`@cp949/runo-reflected-ffi`는 2026-09-28에 대체한 포크 이름이다
+ * (`docs/design/16-dom-bridge.md` 16.1) — 옛 이름·새 이름 모두 금지 목록에 있어야 어느 쪽으로 다시 끌려와도 잡는다.
+ */
 export const FORBIDDEN_RUNTIME_DEPENDENCIES = [
   "coincident",
+  "@cp949/runo-coincident",
   "reflected-ffi",
+  "@cp949/runo-reflected-ffi",
 ] as const;
 
 /** `package.json`에서 의존 검사에 쓰는 필드만. */

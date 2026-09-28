@@ -77,7 +77,7 @@ describe("detectRuntimeSupport", () => {
     expect(detectRuntimeSupport()).toBe("supported");
   });
 
-  it("typeof WebAssembly !== \"object\"면 unsupported다", async () => {
+  it('typeof WebAssembly !== "object"면 unsupported다', async () => {
     const original = globalThis.WebAssembly;
     // @ts-expect-error 테스트 전용으로 전역을 지운다.
     delete globalThis.WebAssembly;

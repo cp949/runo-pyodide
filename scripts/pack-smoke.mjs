@@ -10,7 +10,7 @@
 //      진입점의 기대 export) → `tsc --noEmit`(`skipLibCheck: false`) → Vite dev 해석(client 환경, Node·tsc가 쓰지 않는 `development`
 //      조건의 결함을 잡는다, 이슈 react-package-followups/05)
 //   4. 설치된 트리 검사: 주 소비자 = `coincident`·`reflected-ffi` 없음(lockfile·`.pnpm`·설치된 dist 문자열), dom-bridge 소비자 =
-//      coincident·reflected-ffi 정확한 버전 하나씩, dom-bridge dist의 CSP 정적 규칙, core dist 엄격 검사
+//      coincident·reflected-ffi 포크(file: 로컬 경로) 설치 하나씩, dom-bridge dist의 CSP 정적 규칙, core dist 엄격 검사
 // 사용: pnpm smoke:pack (= pnpm build && node scripts/pack-smoke.mjs). 약 15초, L0 수동 실행이며 `pnpm test`·turbo 기본
 // 파이프라인에는 넣지 않는다. 네트워크가 필요하다(`@xterm/xterm`·`@xterm/addon-fit`·`react`·`react-dom`·`string-width`·`typescript`·`pyodide`를 레지스트리에서 받는다,
 // `--prefer-offline`이라 pnpm 저장소에 있으면 다시 받지 않는다).
@@ -24,7 +24,6 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { smokeConsumer } from "./pack-smoke/consumer.mjs";
 import {
-  MANIFEST_POLICY,
   checkPackedManifest,
   collectExportTargets,
   compareEntryDeclarations,
@@ -159,8 +158,8 @@ const consumers = (versions) => [
     ],
     treeChecks: checkNoSyncBridge,
   },
-  // coincident는 이 소비자 트리에만 있어야 하고, dom-bridge는 upstream 정확한 버전을 끌고 온다. 위 주 소비자의 "coincident 없음" 검사는
-  // 그대로라 core·terminal·repl·react·xterm-readline의 금지 보장은 약해지지 않는다.
+  // coincident는 이 소비자 트리에만 있어야 하고, dom-bridge는 coincident·reflected-ffi 포크를 file: 로컬 경로로 끌고 온다.
+  // 위 주 소비자의 "coincident 없음" 검사는 그대로라 core·terminal·repl·react·xterm-readline의 금지 보장은 약해지지 않는다.
   {
     label: "dom-bridge 소비자",
     dir: "consumer-dom-bridge",
@@ -266,27 +265,24 @@ function checkNoSyncBridge(dir, packages) {
   );
 }
 
-/** dom-bridge 소비자 트리 검사: coincident·reflected-ffi가 작업공간 선언 버전 하나씩, dist 검사 두 모드. */
+/** dom-bridge 소비자 트리 검사: coincident·reflected-ffi 포크가 각각 하나만 설치됐는지, dist 검사 두 모드. */
 function checkBridgeTree(dir) {
-  step("dom-bridge 소비자: coincident·reflected-ffi 정확한 버전, dist 검사");
+  step("dom-bridge 소비자: coincident·reflected-ffi 포크 설치 하나씩, dist 검사");
   const bridgeSource = readJson(join(ROOT, DOM_BRIDGE_DIR, "package.json"));
   const store = readdirSync(join(dir, "node_modules/.pnpm")).map((entry) =>
     entry.toLowerCase(),
   );
-  // 정확 버전으로 설치돼야 하는 의존은 매니페스트 정책 표가 원천이다(금지 목록 `FORBIDDEN`과 우연히 같을 뿐이다).
-  for (const dep of MANIFEST_POLICY[DOM_BRIDGE].exact) {
-    const installed = new Set(
-      store
-        .filter((entry) => entry.startsWith(`${dep}@`))
-        .map((entry) => entry.slice(dep.length + 1).split("_")[0]),
-    );
-    const expected = bridgeSource.dependencies[dep];
-    console.log(
-      `${dep} 설치된 버전: ${[...installed].join(", ") || "(없음)"} (기대 ${expected})`,
-    );
-    if (installed.size !== 1 || !installed.has(expected))
+  // 대상은 dom-bridge 작업공간 선언의 dependencies 키(현재 @cp949/runo-coincident·@cp949/runo-reflected-ffi 포크)다. 둘 다
+  // 2026-09-28부터 `file:` 로컬 경로로 고정한다 — pnpm이 절대 경로를 작업공간 상대 경로로 바꿔 스토어 폴더 이름을 인코딩하므로
+  // (예: `file:/work/.../packages/coincident` → `file+..+runo-coincident+packages+coincident`) 원본 선언 문자열과 직접 문자열
+  // 대조를 할 수 없다. 그래서 "정확 버전 일치"가 아니라 "설치본이 정확히 하나(중복·드리프트 없음)"만 본다.
+  for (const dep of Object.keys(bridgeSource.dependencies)) {
+    const prefix = `${dep.toLowerCase().replace("/", "+")}@`;
+    const installed = store.filter((entry) => entry.startsWith(prefix));
+    console.log(`${dep} 설치된 항목: ${installed.length}개 (${installed.join(", ") || "없음"})`);
+    if (installed.length !== 1)
       throw new Error(
-        `dom-bridge 소비자에 설치된 ${dep} 버전이 ${expected} 하나가 아니다: ${[...installed].join(", ")}`,
+        `dom-bridge 소비자에 설치된 ${dep}이(가) 하나가 아니다: ${installed.join(", ")}`,
       );
   }
   // dom-bridge dist는 coincident를 허용하되 CSP 정적 규칙과 pyodide 런타임 import 금지를 받는다. core dist는 여전히 금지 문자열을 받는다.

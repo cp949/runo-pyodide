@@ -16,13 +16,13 @@ Repo: `cp949/runo-pyodide` (public) — `gh`가 `git remote`로 자동 추론한
 
 기존 로컬 마크다운 트래커의 `Status:` 줄을 GitHub의 open/close 상태 + 라벨로 옮긴다.
 
-| Status (구) | GitHub 표현 |
-|---|---|
-| `open` (착수 대상) | 이슈 open, 라벨 없음 |
-| `deferred` (기록만, 재개 조건 명시) | 이슈 open 유지 + `deferred` 라벨. 재개 조건은 본문 또는 코멘트에 명시 |
-| `done` | `gh issue close <n> --reason completed` |
-| `wontfix` (사유 명시) | `wontfix` 라벨 적용 + `gh issue close <n> --reason "not planned" --comment "<사유>"` |
-| `promoted (RD-NNN)` | `promoted` 라벨 적용 + `gh issue close <n> --reason completed --comment "Promoted to RD-NNN"`. 이후 추적은 RD |
+| Status (구)                         | GitHub 표현                                                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `open` (착수 대상)                  | 이슈 open, 라벨 없음                                                                                          |
+| `deferred` (기록만, 재개 조건 명시) | 이슈 open 유지 + `deferred` 라벨. 재개 조건은 본문 또는 코멘트에 명시                                         |
+| `done`                              | `gh issue close <n> --reason completed`                                                                       |
+| `wontfix` (사유 명시)               | `wontfix` 라벨 적용 + `gh issue close <n> --reason "not planned" --comment "<사유>"`                          |
+| `promoted (RD-NNN)`                 | `promoted` 라벨 적용 + `gh issue close <n> --reason completed --comment "Promoted to RD-NNN"`. 이후 추적은 RD |
 
 `deferred`·`promoted` 라벨은 이 저장소 전용(`gh label create deferred ...` / `gh label create promoted ...`로
 생성해둔다). `wontfix`는 GitHub 기본 라벨을 그대로 쓴다.
@@ -77,7 +77,7 @@ open으로 등록할 수 있는 것:
   쓰면 map 본문의 task list에 추가하고 child 본문 맨 위에 `Part of #<map>`을 적는다. 라벨은
   `wayfinder:<type>`(`research`/`prototype`/`grilling`/`task`). claim되면 담당자를 배정한다.
 - **Blocking**: GitHub 네이티브 issue dependencies. `gh api --method POST
-  repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>` (`<blocker-db-id>`는
+repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>` (`<blocker-db-id>`는
   `gh api repos/<owner>/<repo>/issues/<n> --jq .id`로 구한 숫자 database id, `#번호`나 `node_id`가 아니다).
   `issue_dependencies_summary.blocked_by`(open 상태 blocker 수)로 확인한다. 안 되면 child 본문 위쪽
   `Blocked by: #<n>, #<n>` 줄로 대체한다. 모든 blocker가 close되면 unblocked.

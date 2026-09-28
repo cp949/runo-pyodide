@@ -5,17 +5,19 @@
 // `--allow-sync-bridge`는 dom-bridge(RD-023, ADR-0006) 전용이다. 코드 파일의 coincident 금지 문자열 검사를 끄는 대신 CSP 정적 규칙을 건다:
 // 코드 파일(`.mjs`·`.ts`·`.tsx` 등, 시험·소스맵 제외)의 coincident 모듈 지정자는 `coincident/window/main`·`coincident/window/worker`
 // 또는 포크 패키지 `@cp949/runo-coincident/window/main`·`@cp949/runo-coincident/window/worker`(2026-09-28, coincident 4.1.1 대체)뿐이고
-// (`reflected-ffi`를 직접 import하지 않는다), 주석을 뺀 코드에 `evaluate`·`serviceWorker`·`coincident/sync`·`window.import`가 없어야
-// 한다. 또 `.../window/worker`를 import하는 `.mjs`는 그보다 **앞서** `bootstrap-observer-install` 모듈(부트스트랩 관찰기 설치, 별도
-// 파일)을 import해야 한다: 관찰 리스너가 coincident의 부트스트랩 리스너보다 먼저 등록돼야 메시지를 본다(번들러가 외부 import를 위로 올리면
-// 순서가 뒤집힌다). 코드도 소스맵도 아닌 파일(`.html`·`.json` 등)은 이 옵션에서도 금지 문자열 검사를 받는다: CSP 규칙은 코드 문법만
-// 보므로 그런 파일을 건너뛰면 아무 검사도 받지 않는다. 다른 패키지는 이 옵션 없이 검사하므로 금지 보장이 그대로다. `pyodide` 런타임
-// import 금지는 이 옵션에서도 유지한다.
+// (`reflected-ffi`·포크 `@cp949/runo-reflected-ffi`도 2026-09-28에 대체됐고 둘 다 직접 import하지 않는다), 주석을 뺀 코드에
+// `evaluate`·`serviceWorker`·`coincident/sync`·`window.import`가 없어야 한다. 또 `.../window/worker`를 import하는 `.mjs`는 그보다
+// **앞서** `bootstrap-observer-install` 모듈(부트스트랩 관찰기 설치, 별도 파일)을 import해야 한다: 관찰 리스너가 coincident의
+// 부트스트랩 리스너보다 먼저 등록돼야 메시지를 본다(번들러가 외부 import를 위로 올리면 순서가 뒤집힌다). 코드도 소스맵도 아닌
+// 파일(`.html`·`.json` 등)은 이 옵션에서도 금지 문자열 검사를 받는다: CSP 규칙은 코드 문법만 보므로 그런 파일을 건너뛰면 아무 검사도
+// 받지 않는다. 다른 패키지는 이 옵션 없이 검사하므로 금지 보장이 그대로다. `pyodide` 런타임 import 금지는 이 옵션에서도 유지한다.
 // 폴더가 없거나 파일이 하나도 없으면 건너뛰지 않고 실패한다 — 빌드 전에 돌린 것을 통과로 착각하지 않게 한다(turbo `check-dist`가
 // `build` 뒤에 돌린다). 소스맵(.map)까지 모든 파일을 본다. 대소문자는 구분하지 않는다.
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+// 부분 문자열 검사라 포크 이름(`@cp949/runo-coincident`·`@cp949/runo-reflected-ffi`)도 그대로 잡는다 — 둘 다 옛 이름을 부분
+// 문자열로 담고 있다(2026-09-28 포크 전환, `docs/design/16-dom-bridge.md` 16.1).
 const FORBIDDEN = ["coincident", "reflected-ffi"];
 const ALLOW_SYNC_BRIDGE_FLAG = "--allow-sync-bridge";
 
@@ -43,6 +45,14 @@ function isCoincidentSpecifier(specifier) {
 function isCoincidentWorkerSpecifier(specifier) {
   return COINCIDENT_PACKAGE_NAMES.some(
     (name) => specifier === `${name}/window/worker`,
+  );
+}
+/** reflected-ffi 계열로 취급하는 패키지 이름(옛 이름·포크 이름, 2026-09-28 전환). dom-bridge는 둘 다 직접 import하지 않는다. */
+const REFLECTED_FFI_PACKAGE_NAMES = ["reflected-ffi", "@cp949/runo-reflected-ffi"];
+/** `specifier`가 reflected-ffi 계열(옛 이름 또는 포크 이름) 지정자인가. */
+function isReflectedFfiSpecifier(specifier) {
+  return REFLECTED_FFI_PACKAGE_NAMES.some(
+    (name) => specifier === name || specifier.startsWith(`${name}/`),
   );
 }
 /**
@@ -131,9 +141,7 @@ function findCspViolations(text) {
     for (const match of code.matchAll(pattern)) {
       const specifier = match[1];
       const bridge =
-        isCoincidentSpecifier(specifier) ||
-        specifier === "reflected-ffi" ||
-        specifier.startsWith("reflected-ffi/");
+        isCoincidentSpecifier(specifier) || isReflectedFfiSpecifier(specifier);
       if (bridge && !CSP_ALLOWED_SPECIFIERS.has(specifier))
         violations.push(`허용 밖 모듈 지정자 "${specifier}"`);
     }

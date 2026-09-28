@@ -27,9 +27,8 @@ afterEach(() => {
 
 test("wasm 미지원이면 격리 여부와 무관하게 worker 없이 unsupported 경고를 내고 runSource는 unavailable로 거부된다", async () => {
   vi.resetModules();
-  const { createRepl, UNSUPPORTED_BROWSER_WARNING } = await import(
-    "../../src/index"
-  );
+  const { createRepl, UNSUPPORTED_BROWSER_WARNING } =
+    await import("../../src/index");
   const fake = createFakeTerminal();
   const createWorkerSpy = vi.fn(() => createFakeWorker().worker);
   const onStatus = vi.fn();

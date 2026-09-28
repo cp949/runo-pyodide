@@ -23,12 +23,12 @@ export const MANIFEST_POLICY = {
     peers: { react: {}, "react-dom": {}, "@xterm/xterm": {} },
     exact: ["@xterm/addon-fit"],
   },
-  // coincident·reflected-ffi는 upstream 그대로 정확 버전(포크 없음), core는 타입만 쓰므로 peer. `sideEffects`는 import 시점 부트스트랩
-  // 관찰 리스너(worker 진입점)가 번들에서 빠지지 않게 배열이다(16-dom-bridge.md).
+  // coincident·reflected-ffi 둘 다 2026-09-28에 포크(@cp949/runo-coincident·@cp949/runo-reflected-ffi)로 대체했고 file:
+  // 로컬 경로로 고정한다(16-dom-bridge.md 16.1) — semver가 아니라 `exact`(정확 버전 정규식) 대상에서는 둘 다 뺀다.
+  // core는 타입만 쓰므로 peer. `sideEffects`는 import 시점 부트스트랩 관찰 리스너(worker 진입점)가 번들에서 빠지지 않게 배열이다.
   "@cp949/runo-pyodide-dom-bridge": {
     peers: { "@cp949/runo-pyodide-core": {} },
-    dependencies: ["coincident", "reflected-ffi"],
-    exact: ["coincident", "reflected-ffi"],
+    dependencies: ["@cp949/runo-coincident", "@cp949/runo-reflected-ffi"],
     sideEffects: ["./dist/worker.mjs"],
   },
 };

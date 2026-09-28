@@ -73,15 +73,21 @@ describe("check-escompat 스크립트", () => {
       ["Array.prototype.at", "export const f = (a) => a.at(0);\n"],
       ["logical assignment ??=", "export let x; x ??= 1;\n"],
       ["Object.hasOwn", "export const f = (o, k) => Object.hasOwn(o, k);\n"],
-      [
-        "Error cause",
-        'export const f = () => new Error("m", { cause: 1 });\n',
-      ],
+      ["Error cause", 'export const f = () => new Error("m", { cause: 1 });\n'],
       ["top-level await", "await Promise.resolve();\nexport {};\n"],
-      ["structuredClone(Web API)", "export const f = (x) => structuredClone(x);\n"],
-      ["String.prototype.replaceAll", 'export const f = (s) => s.replaceAll("a", "b");\n'],
+      [
+        "structuredClone(Web API)",
+        "export const f = (x) => structuredClone(x);\n",
+      ],
+      [
+        "String.prototype.replaceAll",
+        'export const f = (s) => s.replaceAll("a", "b");\n',
+      ],
       ["Promise.any", "export const f = (ps) => Promise.any(ps);\n"],
-      ["class static block", "export class C {\n  static x;\n  static {\n    C.x = 1;\n  }\n}\n"],
+      [
+        "class static block",
+        "export class C {\n  static x;\n  static {\n    C.x = 1;\n  }\n}\n",
+      ],
     ])("%s가 있으면 실패한다", (name, code) => {
       const dist = makeDist({ "index.mjs": code });
 
@@ -166,7 +172,8 @@ describe("check-escompat 스크립트", () => {
     const dist = makeDist({
       "index.mjs": "export const a = 1;\n",
       "index.mjs.map": '{"sourcesContent":["a.at(0)"]}',
-      "index.d.mts": 'declare function f(a: unknown[]): unknown; export { f };\n// a.at(0)\n',
+      "index.d.mts":
+        "declare function f(a: unknown[]): unknown; export { f };\n// a.at(0)\n",
     });
 
     const { status, output } = run(dist);
@@ -189,7 +196,7 @@ describe("check-escompat 스크립트", () => {
   test("Atomics.waitAsync는 기능 탐지 예외로 통과한다(stdin-mailbox 폴백)", () => {
     const dist = makeDist({
       "index.mjs":
-        "export const f = (i, idx, v) => typeof Atomics.waitAsync === \"function\" ? Atomics.waitAsync(i, idx, v) : null;\n",
+        'export const f = (i, idx, v) => typeof Atomics.waitAsync === "function" ? Atomics.waitAsync(i, idx, v) : null;\n',
     });
 
     const { status, output } = run(dist);

@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * dom-bridge 패키지 경계. coincident는 이 패키지에만 있다(ADR-0006). 여기서는 두 가지를 강제한다.
- * ① dom-bridge 자신의 의존 선언: coincident·reflected-ffi 정확한 버전, core는 peer(타입만 쓴다), REPL·터미널·pyodide 비의존.
+ * ① dom-bridge 자신의 의존 선언: coincident·reflected-ffi 포크를 file:로 고정, core는 peer(타입만 쓴다), REPL·터미널·pyodide 비의존.
  * ② 다른 패키지(core·terminal·repl·react·xterm-readline)의 의존 트리에 dom-bridge·coincident가 새지 않는다(기존 금지 보장 유지).
  * core·terminal·repl·react 자신의 `package-boundary.test.ts`는 그대로 두고, 여기서는 반대 방향(dom-bridge가 생긴 뒤에도
  * 그 트리들에 dom-bridge가 없다)을 본다.
@@ -30,10 +30,12 @@ const manifest = JSON.parse(
 };
 
 describe("dom-bridge 자신의 의존 선언", () => {
-  test("coincident 4.1.1·reflected-ffi 0.7.2를 정확한 버전으로 고정한다", () => {
+  test("@cp949/runo-coincident·@cp949/runo-reflected-ffi(둘 다 file: 포크)를 고정한다", () => {
     expect(manifest.dependencies).toEqual({
-      "@cp949/runo-coincident": "file:/work/cp949/runo/runo-coincident/packages/coincident",
-      "reflected-ffi": "0.7.2",
+      "@cp949/runo-coincident":
+        "file:/work/cp949/runo/runo-coincident/packages/coincident",
+      "@cp949/runo-reflected-ffi":
+        "file:/work/cp949/runo/runo-reflected-ffi/packages/reflected-ffi",
     });
   });
 
@@ -63,16 +65,17 @@ describe("dom-bridge 자신의 의존 선언", () => {
     expect(manifest.peerDependencies?.pyodide).toBeUndefined();
   });
 
-  test("의존 트리를 실제로 따라갔다(coincident·reflected-ffi·core가 잡힌다)", () => {
+  test("의존 트리를 실제로 따라갔다(coincident·reflected-ffi 포크·core가 잡힌다)", () => {
     // 아무것도 따라가지 못해 빈 집합이 되면 위 단언이 항상 통과하므로, 트리를 걸었다는 증거를 함께 단언한다.
     const { names } = collectInstalledDependencyNames(PACKAGE_DIR);
 
     expect(names).toContain("@cp949/runo-coincident");
-    expect(names).toContain("reflected-ffi");
+    expect(names).toContain("@cp949/runo-reflected-ffi");
     expect(names).toContain("@cp949/runo-pyodide-core");
-    // FORBIDDEN_RUNTIME_DEPENDENCIES(@repo/pyodide-testkit)는 리터럴 "coincident"만 안다 — 이름을
-    // "@cp949/runo-coincident"로 바꾸면 이 상수도 갱신해야 같은 보증이 유지된다(스파이크 범위 밖, 별도 기록).
-    expect(findForbiddenDependencies(names)).toEqual(["reflected-ffi"]);
+    expect(findForbiddenDependencies(names)).toEqual([
+      "@cp949/runo-coincident",
+      "@cp949/runo-reflected-ffi",
+    ]);
   });
 
   test("sideEffects는 worker 진입점과 관찰기 설치 모듈(import 시점 리스너, dist의 해시 청크 포함)을 트리셰이킹에서 지키는 배열이다", () => {

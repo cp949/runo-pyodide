@@ -153,9 +153,9 @@ importers:
       '@cp949/runo-coincident':
         specifier: file:/work/cp949/runo/runo-coincident/packages/coincident
         version: file:../runo-coincident/packages/coincident
-      reflected-ffi:
-        specifier: 0.7.2
-        version: 0.7.2
+      '@cp949/runo-reflected-ffi':
+        specifier: file:/work/cp949/runo/runo-reflected-ffi/packages/reflected-ffi
+        version: file:../runo-reflected-ffi/packages/reflected-ffi
     devDependencies:
       '@cp949/runo-pyodide-core':
         specifier: workspace:*
@@ -856,9 +856,6 @@ packages:
   '@vitest/spy@5.0.1':
     resolution: {integrity: sha512-rbto/mF/SGERxEgYOek7Xm6B9b+y+mVoo+f4b2LymYO8zM1b7uB5nHuhVMTP2hxdzgxvGiZYGxGIaMvL5y180Q==}
 
-  '@webreflection/utils@0.3.39':
-    resolution: {integrity: sha512-PnFiJBt7iIoWsTtIYVuRtTy8Q8aelKOKJixw5/A0+hxScIz/Uhpmr8nA4Qe6mGwgb9g8JoMXxUqLjeQAheDRxA==}
-
   '@xterm/addon-fit@0.11.0':
     resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
 
@@ -1554,9 +1551,6 @@ packages:
     resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
     engines: {node: '>=0.10.0'}
 
-  reflected-ffi@0.7.2:
-    resolution: {integrity: sha512-g9yPPQIGsMKPMM+vho+75E9bf2VoyLrR1R03ADd3sjwvoxkikty8M75/4Tt+0oX+o8gjK1SuOc4enWzNnUuO3Q==}
-
   require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
@@ -1841,9 +1835,6 @@ packages:
   w3c-xmlserializer@5.0.0:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
     engines: {node: '>=18'}
-
-  weak-id@0.2.2:
-    resolution: {integrity: sha512-x7O+5YKUZ6ti+nX0aNGTteK5xiDz+uDkJjpQW0ggj7kdIJB3qqh5quE9sn/sTjTMJgFNF6UVU+J2AkYOY8jn2A==}
 
   webidl-conversions@8.0.1:
     resolution: {integrity: sha512-BMhLD/Sw+GbJC21C/UgyaZX41nPt8bUTg+jWyDeg7e7YN4xOM05YPSIXceACnXVtqyEw/LMClUQMtMZ+PGGpqQ==}
@@ -2366,8 +2357,6 @@ snapshots:
       vite: 8.3.0(@types/node@26.6.2)
 
   '@vitest/spy@5.0.1': {}
-
-  '@webreflection/utils@0.3.39': {}
 
   '@xterm/addon-fit@0.11.0': {}
 
@@ -2932,10 +2921,6 @@ snapshots:
 
   react@19.3.0: {}
 
-  reflected-ffi@0.7.2:
-    dependencies:
-      weak-id: 0.2.2
-
   require-from-string@2.0.2: {}
 
   resolve-pkg-maps@1.0.0: {}
@@ -3149,10 +3134,6 @@ snapshots:
   w3c-xmlserializer@5.0.0:
     dependencies:
       xml-name-validator: 5.0.0
-
-  weak-id@0.2.2:
-    dependencies:
-      '@webreflection/utils': 0.3.39
 
   webidl-conversions@8.0.1: {}
 

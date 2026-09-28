@@ -2,8 +2,8 @@
  * `guardedWindow`: worker에서 본 main `window` 프록시를 한 겹 감싸 `parent`·`top`·`opener` 읽기를 명시 오류로 막는다.
  * 얕은 차단이다(`window.frames`·`document.defaultView.parent` 같은 우회는 막지 않는다). 보안 경계가 아니라 실수 방지다.
  */
-import createLocal from "reflected-ffi/local";
-import createRemote from "reflected-ffi/remote";
+import createLocal from "@cp949/runo-reflected-ffi/local";
+import createRemote from "@cp949/runo-reflected-ffi/remote";
 import { afterEach, describe, expect, test } from "vitest";
 import { guardedWindow } from "../src/guarded-window";
 

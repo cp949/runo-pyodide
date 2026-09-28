@@ -55,14 +55,14 @@ handle은 `ref`로 얻는다.
 
 handle 객체는 컴포넌트 수명 내내 같은 참조다(`useImperativeHandle`, 의존 `[]`에 해당하는 안정 객체). StrictMode의 mount → cleanup → mount에서도 `ref.current`가 바뀌지 않고, 내부의 "살아 있는 하위 핸들"만 교체된다. 살아 있는 핸들이 없는 구간(마운트 전, cleanup과 재마운트 사이, 언마운트 뒤)의 규칙:
 
-| 멤버                                                         | 핸들 없음                                                                                     |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `run(code)`·`runSource(code)`                                | `RunRejectedError("disposed")`로 reject                                                       |
-| `stop()`                                                     | `"idle"`로 resolve                                                                            |
-| `busy`                                                       | `false`                                                                                       |
+| 멤버                                                         | 핸들 없음                                                                                                                     |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `run(code)`·`runSource(code)`                                | `RunRejectedError("disposed")`로 reject                                                                                       |
+| `stop()`                                                     | `"idle"`로 resolve                                                                                                            |
+| `busy`                                                       | `false`                                                                                                                       |
 | `status`(`PythonRunner`)                                     | 마지막으로 통지된 값. 통지 전에는 `detectRuntimeSupport()`가 `"supported"`면 `"loading"`, 아니면 그 값(`14-runner.md` 14.3.1) |
-| `crossOriginIsolated`(`PythonRepl`)                          | `globalThis.crossOriginIsolated === true`. 살아 있는 REPL이 있으면 그것이 만들 때 정한 값     |
-| 그 밖(`reset`·`clear`·`setCopyOnSelect`·`focus`·`interrupt`) | no-op                                                                                         |
+| `crossOriginIsolated`(`PythonRepl`)                          | `globalThis.crossOriginIsolated === true`. 살아 있는 REPL이 있으면 그것이 만들 때 정한 값                                     |
+| 그 밖(`reset`·`clear`·`setCopyOnSelect`·`focus`·`interrupt`) | no-op                                                                                                                         |
 
 - 첫 상태 통지(`loading`·`not-isolated`·`unsupported`)는 하위 `create*`가 반환하기 전에 동기로 온다. 그때는 아직 핸들이 없어 `onStatus`의 **첫 통지 안에서** handle을 부르면 위 "핸들 없음" 규칙이 적용된다(예: 그 안의 `run()`은 core에서는 슬롯을 차지하지만 여기서는 `disposed` 거부). 두 번째 이후 통지는 비동기라 core 규칙 그대로다.
 - `busy`는 게터다. `const { busy } = usePythonRunner(...)`처럼 구조 분해하면 그 렌더 시점 값으로 굳는다. 이벤트 핸들러 안에서 `api.busy`로 읽고, 화면 표시는 `status`(`running`·`waiting-input`)를 쓴다.

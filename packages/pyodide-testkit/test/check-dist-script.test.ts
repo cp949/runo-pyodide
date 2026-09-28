@@ -244,7 +244,8 @@ describe("check-dist 스크립트: --allow-sync-bridge(dom-bridge 예외)", () =
   describe("@cp949/runo-coincident 지정자(coincident 4.1.1 → 포크 전환, 2026-09-28)", () => {
     test("허용 진입점(@cp949/runo-coincident/window/main·worker) import는 통과한다", () => {
       const dist = makeDist({
-        "index.mjs": 'import coincident from "@cp949/runo-coincident/window/main";\n',
+        "index.mjs":
+          'import coincident from "@cp949/runo-coincident/window/main";\n',
         "worker.mjs":
           'import "./bootstrap-observer-install.mjs";\nimport coincident from "@cp949/runo-coincident/window/worker";\n',
       });
@@ -318,6 +319,10 @@ describe("check-dist 스크립트: --allow-sync-bridge(dom-bridge 예외)", () =
     ["coincident", 'import c from "coincident";\n'],
     ["동적 import", 'const c = await import("coincident/sync");\n'],
     ["reflected-ffi", 'import r from "reflected-ffi/remote";\n'],
+    [
+      "@cp949/runo-reflected-ffi",
+      'import r from "@cp949/runo-reflected-ffi/remote";\n',
+    ],
   ])("허용 밖 진입점(%s)은 실패한다", (이름, 내용) => {
     const dist = makeDist({ "worker.mjs": 내용 });
 
