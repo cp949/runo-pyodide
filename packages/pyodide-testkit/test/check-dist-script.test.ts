@@ -241,6 +241,63 @@ describe("check-dist 스크립트: --allow-sync-bridge(dom-bridge 예외)", () =
     });
   });
 
+  describe("@cp949/runo-coincident 지정자(coincident 4.1.1 → 포크 전환, 2026-09-28)", () => {
+    test("허용 진입점(@cp949/runo-coincident/window/main·worker) import는 통과한다", () => {
+      const dist = makeDist({
+        "index.mjs": 'import coincident from "@cp949/runo-coincident/window/main";\n',
+        "worker.mjs":
+          'import "./bootstrap-observer-install.mjs";\nimport coincident from "@cp949/runo-coincident/window/worker";\n',
+      });
+
+      const { status, output } = runAllowSyncBridge(dist);
+
+      expect(status, output).toBe(0);
+    });
+
+    test("관찰기 import 순서 규칙이 새 지정자에도 적용된다(관찰기 import가 뒤에 있으면 실패)", () => {
+      const dist = makeDist({
+        "worker.mjs":
+          'import coincident from "@cp949/runo-coincident/window/worker";\nimport "./bootstrap-observer-install.mjs";\n',
+      });
+
+      const { status, output } = runAllowSyncBridge(dist);
+
+      expect(status).toBe(1);
+      expect(output).toContain(FAIL_MARK);
+      expect(output).toContain("뒤에 있다");
+    });
+
+    test("허용 밖 서브패스(@cp949/runo-coincident/sync 등)는 실패한다", () => {
+      for (const specifier of [
+        "@cp949/runo-coincident/sync",
+        "@cp949/runo-coincident/sw",
+        "@cp949/runo-coincident/server/main",
+        "@cp949/runo-coincident",
+      ]) {
+        const dist = makeDist({
+          "worker.mjs": `import bad from "${specifier}";\n`,
+        });
+
+        const { status, output } = runAllowSyncBridge(dist);
+
+        expect(status, specifier).toBe(1);
+        expect(output).toContain("CSP");
+      }
+    });
+
+    test("옵션 없이는 새 지정자도 실패한다(다른 패키지의 금지 보장은 약해지지 않는다)", () => {
+      const dist = makeDist({
+        "index.mjs":
+          'import coincident from "@cp949/runo-coincident/window/main";\n',
+      });
+
+      const { status, output } = run(dist);
+
+      expect(status).toBe(1);
+      expect(output).toContain(FAIL_MARK);
+    });
+  });
+
   test("옵션 없이는 같은 dist가 그대로 실패한다(다른 패키지의 금지 보장은 약해지지 않는다)", () => {
     const dist = makeDist({
       "index.mjs": 'import coincident from "coincident/window/main";\n',

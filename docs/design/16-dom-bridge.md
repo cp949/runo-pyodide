@@ -13,7 +13,7 @@
 | 플러그인 본체            | `src/dom-bridge-plugin.ts`                                       | `prepare`: 부트스트랩 수신 확인 → `bridge()` → `native` 확인 → `runo` 모듈 등록                                               |
 | 부트스트랩 관찰기        | `src/bootstrap-observer.ts`, `src/bootstrap-observer-install.ts` | coincident 부트스트랩 메시지 도착 기록(16.5). dist에서도 별도 진입점 파일이다                                                 |
 | guarded window           | `src/guarded-window.ts`                                          | `parent`·`top`·`opener` 접근을 막는 얕은 `window` 프록시(16.6)                                                                |
-| 타입                     | `src/coincident.d.ts`                                            | coincident의 필요한 부분만 선언한 자체 타입                                                                                   |
+| 타입                     | —                                                                 | `@cp949/runo-coincident/window/{main,worker}`가 자체 타입을 배포한다(2026-09-28, coincident 4.1.1 → 포크 전환). 이전엔 `src/coincident.d.ts`가 필요한 부분만 손으로 선언했다 |
 
 core는 `WorkerPlugin` 타입만 쓰고(런타임 import 0) `peerDependencies`(+`devDependencies`)다. 소비자가 core를 한 벌만 설치한다. `pyodide`는 core의 optional peer로 전이되므로 이 패키지는 `devDependencies`(시험)로만 둔다. tarball의 peer 범위는 `workspace:*`가 정확 버전(현재 `0.0.0`)으로 치환된다(버전 동기 전제).
 

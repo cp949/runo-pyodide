@@ -3,9 +3,10 @@
 // 런타임에 import하지 않는지(ADR-0007: worker는 CDN에서 불러오고 버전 값만 `pyodide/package.json`에서 인라인한다) 검사한다.
 // 사용: node scripts/check-dist.mjs [--allow-sync-bridge] <dist 폴더>...   (패키지 폴더에서는 `node ../../scripts/check-dist.mjs dist`)
 // `--allow-sync-bridge`는 dom-bridge(RD-023, ADR-0006) 전용이다. 코드 파일의 coincident 금지 문자열 검사를 끄는 대신 CSP 정적 규칙을 건다:
-// 코드 파일(`.mjs`·`.ts`·`.tsx` 등, 시험·소스맵 제외)의 coincident 모듈 지정자는 `coincident/window/main`·`coincident/window/worker`뿐이고
+// 코드 파일(`.mjs`·`.ts`·`.tsx` 등, 시험·소스맵 제외)의 coincident 모듈 지정자는 `coincident/window/main`·`coincident/window/worker`
+// 또는 포크 패키지 `@cp949/runo-coincident/window/main`·`@cp949/runo-coincident/window/worker`(2026-09-28, coincident 4.1.1 대체)뿐이고
 // (`reflected-ffi`를 직접 import하지 않는다), 주석을 뺀 코드에 `evaluate`·`serviceWorker`·`coincident/sync`·`window.import`가 없어야
-// 한다. 또 `coincident/window/worker`를 import하는 `.mjs`는 그보다 **앞서** `bootstrap-observer-install` 모듈(부트스트랩 관찰기 설치, 별도
+// 한다. 또 `.../window/worker`를 import하는 `.mjs`는 그보다 **앞서** `bootstrap-observer-install` 모듈(부트스트랩 관찰기 설치, 별도
 // 파일)을 import해야 한다: 관찰 리스너가 coincident의 부트스트랩 리스너보다 먼저 등록돼야 메시지를 본다(번들러가 외부 import를 위로 올리면
 // 순서가 뒤집힌다). 코드도 소스맵도 아닌 파일(`.html`·`.json` 등)은 이 옵션에서도 금지 문자열 검사를 받는다: CSP 규칙은 코드 문법만
 // 보므로 그런 파일을 건너뛰면 아무 검사도 받지 않는다. 다른 패키지는 이 옵션 없이 검사하므로 금지 보장이 그대로다. `pyodide` 런타임
@@ -18,11 +19,31 @@ import { join } from "node:path";
 const FORBIDDEN = ["coincident", "reflected-ffi"];
 const ALLOW_SYNC_BRIDGE_FLAG = "--allow-sync-bridge";
 
-/** CSP(`worker-src 'self'` 등)에서 위반을 내지 않는 coincident 진입점(canvas 저장소 실측 F23). 이 밖의 coincident 지정자는 위반이다. */
+/**
+ * CSP(`worker-src 'self'` 등)에서 위반을 내지 않는 coincident 진입점(canvas 저장소 실측 F23). 이 밖의 coincident 지정자는 위반이다.
+ * `@cp949/runo-coincident/*`는 coincident 4.1.1을 대체한 포크 패키지 이름이다(2026-09-28, `docs/adr/0008-*`). 옛 이름과 새 이름
+ * 둘 다 같은 규칙을 받는다 — 소비자가 어느 쪽을 쓰든(이 저장소는 새 이름만 쓴다) 같은 CSP 허용선을 강제한다.
+ */
 const CSP_ALLOWED_SPECIFIERS = new Set([
   "coincident/window/main",
   "coincident/window/worker",
+  "@cp949/runo-coincident/window/main",
+  "@cp949/runo-coincident/window/worker",
 ]);
+/** coincident 계열로 취급하는 패키지 이름(옛 이름·포크 이름). `findCspViolations`의 bridge 판정과 관찰기 순서 검사가 공유한다. */
+const COINCIDENT_PACKAGE_NAMES = ["coincident", "@cp949/runo-coincident"];
+/** `specifier`가 coincident 계열(옛 이름 또는 포크 이름) 지정자인가. */
+function isCoincidentSpecifier(specifier) {
+  return COINCIDENT_PACKAGE_NAMES.some(
+    (name) => specifier === name || specifier.startsWith(`${name}/`),
+  );
+}
+/** `specifier`가 coincident 계열의 `window/worker` 진입점(옛 이름 또는 포크 이름)인가. */
+function isCoincidentWorkerSpecifier(specifier) {
+  return COINCIDENT_PACKAGE_NAMES.some(
+    (name) => specifier === `${name}/window/worker`,
+  );
+}
 /**
  * CSP 규칙을 적용하는 코드 파일(`.d.mts`·`.d.ts`·`.tsx`·`.jsx` 포함). 소스맵(`.map`)은 원문 주석을 담으므로 대상이 아니다(실행되지
  * 않는다). 이 밖의 파일(소스맵 제외)은 허용 모드에서도 금지 문자열 검사를 받는다.
@@ -89,10 +110,7 @@ function firstSpecifierIndex(code, match) {
  */
 function findObserverOrderViolation(text) {
   const code = stripComments(text);
-  const coincident = firstSpecifierIndex(
-    code,
-    (specifier) => specifier === "coincident/window/worker",
-  );
+  const coincident = firstSpecifierIndex(code, isCoincidentWorkerSpecifier);
   if (coincident < 0) return null;
   const observer = firstSpecifierIndex(code, (specifier) =>
     OBSERVER_SPECIFIER.test(specifier),
@@ -112,8 +130,7 @@ function findCspViolations(text) {
     for (const match of code.matchAll(pattern)) {
       const specifier = match[1];
       const bridge =
-        specifier === "coincident" ||
-        specifier.startsWith("coincident/") ||
+        isCoincidentSpecifier(specifier) ||
         specifier === "reflected-ffi" ||
         specifier.startsWith("reflected-ffi/");
       if (bridge && !CSP_ALLOWED_SPECIFIERS.has(specifier))
