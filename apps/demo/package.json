@@ -50,8 +50,8 @@
   "dependencies": {
     "@cp949/runo-pyodide-core": "workspace:*",
     "@cp949/runo-pyodide-dom-bridge": "workspace:*",
-    "@cp949/runo-pyodide-repl-react": "workspace:*",
     "@cp949/runo-pyodide-repl": "workspace:*",
+    "@cp949/runo-pyodide-repl-react": "workspace:*",
     "@cp949/runo-pyodide-terminal": "workspace:*",
     "@xterm/xterm": "6.0.0",
     "react": "19.3.0",
@@ -66,7 +66,7 @@
     "eslint": "10.11.0",
     "playwright": "1.63.0",
     "typescript": "6.0.3",
-    "vite": "8.3.0",
-    "vitest": "5.0.1"
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
   }
 }
