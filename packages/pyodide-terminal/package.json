@@ -52,7 +52,7 @@
     "dev": "tsdown --watch",
     "lint": "eslint --max-warnings 0",
     "check-types": "tsc --noEmit",
-    "check-dist": "node ../../scripts/check-dist.mjs dist",
+    "check-dist": "node ../../scripts/check-dist.mjs dist && node ../../scripts/check-escompat.mjs dist",
     "test": "vitest run"
   },
   "dependencies": {

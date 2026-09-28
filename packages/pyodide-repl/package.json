@@ -47,7 +47,7 @@
     "dev": "tsdown --watch",
     "lint": "eslint --max-warnings 0",
     "check-types": "tsc --noEmit",
-    "check-dist": "node ../../scripts/check-dist.mjs dist",
+    "check-dist": "node ../../scripts/check-dist.mjs dist && node ../../scripts/check-escompat.mjs dist",
     "test": "vitest run",
     "test:fast": "vitest run --exclude 'test/worker/**' --exclude 'test/terminal/auto-indent-parity.test.ts' --exclude 'test/terminal/sinks-pyodide.test.ts'"
   },
