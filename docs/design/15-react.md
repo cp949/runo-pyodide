@@ -31,7 +31,7 @@ props 타입은 하위 옵션 타입에서 `Omit`으로 유도해 어긋남을 �
 | `copyOnSelect`      | 선택, 기본 `true`(`=== false`만 끔)                 | 같음              | **반응형**: 바뀌면 `setCopyOnSelect` 호출, 재마운트 없음                                      |
 | `onCopy`            | 선택                                                | 선택              | latest-ref                                                                                    |
 | `inputProvider`     | 선택(15.4)                                          | 없음              | 함수 값은 latest-ref, "있음/없음"은 마운트 때                                                 |
-| `onStatus`          | `RunnerStatus`(8종)                                 | `ReplStatus`(6종) | latest-ref. 두 유니온을 섞지 않는다(타입 시험)                                                |
+| `onStatus`          | `RunnerStatus`(9종, `14-runner.md` 14.3.1)          | `ReplStatus`(7종) | latest-ref. 두 유니온을 섞지 않는다(타입 시험)                                                |
 | `onOutput`          | 선택                                                | 없음              | latest-ref                                                                                    |
 | `onCrash`           | 선택                                                | 선택              | latest-ref                                                                                    |
 | `terminalOptions`   | xterm `ITerminalOptions & ITerminalInitOnlyOptions` | 같음              | 마운트 때만, 병합 없음(15.9)                                                                  |
@@ -60,11 +60,11 @@ handle 객체는 컴포넌트 수명 내내 같은 참조다(`useImperativeHandl
 | `run(code)`·`runSource(code)`                                | `RunRejectedError("disposed")`로 reject                                                       |
 | `stop()`                                                     | `"idle"`로 resolve                                                                            |
 | `busy`                                                       | `false`                                                                                       |
-| `status`(`PythonRunner`)                                     | 마지막으로 통지된 값. 통지 전에는 `crossOriginIsolated === true ? "loading" : "not-isolated"` |
+| `status`(`PythonRunner`)                                     | 마지막으로 통지된 값. 통지 전에는 `detectRuntimeSupport()`가 `"supported"`면 `"loading"`, 아니면 그 값(`14-runner.md` 14.3.1) |
 | `crossOriginIsolated`(`PythonRepl`)                          | `globalThis.crossOriginIsolated === true`. 살아 있는 REPL이 있으면 그것이 만들 때 정한 값     |
 | 그 밖(`reset`·`clear`·`setCopyOnSelect`·`focus`·`interrupt`) | no-op                                                                                         |
 
-- 첫 상태 통지(`loading`·`not-isolated`)는 하위 `create*`가 반환하기 전에 동기로 온다. 그때는 아직 핸들이 없어 `onStatus`의 **첫 통지 안에서** handle을 부르면 위 "핸들 없음" 규칙이 적용된다(예: 그 안의 `run()`은 core에서는 슬롯을 차지하지만 여기서는 `disposed` 거부). 두 번째 이후 통지는 비동기라 core 규칙 그대로다.
+- 첫 상태 통지(`loading`·`not-isolated`·`unsupported`)는 하위 `create*`가 반환하기 전에 동기로 온다. 그때는 아직 핸들이 없어 `onStatus`의 **첫 통지 안에서** handle을 부르면 위 "핸들 없음" 규칙이 적용된다(예: 그 안의 `run()`은 core에서는 슬롯을 차지하지만 여기서는 `disposed` 거부). 두 번째 이후 통지는 비동기라 core 규칙 그대로다.
 - `busy`는 게터다. `const { busy } = usePythonRunner(...)`처럼 구조 분해하면 그 렌더 시점 값으로 굳는다. 이벤트 핸들러 안에서 `api.busy`로 읽고, 화면 표시는 `status`(`running`·`waiting-input`)를 쓴다.
 - 콜백 래퍼는 동기 재진입을 그대로 통과시킨다: 안에서 상태를 가두지 않고 호출만 전달하므로 `onStatus` 콜백 안의 `reset()`·`dispose()`는 하위 핸들과 같은 규칙이다(`docs/traps/TRP-051`).
 - 하위 핸들이 이미 dispose됐으면 위임 결과가 위 표와 같다(dispose된 core 핸들은 inert, 14.3.4). 그래서 cleanup에서 참조를 비우는 것과 결과는 같지만 GC 시점만 다르다.
@@ -117,7 +117,11 @@ const { status, run, stop, reset, interrupt, busy } = usePythonRunner({
 
 - React 상태는 `status`뿐이다. `run`·`stop`·`reset`·`interrupt`는 컴포넌트 수명 내내 같은 참조이고 살아 있는 `createRunner` 핸들로 위임한다(15.3의 핸들 없음 규칙: `interrupt`는 핸들이 없으면 `"ignored"`를 돌려준다). `interrupt(): InterruptResult`(core `interrupt()`의 반환값을 그대로 돌려준다, 규칙: `14-runner.md` 14.3.3). `busy`는 게터다.
 - `onOutput`·`inputProvider`는 호출자가 채운다(xterm이 없다). `<PythonRunner>`는 이 hook을 쓰지 않고 terminal 실행창을 쓴다. 수명·latest-ref 로직은 내부 공용 hook(`use-lifecycle.ts`) 하나를 둘이 공유한다.
-- 초기 `status`는 일반 렌더에서 `crossOriginIsolated === true ? "loading" : "not-isolated"`(첫 렌더 값)이고 이후 `onStatus` 통지마다 갱신한다. 서버 렌더와 하이드레이션 첫 렌더는 `"loading"`이다(`useSyncExternalStore`의 서버 스냅샷, `use-lifecycle.ts` `useInitialRunnerStatus`). 서버에는 `crossOriginIsolated`가 없어 격리된 클라이언트의 첫 렌더와 달라지는 하이드레이션 불일치를 막는다. 비격리 클라이언트는 하이드레이션 뒤 마운트 effect의 첫 통지로 `not-isolated`가 된다.
+- 초기 `status`는 일반 렌더에서 `detectRuntimeSupport()`가 `"supported"`면 `"loading"`, 아니면 그 값(첫 렌더 값, 판정 규칙
+  `14-runner.md` 14.3.1)이고 이후 `onStatus` 통지마다 갱신한다. 서버 렌더와 하이드레이션 첫 렌더는 `"loading"`이다
+  (`useSyncExternalStore`의 서버 스냅샷, `use-lifecycle.ts` `useInitialRunnerStatus`). 서버에는 `crossOriginIsolated`가
+  없어 지원 클라이언트의 첫 렌더와 달라지는 하이드레이션 불일치를 막는다. 비격리·미지원 클라이언트는 하이드레이션 뒤
+  마운트 effect의 첫 통지로 `not-isolated`·`unsupported`가 된다.
 
 ## 15.8 사용과 소비자 요구
 
@@ -155,7 +159,9 @@ function App() {
 }
 ```
 
-- 페이지가 cross-origin isolated여야 한다(COOP/COEP, dev·preview·배포 모두, ADR-0004). 아니면 worker를 만들지 않고 상태 `not-isolated`다.
+- 페이지가 cross-origin isolated여야 한다(COOP/COEP, dev·preview·배포 모두, ADR-0004). 아니면 worker를 만들지 않고 상태
+  `not-isolated`다. 브라우저가 pyodide 런타임 wasm 기능을 지원하지 않아도(빌드 floor 미만, design.md D4) worker를 만들지
+  않고 `unsupported`다(판정 순서: `14-runner.md` 14.3.1).
 - worker 파일은 앱이 만든다(`createWorker`가 마운트 때 함수를 그대로 쓴다). worker 번들러 형식은 `'es'`여야 한다(Vite `worker.format`).
 - `@xterm/xterm`(`^6.0.0`)·`react`·`react-dom`(`^19.0.0`)은 소비자가 설치한다(peer). `xterm.css`는 소비자가 import한다. worker 파일이 `@cp949/runo-pyodide-core/worker`를 import하면 그 타입 때문에 소비자가 `pyodide` 타입(+`@types/node`·`@types/emscripten`)을 설치해야 한다(`packages/pyodide-core/README.md`). react·core·terminal·repl의 `.` 진입점 `.d.mts`에는 `pyodide` import가 없다(`grep`으로 확인. `pyodide`를 뺀 소비자의 `tsc`는 실행하지 않았다: `pnpm smoke:pack` 소비자는 `pyodide`를 설치한다).
 - `fit`이 켜졌으면 컨테이너에 크기를 준다(위 예의 `style`). 높이가 0이거나 `display: none`이면 `fit()`을 건너뛴다.

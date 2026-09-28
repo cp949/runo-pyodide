@@ -7,7 +7,7 @@
 | 층                 | 위치                                                                    | 역할                                                                                                                                                                                         |
 | ------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | worker 실행 driver | core `./worker`의 `runDriver`(`worker/run-driver.ts` + `run-driver.py`) | RPC `runCode(source)`를 받아 새 globals에서 실행하고 결말(`RunOutcome`)을 돌려준다                                                                                                           |
-| main 실행 핸들     | core `.`의 `createRunner`(`session/runner.ts`)                          | worker 생성·재생성, interrupt buffer·송신기, core 세션, 상태 8종, `run`·`stop`·`interrupt`·`reset`·`dispose`, `InputProvider` 호출                                                           |
+| main 실행 핸들     | core `.`의 `createRunner`(`session/runner.ts`)                          | worker 생성·재생성, interrupt buffer·송신기, core 세션, 상태 9종(14.3.1), `run`·`stop`·`interrupt`·`reset`·`dispose`, `InputProvider` 호출                                                           |
 | xterm 실행창       | terminal `.`의 `createTerminalRunner`(`src/terminal-runner.ts`)         | `createRunner`를 호출자 소유 `Terminal`에 붙인다: sink 출력, `input()` 한 줄 읽기, Ctrl+C, 선택 복사                                                                                         |
 | 데모               | `apps/demo`의 `?view=runner`(`RunnerView.tsx`, `runner.worker.ts`)      | plain 요소로 실행창 조작·결과를 노출한다(14.6). RD-024부터 `RunnerView`는 `createTerminalRunner`를 직접 부르지 않고 `<PythonRunner>`(`@cp949/runo-pyodide-repl-react`, `15-react.md`)를 쓴다 |
 
@@ -88,24 +88,38 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
 
 ## 14.3 `createRunner`(core main)
 
-옵션: `createWorker`(필수, worker를 만들 때마다 부른다), `onOutput`(필수), `pyodide?: { indexURL? }`, `filename?`, `topLevelAwait?`, `inputProvider?`, `onStatus?`, `onCrash?`, `onLoadFailed?`, `onRunAccepted?`. 핸들: `run(code)`·`stop()`·`interrupt()`·`reset()`·`dispose()`·`status`·`busy`. `busy`는 지금 `run()`을 부르면 `busy`로 거부되는가다(run이 실행 슬롯을 차지함 — 로딩·재시작 대기 포함 — 또는 `waiting-input`). `status`만으로는 대기 run의 슬롯 점유를 알 수 없다. 옵션 검증 오류(14.2.3)는 worker·버퍼를 만들기 전에 동기로 던진다. 첫 상태(`loading` 또는 `not-isolated`)는 `createRunner`가 반환하기 전에 `onStatus`로 동기 통지한다. `onLoadFailed(message)`는 `onStatus("load-failed")` 앞에 온다(core는 로드 실패 사유를 훅으로만 알린다). `onCrash(message)`는 `crashed` 다음에 부른다. `onRunAccepted()`는 `run()`이 코드를 받아들인 순간(거부 아님) 그 호출 안에서 동기로 한 번, 슬롯을 차지한 뒤·`runCode` 전송 앞에서 부른다(인자 없음, `loading`·`restarting`에서 수락돼도 즉시 부르고 `ready`에서 실행이 시작될 때는 다시 부르지 않는다).
+옵션: `createWorker`(필수, worker를 만들 때마다 부른다), `onOutput`(필수), `pyodide?: { indexURL? }`, `filename?`, `topLevelAwait?`, `inputProvider?`, `onStatus?`, `onCrash?`, `onLoadFailed?`, `onRunAccepted?`. 핸들: `run(code)`·`stop()`·`interrupt()`·`reset()`·`dispose()`·`status`·`busy`. `busy`는 지금 `run()`을 부르면 `busy`로 거부되는가다(run이 실행 슬롯을 차지함 — 로딩·재시작 대기 포함 — 또는 `waiting-input`). `status`만으로는 대기 run의 슬롯 점유를 알 수 없다. 옵션 검증 오류(14.2.3)는 worker·버퍼를 만들기 전에 동기로 던진다. 첫 상태(`loading`·`not-isolated`·`unsupported`, 14.3.1)는 `createRunner`가 반환하기 전에 `onStatus`로 동기 통지한다. `onLoadFailed(message)`는 `onStatus("load-failed")` 앞에 온다(core는 로드 실패 사유를 훅으로만 알린다). `onCrash(message)`는 `crashed` 다음에 부른다. `onRunAccepted()`는 `run()`이 코드를 받아들인 순간(거부 아님) 그 호출 안에서 동기로 한 번, 슬롯을 차지한 뒤·`runCode` 전송 앞에서 부른다(인자 없음, `loading`·`restarting`에서 수락돼도 즉시 부르고 `ready`에서 실행이 시작될 때는 다시 부르지 않는다).
 
-### 14.3.1 상태 8종
+### 14.3.1 상태 9종
 
 | 상태            | 들어가는 때                                                                                                 | 나가는 때                                                                                                               |
 | --------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `loading`       | 격리된 페이지에서 첫 worker를 만든 직후                                                                     | `ready`(`ready` 알림), `load-failed`, `crashed`                                                                         |
+| `loading`       | 지원 페이지(`detectRuntimeSupport() === "supported"`)에서 첫 worker를 만든 직후                             | `ready`(`ready` 알림), `load-failed`, `crashed`                                                                         |
 | `ready`         | worker `ready`, 실행 종료, run 없는 입력 읽기 종료                                                          | `running`(run 전송), `restarting`, `crashed`                                                                            |
 | `running`       | `runCode` 전송                                                                                              | `ready`(결말), `waiting-input`, `restarting`, `crashed`                                                                 |
 | `waiting-input` | worker가 `input()`·`sys.stdin` 읽기로 메일박스에서 정지(`readInput` 알림)                                   | `running`(응답·취소 뒤, run 있음) 또는 `ready`(run 없음), `restarting`, `crashed`                                       |
 | `restarting`    | `reset()` 또는 `stop()` 폴백이 worker를 교체(새 worker를 만든 뒤 통지. 생성이 던지면 거치지 않고 `crashed`) | `ready`, `load-failed`, `crashed`                                                                                       |
 | `load-failed`   | pyodide 로드 실패(worker는 살아 있다)                                                                       | `reset()`                                                                                                               |
 | `crashed`       | worker `error` 이벤트·`crashed` 알림, 재생성 중 `createWorker` 예외                                         | `reset()`(크래시 뒤 도착한 입력 읽기는 core의 D1(`08-session.md` 8.1)이 버려 공급자를 부르지 않고 상태가 바뀌지 않는다) |
-| `not-isolated`  | `crossOriginIsolated !== true`(worker를 만들지 않는다)                                                      | 없음(`reset()`도 no-op)                                                                                                 |
+| `not-isolated`  | `detectRuntimeSupport() === "not-isolated"`(worker를 만들지 않는다)                                         | 없음(`reset()`도 no-op)                                                                                                 |
+| `unsupported`   | `detectRuntimeSupport() === "unsupported"`(worker를 만들지 않는다)                                          | 없음(`reset()`도 no-op)                                                                                                 |
 
 - `waiting-input`은 run 없이도 나타난다: `run()`이 끝난 뒤 남은 asyncio task가 `input()`을 부르면 worker가 메일박스에 정지한다. 이때 provider가 그대로 불리고, 새 `run()`은 `busy`, `stop()`은 그 읽기만 취소하고 `"idle"`, `interrupt()`도 읽기를 취소하며, 읽기가 끝나면 `ready`로 돌아온다(복구는 `reset()`이기도 하다).
 - 로딩·재시작 대기 중이던 `run()`이 `ready`에서 시작되면 `ready` → `running` 두 상태를 차례로 통지한다. `onStatus("ready")` 콜백이 `reset()`을 부르면 대기 run은 옛 세션으로 보내지 않고 새 worker의 `ready`까지 기다린다.
-- REPL의 `ReplStatus`(6종)와 달리 `terminated`가 없다(`runDriver`가 `sessionTerminated`를 보내지 않고 `exit`는 결과 값이다). `running`·`waiting-input`·`restarting`이 더해졌다.
+- REPL의 `ReplStatus`(7종: 이 표의 `running`·`waiting-input`·`restarting` 없이 `terminated`가 있다)와 이 상태 이름을 공유한다 —
+  `runDriver`가 `sessionTerminated`를 보내지 않고 `exit`는 결과 값이라 REPL에는 `terminated`가 따로 있다.
+
+#### `detectRuntimeSupport()`: `not-isolated`·`unsupported` 판정 규칙(design.md D4, 이 규칙의 유일한 정의 절)
+
+core `.`가 내보내는 `detectRuntimeSupport(): "supported" | "unsupported" | "not-isolated"`(`packages/pyodide-core/src/runtime-support.ts`)가 이 두 상태를 정한다. `createRunner`·`createRepl`·`createTerminalRunner`·dom-bridge `isDomBridgeSupported()`가 모두 이 함수 하나로 판정한다(다른 곳에서 `crossOriginIsolated`나 wasm 기능을 직접 재판정하지 않는다).
+
+1. `typeof WebAssembly !== "object"` 또는 `!WebAssembly.validate(WASM_RUNTIME_PROBE)`(reference types + legacy Wasm 예외 처리를 한 번에 보는 29바이트 최소 모듈) → `unsupported`. **wasm 판정이 격리 판정보다 먼저다** — 빌드 floor Chrome 84는 `crossOriginIsolated` 속성 자체가 없어(87+에 생긴다) 순서를 바꾸면 "헤더를 고치라"는 틀린 안내가 된다. Chrome 92~95는 격리돼도 wasm이 컴파일되지 않는 구간이라 먼저 걸러야 한다.
+2. `globalThis.crossOriginIsolated !== true` → `not-isolated`.
+3. 그 밖 → `supported`.
+
+wasm 판정 결과(엔진 능력, 프로세스 수명 동안 불변)만 모듈 스코프에서 캐시한다. `crossOriginIsolated`는 매번 새로 읽는다(속성 접근이라 캐시할 비용이 없고, 캐시하면 이 저장소 전역의 시험 패턴 — `vi.stubGlobal("crossOriginIsolated", ...)`로 시험마다 격리 여부를 바꾸는 것 — 이 모듈 스코프 캐시에 막힌다, 2026-09-28 DELTA-05 실측). 예외를 던지지 않는다(내부에서 잡아 `unsupported`로 본다).
+
+`ReplHandle.crossOriginIsolated`(`02-console-core.md` 5절)는 이 판정과 별개로 `globalThis.crossOriginIsolated`를 그대로 읽는다 — 의미가 "격리 여부"이지 "실행 가능 여부"가 아니기 때문이다.
 
 ### 14.3.2 `run(code)`와 결과
 
@@ -116,7 +130,7 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `code`가 문자열이 아님                                                      | `TypeError`로 reject                                                                             |
 | `dispose()` 뒤                                                              | `RunRejectedError("disposed")`                                                                   |
-| 상태 `not-isolated`·`load-failed`·`crashed`                                 | `RunRejectedError("unavailable")`                                                                |
+| 상태 `not-isolated`·`unsupported`·`load-failed`·`crashed`                   | `RunRejectedError("unavailable")`                                                                |
 | 이미 실행 슬롯을 차지한 run이 있음(대기 중 포함), 또는 상태 `waiting-input` | `RunRejectedError("busy")`                                                                       |
 | 상태 `loading`·`restarting`                                                 | 대기(슬롯 점유). `ready`가 되면 실행한다                                                         |
 | 대기 중 `stop()`                                                            | 대기 취소, `RunRejectedError("unavailable")`, `stop()`은 `"idle"`                                |
@@ -155,7 +169,7 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
 
 ### 14.3.4 `reset()`·`dispose()`·크래시
 
-- `reset()`은 옛 세션을 끝내고(열린 읽기 버림, 송신기 취소, RPC dispose, worker `terminate()`) 새 세션을 시작한다(`restarting`). 변수·import가 모두 초기화된다. `crashed`·`load-failed`에서도 복구한다. `dispose()` 뒤·`not-isolated`에서는 no-op. `stop()` 폴백도 같은 교체 경로다.
+- `reset()`은 옛 세션을 끝내고(열린 읽기 버림, 송신기 취소, RPC dispose, worker `terminate()`) 새 세션을 시작한다(`restarting`). 변수·import가 모두 초기화된다. `crashed`·`load-failed`에서도 복구한다. `dispose()` 뒤·`not-isolated`·`unsupported`에서는 no-op. `stop()` 폴백도 같은 교체 경로다.
 - `dispose()`는 worker·RPC를 정리하고 실행·대기 중 run을 `RunRejectedError("disposed")`로 끝낸다. 두 번 불러도 안전하다. `dispose()` 뒤에는 `onStatus`·`onOutput`·`onCrash`를 부르지 않고 `status`도 바뀌지 않는다(열린 읽기를 버린 뒤의 재개 알림 포함).
 - 크래시: worker `error` 이벤트나 `crashed` 알림이 오면 열린 읽기를 버리고(판정 규칙은 `08-session.md` 8.1 D1~D5) 상태 `crashed` → 실행·대기 중 run은 `RunRejectedError("crashed")`. 크래시 뒤 새 `run()`은 `unavailable`이다. 자동 재생성은 없고 복구는 `reset()`이다(REPL `08-session.md`와 같다). 재생성 중 `createWorker`가 던져도 `crashed`가 된다(첫 생성이 던지면 `createRunner`가 던진다).
 
@@ -252,7 +266,7 @@ provider가 구분하지 못하므로 `reset()`·크래시 뒤에도 줄바꿈�
   더 이상 보지 않는다(xterm의 비동기 파싱 때문에 같은 태스크에서는 낡을 수 있다, `design.md` F3). 실제 xterm이 이미 파싱을
   마친 대부분의 상황에서는 바이트가 커서 기준과 같다(`design.md` §5 B2). 이전 run이 `print("a", end="")`로 끝났어도 새 실행은
   새 줄에서 시작한다.
-- 거부될 `run()`은 화면을 건드리지 않는다: 실행 중인 프로그램의 출력 한가운데서 화면이 지워지면 안 된다. core가 `run()`을 받아들인 순간을 `onRunAccepted`로 알리고(14.3) 실행창은 그 콜백에서만 화면을 준비한다. 실행창은 거부 조건(`disposed`·비문자열·`not-isolated`·`load-failed`·`crashed`·`busy`)을 다시 판정하지 않는다. `reset()` 직후 같은 틱의 `run()`과 대기 run이 있는 `onStatus("ready")` 콜백 안의 `run()`도 별도 예외 없이 core의 수락 판정을 따른다. 결과 Promise 정착 뒤 풀리는 플래그로 거부를 예측하면 이 두 경우에서 낡는다(`docs/traps/TRP-047`).
+- 거부될 `run()`은 화면을 건드리지 않는다: 실행 중인 프로그램의 출력 한가운데서 화면이 지워지면 안 된다. core가 `run()`을 받아들인 순간을 `onRunAccepted`로 알리고(14.3) 실행창은 그 콜백에서만 화면을 준비한다. 실행창은 거부 조건(`disposed`·비문자열·`not-isolated`·`unsupported`·`load-failed`·`crashed`·`busy`)을 다시 판정하지 않는다. `reset()` 직후 같은 틱의 `run()`과 대기 run이 있는 `onStatus("ready")` 콜백 안의 `run()`도 별도 예외 없이 core의 수락 판정을 따른다. 결과 Promise 정착 뒤 풀리는 플래그로 거부를 예측하면 이 두 경우에서 낡는다(`docs/traps/TRP-047`).
 - `clear()`: 화면과 스크롤백을 지우고 꼬리를 리셋한다. 입력 읽기가 열려 있는 동안과 `dispose()` 뒤에는 무동작이다(활성 읽기의 앵커 행이 어긋나 입력줄이 사라진다. 벤더 Ctrl+L은 읽기 상태를 다시 잡지만 공개 API가 아니다). 사용자가 입력 대기 중 Clear를 눌러도 반응이 없다.
 - `reset()`은 화면에 아무것도 내지 않는다(REPL의 `RESET_NOTICE`가 없다). 앱이 `onStatus("restarting")`으로 표시한다.
 
@@ -264,9 +278,13 @@ provider가 구분하지 못하므로 `reset()`·크래시 뒤에도 줄바꿈�
 소비자가 소유한다. `Terminal`은 dispose하지 않는다. 두 번 불러도 안전하다. `promptRow`에는 dispose 뒤 write 콜백을 전달하지
 않는 터미널 뷰(`io.terminal`)를 준다(xterm은 `term.dispose()` 뒤에도 write 콜백을 돌린다, `docs/traps/TRP-004`).
 
-### 14.5.6 비격리
+### 14.5.6 비격리·미지원
 
-`crossOriginIsolated !== true`이면 worker를 만들지 않고 노란 안내 한 줄(`경고: cross-origin isolation이 꺼져 있어 Python 세션을 시작하지 않습니다. 서버가 COOP/COEP 헤더를 보내야 합니다.`, REPL `NOT_ISOLATED_WARNING`과 같은 문구, ADR-0004)을 쓰고 상태 `not-isolated`가 된다. `run()`은 `RunRejectedError("unavailable")`이고 화면·상태는 그대로다. 문구 상수는 terminal 안에 복제돼 있다(repl이 terminal에 의존하고 반대 방향 의존은 경계 시험이 막는다).
+`detectRuntimeSupport()`(판정 규칙은 14.3.1)가 `"not-isolated"`·`"unsupported"`면 worker를 만들지 않고 노란 안내 한 줄을 쓴다 —
+`not-isolated`는 `경고: cross-origin isolation이 꺼져 있어...`(REPL `NOT_ISOLATED_WARNING`과 같은 문구, ADR-0004),
+`unsupported`는 `경고: 이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아...`(REPL `UNSUPPORTED_BROWSER_WARNING`과 같은
+문구, design.md D4) — 그 상태가 된다. `run()`은 `RunRejectedError("unavailable")`이고 화면·상태는 그대로다. 두 문구 상수 모두
+terminal 안에 복제돼 있다(repl이 terminal에 의존하고 반대 방향 의존은 경계 시험이 막는다).
 
 ## 14.6 데모와 검증
 

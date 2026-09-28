@@ -1,3 +1,4 @@
+import { detectRuntimeSupport } from "@cp949/runo-pyodide-core";
 import { PythonRepl, RunRejectedError } from "@cp949/runo-pyodide-repl-react";
 import type {
   CopyResult,
@@ -8,8 +9,8 @@ import "@xterm/xterm/css/xterm.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createWorker } from "./create-worker";
 
-/** `globalThis.crossOriginIsolated`가 거짓이면 세션이 없어 리셋 버튼도 못 쓴다(RD-010 확정 8). */
-const isolated = globalThis.crossOriginIsolated === true;
+/** 세션이 없으면(비격리·런타임 미지원) 리셋 버튼도 못 쓴다(RD-010 확정 8, design.md D4). */
+const supported = detectRuntimeSupport() === "supported";
 
 /** 드래그 자동 복사 on/off를 저장하는 localStorage 키(RD-017 확정 6). */
 const COPY_ON_SELECT_KEY = "runo-repl.copyOnSelect";
@@ -125,7 +126,7 @@ export function ReplView({
       <button
         type="button"
         data-testid="reset"
-        disabled={!isolated}
+        disabled={!supported}
         onClick={() => replRef.current?.reset()}
       >
         세션 리셋
@@ -135,7 +136,7 @@ export function ReplView({
           type="checkbox"
           data-testid="top-level-await"
           checked={topLevelAwait}
-          disabled={!isolated}
+          disabled={!supported}
           onChange={(e) => {
             const on = e.target.checked;
             setTopLevelAwait(on);

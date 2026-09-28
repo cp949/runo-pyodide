@@ -2,6 +2,7 @@ import type { Terminal } from "@xterm/xterm";
 import {
   callConsumer,
   DEFAULT_PYODIDE_INDEX_URL,
+  detectRuntimeSupport,
   RunRejectedError,
   type RunRejectedReason,
   type RunResult,
@@ -32,19 +33,28 @@ export { DEFAULT_PYODIDE_INDEX_URL };
 export const NOT_ISOLATED_WARNING =
   "경고: cross-origin isolation이 꺼져 있어 Python 세션을 시작하지 않습니다. 서버가 COOP/COEP 헤더를 보내야 합니다.";
 
+/**
+ * 브라우저가 pyodide 런타임의 wasm 기능을 지원하지 않는 페이지에서 세션을 시작하지 않는 이유를 알리는 터미널 안내
+ * 문구(design.md D4). 런타임 floor 값을 하드코딩하지 않고 README 호환 절을 가리킨다.
+ */
+export const UNSUPPORTED_BROWSER_WARNING =
+  "경고: 이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아 Python 세션을 시작하지 않습니다. 브라우저 호환(README) 절을 확인하세요.";
+
 /** `reset()`이 옛 세션 뒤에 남기는 안내 줄(청록, `08-session.md`). */
 export const RESET_NOTICE =
   "[세션 리셋됨 — 이전 변수/import가 모두 초기화되었습니다]";
 
 /**
  * 세션의 생애를 앱에 알리는 값. RD-004는 `loading`·`ready`·`load-failed`·`not-isolated`를 발행하고, RD-005부터
- * `terminated`(`exit()`)를 발행한다. `crashed`는 RD-010이 발행한다.
+ * `terminated`(`exit()`)를 발행한다. `crashed`는 RD-010이 발행한다. `unsupported`는 design.md D4(브라우저가 pyodide
+ * 런타임 wasm 기능을 지원하지 않음, 판정 순서는 `detectRuntimeSupport()`).
  */
 export type ReplStatus =
   | "loading"
   | "ready"
   | "load-failed"
   | "not-isolated"
+  | "unsupported"
   | "terminated"
   | "crashed";
 
@@ -80,14 +90,14 @@ export interface ReplHandle {
   dispose(): void;
   /**
    * 화면·history를 유지한 채 worker를 새로 만든다(변수·import는 사라진다). 청록 안내 줄(`RESET_NOTICE`) 뒤 새 배너가
-   * 뜬다. `dispose()` 뒤·`!isolated`면 no-op. 그 외 상태(`ready`·`terminated`·`crashed`·`load-failed`·`loading`)는
+   * 뜬다. `dispose()` 뒤·`not-isolated`·`unsupported`면 no-op. 그 외 상태(`ready`·`terminated`·`crashed`·`load-failed`·`loading`)는
    * 전부 허용한다. 동기이며 안에서 `loading`을 동기로 발행하고 이후 새 worker의 `ready`/`load-failed`가 재발행한다.
    * `topLevelAwait`가 boolean이면 그 값으로 바꾸고, 생략·`undefined`면 마지막으로 적용한 값을 유지한다(RD-012).
    * 확인 대화상자·디바운스 없음. 새 worker 생성(`createWorker`)이 던지면 던지지 않고 `loading` 대신 `crashed` → `onCrash`로
    * 넘긴다(`createRunner.reset()`과 같다). 복구는 다시 `reset()`이다 — `onCrash` 안에서 동기로 부르면 생성이 계속 실패할 때 재귀한다.
    */
   reset(options?: { topLevelAwait?: boolean }): void;
-  /** `globalThis.crossOriginIsolated === true`. 거짓이면 worker가 없다. */
+  /** `globalThis.crossOriginIsolated === true`. 거짓이면 worker가 없다(참이어도 `detectRuntimeSupport()`가 `unsupported`면 마찬가지다). */
   readonly crossOriginIsolated: boolean;
   /** 드래그 자동 복사 on/off를 바꾼다. 리셋 없음(`reset()`과 무관). `dispose()` 뒤 no-op(RD-017). */
   setCopyOnSelect(on: boolean): void;
@@ -97,7 +107,7 @@ export interface ReplHandle {
    * history에 남기지 않는다. 결과 유니온은 `createRunner`와 같다(`ok`·`error`·`interrupted`·`exit`·`restarted`). `exit`(`SystemExit`)여도
    * 세션은 유지된다.
    *
-   * 실행하지 못하면 `RunRejectedError`로 reject한다: `disposed`(`dispose()` 뒤), `unavailable`(`not-isolated`·`load-failed`·`crashed`·
+   * 실행하지 못하면 `RunRejectedError`로 reject한다: `disposed`(`dispose()` 뒤), `unavailable`(`not-isolated`·`unsupported`·`load-failed`·`crashed`·
    * `terminated`), `busy`(블록 입력 중·Python 실행 중·`input()` 대기 중·다른 `runSource` 진행·대기 중·Tab 왕복 중·프롬프트가 그려지기
    * 전). `code`가 문자열이 아니면 `TypeError`. `loading`(최초·리셋 직후)이면 슬롯을 차지하고 첫 `>>> `에서 실행한다. 대기 중 `reset()`은
    * 유지하고(그 리셋의 worker 생성이 실패하면 `crashed`) `load-failed`는 `unavailable`, 실행 중 `reset()`은 `{ kind: "restarted" }`, 실행 중·대기 중 크래시는 `crashed`, 실행 중·대기
@@ -123,7 +133,12 @@ export function createRepl(options: ReplOptions): ReplHandle {
   const readline = surface.readline;
   const onStatus = (next: ReplStatus) => callConsumer(options.onStatus, next);
   const onCrash = (message: string) => callConsumer(options.onCrash, message);
+  // `crossOriginIsolated`(getter 의미 그대로, ADR-0004)와 판정 순서(`unsupported` 먼저)를 소유한 `detectRuntimeSupport()`는
+  // 별개다 — `isolated`는 `ReplHandle.crossOriginIsolated`가 쓰고, `support`가 세션 시작 여부를 정한다(규칙:
+  // `docs/design/14-runner.md` 14.3.1).
   const isolated = globalThis.crossOriginIsolated === true;
+  const support = detectRuntimeSupport();
+  const supported = support === "supported";
   const indexURL = normalizeIndexUrl(
     options.pyodide?.indexURL ?? DEFAULT_PYODIDE_INDEX_URL,
   );
@@ -133,7 +148,7 @@ export function createRepl(options: ReplOptions): ReplHandle {
   // `runSource`의 실행 슬롯. 세션을 넘어 산다(대기 중인 코드는 `reset()`을 넘겨 새 worker의 첫 `>>> `에서 실행된다).
   const slot = createSourceSlot();
   // 마지막으로 알린 상태(`runSource` 거부 판정의 재료). 알림 전에 갱신한다.
-  let status: ReplStatus = isolated ? "loading" : "not-isolated";
+  let status: ReplStatus = supported ? "loading" : support;
   // 상태가 슬롯을 끝내는 사건: 크래시는 `crashed`, 로드 실패·`exit()`는 `unavailable`.
   const statusEnd = (next: ReplStatus): SourceEnd | undefined =>
     next === "crashed"
@@ -152,13 +167,19 @@ export function createRepl(options: ReplOptions): ReplHandle {
     onStatus(next);
     if (run !== undefined && end !== undefined) endRun(run, end);
   };
-  // isolated일 때만 있다. not-isolated에서 reset()은 no-op(ReplHandle.reset 문서).
+  // supported일 때만 있다. not-isolated·unsupported에서 reset()은 no-op(ReplHandle.reset 문서).
   let resetSession: ((next?: { topLevelAwait?: boolean }) => void) | undefined;
 
-  if (!isolated) {
-    // SharedArrayBuffer가 없어 초기화 프레임을 만들 수 없다(ADR-0004, TRP-002). 폴백은 없다.
-    surface.promptRow.notice(NOT_ISOLATED_WARNING, "warning");
-    emitStatus("not-isolated");
+  if (!supported) {
+    // not-isolated: SharedArrayBuffer가 없어 초기화 프레임을 만들 수 없다(ADR-0004, TRP-002). unsupported: 브라우저가
+    // pyodide 런타임 wasm 기능을 지원하지 않는다(design.md D4). 두 경우 모두 폴백은 없다.
+    surface.promptRow.notice(
+      support === "not-isolated"
+        ? NOT_ISOLATED_WARNING
+        : UNSUPPORTED_BROWSER_WARNING,
+      "warning",
+    );
+    emitStatus(support);
   } else {
     // 마지막으로 적용한 값(sticky). 무인자 reset()·reset({})·reset({ topLevelAwait: undefined })는 이 값을 그대로 쓴다.
     let topLevelAwait = options.topLevelAwait === true;
@@ -227,6 +248,7 @@ export function createRepl(options: ReplOptions): ReplHandle {
     if (disposed) return { kind: "reject", reason: "disposed" };
     if (
       status === "not-isolated" ||
+      status === "unsupported" ||
       status === "load-failed" ||
       status === "crashed" ||
       status === "terminated"

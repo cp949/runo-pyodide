@@ -42,7 +42,7 @@
 
 ### 3.1 시작
 
-0. `crossOriginIsolated`가 거짓이면 main은 worker를 만들지 않는다. 안내 줄(`promptRow.notice`, RD-027 구 `writeNotice`, `05-output.md` 4.1)로 경고만 내고 `onStatus('not-isolated')`를 부른 뒤 끝난다(ADR-0004). 아래 1~5는 격리된 페이지의 절차다.
+0. `detectRuntimeSupport()`(판정 순서·규칙: `14-runner.md` 14.3.1)가 `"supported"`가 아니면 main은 worker를 만들지 않는다. 안내 줄(`promptRow.notice`, RD-027 구 `writeNotice`, `05-output.md` 4.1)로 경고만 내고 `onStatus('not-isolated')` 또는 `onStatus('unsupported')`를 부른 뒤 끝난다(ADR-0004, design.md D4). 아래 1~5는 지원 페이지의 절차다.
 1. main이 `Terminal`·`Readline`을 만든다(세션과 무관하게 마운트당 1회).
 2. main이 `MessageChannel`, interrupt buffer, stdin 메일박스를 만들고 worker를 생성한다(`createWorker()` 팩토리).
 3. main이 **초기화 프레임 하나**를 `worker.postMessage`로 보낸다: RPC 포트(transfer), interrupt buffer, 메일박스 두 뷰, `driver` 필드(driver 옵션, core는 모양을 모른다. REPL은 `{ topLevelAwait }`, 실행 driver는 `{ filename, topLevelAwait }`, `14-runner.md` 14.2.3), pyodide `indexURL`. worker 스크립트는 `core/worker`를 top-level await가 있는 모듈의 import보다 앞선 정적 import로 둔다(dom-bridge를 쓰면 dom-bridge `./worker` 다음, dom-bridge `./worker`는 첫 정적 import다, `16-dom-bridge.md` 16.3). 모듈이 평가될 때 `message` 리스너가 걸려 프레임을 버퍼에 두므로, 이 순서를 지키면 `runWorker` 호출 시점(파일 안의 `await` 뒤 등)은 자유다. 순서 조건의 근거(Vite 번들 순서)는 `01-protocols.md` 4절이다. 리스너는 `kind: "init"`인 객체만 소비하고 배열 같은 다른 메시지는 넘긴다(`01-protocols.md` 4절). 프레임은 하나뿐이다.
@@ -132,7 +132,7 @@ interface ReplOptions {
   createWorker: () => Worker; // 리셋마다 다시 호출된다
   pyodide?: { indexURL?: string }; // 기본 CDN `DEFAULT_PYODIDE_INDEX_URL` = https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/ (13-version-upgrade.md 13.1)
   topLevelAwait?: boolean; // 기본 false. 바꾸려면 reset()
-  onStatus?: (s: ReplStatus) => void; // 'loading' | 'ready' | 'load-failed' | 'not-isolated' | 'terminated' | 'crashed'
+  onStatus?: (s: ReplStatus) => void; // 'loading' | 'ready' | 'load-failed' | 'not-isolated' | 'unsupported' | 'terminated' | 'crashed'
   onCrash?: (message: string) => void;
   copyOnSelect?: boolean; // 기본 true. 선택 시 자동 복사(RD-017). 바꾸려면 setCopyOnSelect()
   onCopy?: (result: CopyResult) => void; // 복사 시도마다. { ok: true; chars } | { ok: false; error } (RD-017)
@@ -257,7 +257,8 @@ packages/pyodide-core/src/                      (공통. UI·xterm 비의존)
   session/                 main 쪽. worker 하나에 대응하는 공통 자원·게이트
     core-session.ts        startCoreSession: 채널·메일박스·프레임·RPC 합성·readInput·게이트·크래시·종료   ← 08-session.md 8.1
     driver.ts              MainDriver·OutputChunk·SessionStatus (driver 경계)
-    runner.ts              createRunner·RunRejectedError·InputProvider·STOP_FALLBACK_MS: worker 생성·재생성, worker마다 새 interrupt buffer·송신기, 상태 8종, run/stop/interrupt/reset/dispose   ← 14-runner.md 14.3
+    runner.ts              createRunner·RunRejectedError·InputProvider·STOP_FALLBACK_MS: worker 생성·재생성, worker마다 새 interrupt buffer·송신기, 상태 9종, run/stop/interrupt/reset/dispose   ← 14-runner.md 14.3
+    runtime-support.ts      detectRuntimeSupport: wasm 지원·격리 판정("supported"|"unsupported"|"not-isolated"), 규칙 한 곳   ← 14-runner.md 14.3.1
   worker/                  worker 쪽. 대부분 pyodide 프록시에만 의존(boot.ts·run-worker.ts는 조립 모듈이라 예외, 아래)
     init-receiver.ts       createInitReceiver: init 프레임 수신기(필터 리스너 + 버퍼, `take`는 worker당 1회)·isWorkerGlobalScope   ← 01 4절
     run-worker.ts          모듈 최상위에서 worker 전역이면 수신기를 건다. runWorker: 수신기 버퍼에서 검증된 프레임을 꺼내(아직 없으면 도착 때) CDN 로더를 주입해 bootWorker 호출   ← 01 4절
@@ -347,8 +348,8 @@ React 19 + Vite 8. RD-024부터 `ReplView`·`RunnerView`는 xterm·`createRepl`�
 RD-010 시점의 데모(`ReplView.tsx`)는 `createRepl({ terminal, createWorker, onStatus: setStatus, onCrash: setCrashMessage })`를 부르고 핸들을 `useRef`에 보관했다(RD-024 이후는 `<PythonRepl ref onStatus onCrash …>`). plain 요소만 쓴다(라이브러리 없음):
 
 - `<output data-testid="status">`: 상태 텍스트, 상시.
-- `<button data-testid="reset" disabled={!isolated}>`: `handle.reset()`을 부른다. `isolated`는 `globalThis.crossOriginIsolated === true`(모듈 최상위 상수, RD-010 확정 8). 상시 렌더한다.
-- `<label><input type="checkbox" data-testid="top-level-await" disabled={!isolated} /> top-level await</label>`(RD-012): React state(`useState(false)`, 저장 없음, 새로고침하면 항상 꺼짐)가 소유하고 `onChange`가 즉시 `handle.reset({ topLevelAwait: checked })`를 부른다(양방향 모두, 규칙은 "스위치 변경 = 세션 리셋"). 터미널·배너에는 표시하지 않는다. 리셋 버튼·크래시 재시작은 무인자라 코어가 보관한 마지막 값을 그대로 유지한다(sticky).
+- `<button data-testid="reset" disabled={!supported}>`: `handle.reset()`을 부른다. `supported`는 `detectRuntimeSupport() === "supported"`(모듈 최상위 상수, 판정 규칙은 `14-runner.md` 14.3.1, design.md D4 — 미지원에서도 세션이 없으므로 비활성이 맞다). 상시 렌더한다.
+- `<label><input type="checkbox" data-testid="top-level-await" disabled={!supported} /> top-level await</label>`(RD-012): React state(`useState(false)`, 저장 없음, 새로고침하면 항상 꺼짐)가 소유하고 `onChange`가 즉시 `handle.reset({ topLevelAwait: checked })`를 부른다(양방향 모두, 규칙은 "스위치 변경 = 세션 리셋"). 터미널·배너에는 표시하지 않는다. 리셋 버튼·크래시 재시작은 무인자라 코어가 보관한 마지막 값을 그대로 유지한다(sticky).
 - `status === "terminated"` → `<div role="alert" data-testid="terminated">Python session terminated. "세션 리셋" 버튼으로 새 세션을 시작하세요.</div>`.
 - `status === "crashed"` → `<div role="alert" data-testid="crashed">worker가 예기치 않게 종료됐습니다: {crashMessage} <button data-testid="restart">재시작</button></div>`. `restart`는 `crashMessage` state를 비운 뒤 `reset()`을 부른다 — 리셋이 `loading`을 동기 발행하므로 Alert는 상태 전이로 자연히 사라진다. 새 worker 생성이 또 실패하면 `reset()` 안에서 `crashed`·`onCrash`가 다시 와 새 메시지로 Alert가 남는다(`08-session.md` 8.1).
 - 터미널(`<div data-testid="terminal">`)은 `crashed` 중에도 계속 렌더한다(이전 구현과 다른 선택: 화면에 남은 출력이 단서가 된다).
@@ -398,7 +399,7 @@ props·handle·수명·fit·StrictMode 규칙은 `15-react.md`. peer는 `react`�
 ```ts
 // main: '@cp949/runo-pyodide-dom-bridge'   (RD-023, private)
 export function createBridgeMain(): BridgeMain; // { Worker, native }, coincident main을 옵션 없이 한 번만 부른다
-export function isDomBridgeSupported(): boolean; // crossOriginIsolated + growable SharedArrayBuffer
+export function isDomBridgeSupported(): boolean; // detectRuntimeSupport() === "supported" + growable SharedArrayBuffer
 // 타입 BridgeMain·BridgeMainWorker
 
 // worker: '@cp949/runo-pyodide-dom-bridge/worker'   (worker 파일의 첫 정적 import)

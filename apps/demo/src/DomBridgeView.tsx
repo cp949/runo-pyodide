@@ -1,5 +1,6 @@
 // `./force-non-native`는 coincident를 가져오는 어떤 모듈보다 먼저 평가돼야 한다(`?native=0` 시험 훅, `TRP-066`). 첫 import를 유지한다.
 import "./force-non-native";
+import { detectRuntimeSupport } from "@cp949/runo-pyodide-core";
 import {
   createBridgeMain,
   isDomBridgeSupported,
@@ -22,9 +23,12 @@ function describeError(error: unknown): string {
   return JSON.stringify({ error: String(error) });
 }
 
-/** dom-bridge를 쓸 수 없는 이유(사용자에게 보여 준다). */
+/** dom-bridge를 쓸 수 없는 이유(사용자에게 보여 준다). `isDomBridgeSupported()`가 false인 세 원인을 구분한다(design.md D4). */
 function unsupportedReason(): string {
-  if (globalThis.crossOriginIsolated !== true)
+  const support = detectRuntimeSupport();
+  if (support === "unsupported")
+    return "이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아 동기 DOM 브리지를 쓸 수 없습니다. 브라우저 호환(README) 절을 확인하세요.";
+  if (support === "not-isolated")
     return "cross-origin isolation이 꺼져 있어 동기 DOM 브리지를 쓸 수 없습니다. 서버가 COOP/COEP 헤더를 보내야 합니다.";
   return "growable SharedArrayBuffer를 만들 수 없어 동기 DOM 브리지를 쓸 수 없습니다.";
 }

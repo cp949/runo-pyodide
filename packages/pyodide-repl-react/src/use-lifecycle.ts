@@ -5,6 +5,7 @@
  * `stop()`은 `"idle"`, `busy`는 `false`, 나머지는 no-op.
  */
 import {
+  detectRuntimeSupport,
   RunRejectedError,
   type RunResult,
   type RunnerStatus,
@@ -19,12 +20,16 @@ import {
   type RefObject,
 } from "react";
 
-/** `createRunner`의 첫 상태와 같은 규칙(격리 여부)이다. 핸들 생성 전에도 첫 렌더의 `status`가 맞도록 쓴다. */
+/**
+ * `createRunner`의 첫 상태와 같은 규칙(`detectRuntimeSupport()`, `docs/design/14-runner.md` 14.3.1)이다. 핸들 생성
+ * 전에도 첫 렌더의 `status`가 맞도록 쓴다.
+ */
 export function initialRunnerStatus(): RunnerStatus {
-  return globalThis.crossOriginIsolated === true ? "loading" : "not-isolated";
+  const support = detectRuntimeSupport();
+  return support === "supported" ? "loading" : support;
 }
 
-/** 격리 여부는 페이지 수명 동안 바뀌지 않으므로 구독할 것이 없다. */
+/** `detectRuntimeSupport()`의 판정(wasm 지원·격리 여부 모두)은 페이지 수명 동안 바뀌지 않으므로 구독할 것이 없다. */
 function subscribeNever(): () => void {
   return () => {};
 }

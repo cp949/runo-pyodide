@@ -209,7 +209,7 @@ interface InitFrame {
 (S1) 시작
 main : Terminal/Readline·interrupt buffer 생성(핸들) → REPL main driver 생성 → core 세션(`startCoreSession`): 메일박스 생성 → RPC 핸들러 합성(이름 충돌이면 여기서 예외, 채널·worker는 아직 없다)
        → MessageChannel 생성 → createRpc → createWorker() → postMessage(init, [port]) → onStatus('loading')
-       (crossOriginIsolated가 거짓이면 위를 하지 않고 경고 한 줄 + onStatus('not-isolated')로 끝난다)
+       (`detectRuntimeSupport()`가 `supported`가 아니면 위를 하지 않고 경고 한 줄 + onStatus(그 상태)로 끝난다 — `unsupported`·`not-isolated` 판정 순서는 `14-runner.md` 14.3.1)
 worker: init 수신(필터 리스너, 4절) → parseOptions(frame.driver) → driver.createSession → createRpc(core 핸들러 + driver 핸들러 합성)
       → loadPyodide → interrupt 공개 API 확인(없으면 loadFailed) → plugins prepare(있을 때만, 배열 순서로 하나씩 await, 16-dom-bridge.md 16.4) → driver.createConsole(setStdout/setStderr(전역 Writer) → sys.ps1/ps2 → PyodideConsole → TLA 비트(driver 옵션 값))
       → driver.probe(비공개 API 지점 탐지) → attachRuntime(Python 런타임 연결, 03-ctrl-c.md 2.6) → ntf ready(ReadyPayload) → 감시 타이머 시작

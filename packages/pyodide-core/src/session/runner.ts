@@ -1,13 +1,13 @@
 /**
  * UI 비의존 실행 핸들 `createRunner`(RD-022). worker 생성·재생성, interrupt buffer·송신기, core 세션(`startCoreSession`),
- * 상태 8종을 소유하고 코드 한 덩어리씩 실행한다(`run`). 터미널·xterm을 모른다: 출력은 `onOutput`, 입력은 `InputProvider`,
+ * 상태 9종을 소유하고 코드 한 덩어리씩 실행한다(`run`). 터미널·xterm을 모른다: 출력은 `onOutput`, 입력은 `InputProvider`,
  * 상태는 `onStatus`로 주고받는다. xterm 실행창(`createTerminalRunner`)과 canvas 같은 다른 소비자가 이것 위에 얹힌다.
  * worker 쪽은 `runDriver`(`worker/run-driver.ts`)다.
  *
  * 규칙 요약(전체 규칙은 docs/design/14-runner.md):
  * - 한 번에 하나만 실행한다. 실행 중(대기 중 포함)에 `run()`을 또 부르면 `RunRejectedError("busy")`.
- * - `loading`·`restarting`이면 `ready`까지 기다린 뒤 실행한다(대기도 슬롯을 차지한다). `load-failed`·`crashed`·`not-isolated`면
- *   `RunRejectedError("unavailable")`.
+ * - `loading`·`restarting`이면 `ready`까지 기다린 뒤 실행한다(대기도 슬롯을 차지한다). `load-failed`·`crashed`·`not-isolated`·
+ *   `unsupported`면 `RunRejectedError("unavailable")`.
  * - `stop()` = interrupt → `STOP_FALLBACK_MS` 안에 끝나지 않으면 worker를 terminate하고 새로 만든다(`restarted`).
  * - `interrupt()`는 Ctrl+C용이다: 실행 중이면 눌림만 보내고 terminate·재생성은 없다(REPL과 같은 송신기·연타 보호·재전송).
  * - 생애 사건: `reset()` → 실행 중이던 `run`은 `{ kind: "restarted" }`, `dispose()` → `RunRejectedError("disposed")`, worker 크래시 →
@@ -24,6 +24,7 @@ import type { RunOutcome } from "../protocol/run-outcome";
 import { STDIN_EOF } from "../protocol/stdin-eof";
 import { DEFAULT_PYODIDE_INDEX_URL } from "../pyodide-version";
 import { createOutputTail } from "../terminal/output-tail";
+import { detectRuntimeSupport } from "../runtime-support";
 import { startCoreSession } from "./core-session";
 import type { CoreSession } from "./core-session";
 import type { MainDriver, OutputChunk, SessionStatus } from "./driver";
@@ -34,7 +35,8 @@ export const STOP_FALLBACK_MS = 1000;
 /**
  * runner의 생애 상태. `loading`(첫 worker 부팅) → `ready` ⇄ `running` ⇄ `waiting-input`(`input()`·`sys.stdin` 읽기 대기),
  * `restarting`(`reset()`·`stop()` 폴백 뒤 새 worker 부팅), 끝 상태 `load-failed`·`crashed`(`reset()`으로 복구)·`not-isolated`
- * (cross-origin isolation이 꺼져 worker를 만들지 않는다).
+ * (cross-origin isolation이 꺼져 worker를 만들지 않는다)·`unsupported`(브라우저가 pyodide 런타임 wasm 기능을 지원하지
+ * 않아 worker를 만들지 않는다 — 판정·순서 규칙은 `detectRuntimeSupport()`, `docs/design/14-runner.md` 14.3.1).
  */
 export type RunnerStatus =
   | "loading"
@@ -44,7 +46,8 @@ export type RunnerStatus =
   | "restarting"
   | "load-failed"
   | "crashed"
-  | "not-isolated";
+  | "not-isolated"
+  | "unsupported";
 
 /** 코드가 실행됐을 때의 결말. `restarted`는 실행 도중 worker가 교체됐다는 뜻이다(`reset()` 또는 `stop()` 폴백). */
 export type RunResult = RunOutcome | { kind: "restarted" };
@@ -98,7 +101,7 @@ export interface RunnerOptions {
   inputProvider?: InputProvider;
   /** Python의 stdout·stderr 원문 조각. 줄 끝 처리·색은 소비자가 정한다. */
   onOutput: (chunk: OutputChunk) => void;
-  /** 상태가 바뀔 때 부른다. 첫 상태(`loading` 또는 `not-isolated`)는 `createRunner`가 반환하기 전에 동기로 온다. */
+  /** 상태가 바뀔 때 부른다. 첫 상태(`loading`·`not-isolated`·`unsupported`)는 `createRunner`가 반환하기 전에 동기로 온다. */
   onStatus?: (status: RunnerStatus) => void;
   /** worker `error` 이벤트 또는 `crashed` 알림(첫 신호만) 뒤 `onStatus("crashed")` 다음에 부른다. */
   onCrash?: (message: string) => void;
@@ -140,7 +143,7 @@ export interface RunnerHandle {
   /**
    * worker를 새로 만든다(변수·import 초기화). 실행 중이던 `run()`은 `{ kind: "restarted" }`, 대기 중인 `stop()`은 `"restarted"`.
    * 로딩 대기 중이던 `run()`은 새 worker가 `ready`가 되면 실행된다. `crashed`·`load-failed`에서도 복구한다.
-   * `dispose()` 뒤·`not-isolated`에서는 no-op.
+   * `dispose()` 뒤·`not-isolated`·`unsupported`에서는 no-op.
    */
   reset(): void;
   /** worker·RPC를 정리한다. 실행 중이거나 대기 중인 `run()`은 `RunRejectedError("disposed")`. 두 번 불러도 안전하다. */
@@ -191,12 +194,15 @@ export function createRunner(options: RunnerOptions): RunnerHandle {
   const { createWorker, onOutput, onStatus, onCrash, onLoadFailed } = options;
   const onRunAccepted = options.onRunAccepted;
   const inputProvider = options.inputProvider;
-  const isolated = globalThis.crossOriginIsolated === true;
+  // 판정 순서·근거는 `detectRuntimeSupport()`(`../runtime-support.ts`)가 소유한다: wasm 기능 부족이 먼저(`unsupported`),
+  // 그다음 격리 여부(`not-isolated`). 이 세 값 중 "supported"가 아닌 값은 RunnerStatus 리터럴과 이름이 같다.
+  const support = detectRuntimeSupport();
+  const supported = support === "supported";
   const indexURL = normalizeIndexUrl(
     options.pyodide?.indexURL ?? DEFAULT_PYODIDE_INDEX_URL,
   );
 
-  let status: RunnerStatus = isolated ? "loading" : "not-isolated";
+  let status: RunnerStatus = supported ? "loading" : support;
   let disposed = false;
   /** 세션(worker)을 새로 만들 때마다 오른다. 옛 세션의 뒤늦은 콜백을 버리는 기준이다. */
   let generation = 0;
@@ -423,12 +429,12 @@ export function createRunner(options: RunnerOptions): RunnerHandle {
     sent?.resolve({ kind: "restarted" });
   }
 
-  if (isolated) {
+  if (supported) {
     // `loading`을 먼저 알린다: 세션 생성이 던지면 createRunner가 던지므로 소비자는 이 상태를 본 채 예외를 받는다.
     callConsumer(onStatus, "loading");
     spawn();
   } else {
-    callConsumer(onStatus, "not-isolated");
+    callConsumer(onStatus, support);
   }
 
   return {
@@ -444,6 +450,7 @@ export function createRunner(options: RunnerOptions): RunnerHandle {
         }
         if (
           status === "not-isolated" ||
+          status === "unsupported" ||
           status === "load-failed" ||
           status === "crashed"
         ) {
@@ -527,7 +534,7 @@ export function createRunner(options: RunnerOptions): RunnerHandle {
       return "ignored";
     },
     reset() {
-      if (disposed || !isolated) return;
+      if (disposed || !supported) return;
       restart();
     },
     dispose() {

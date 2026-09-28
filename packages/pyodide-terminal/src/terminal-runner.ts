@@ -28,6 +28,10 @@ import { createTerminalSurface } from "./surface";
 const NOT_ISOLATED_NOTICE =
   "경고: cross-origin isolation이 꺼져 있어 Python 세션을 시작하지 않습니다. 서버가 COOP/COEP 헤더를 보내야 합니다.";
 
+/** 런타임 미지원 페이지에서 세션을 시작하지 않는 이유를 알리는 안내. REPL의 `UNSUPPORTED_BROWSER_WARNING`과 같은 문구다(design.md D4). */
+const UNSUPPORTED_BROWSER_NOTICE =
+  "경고: 이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아 Python 세션을 시작하지 않습니다. 브라우저 호환(README) 절을 확인하세요.";
+
 export interface TerminalRunnerOptions {
   /** 호출자가 소유하는 xterm `Terminal`. 줄 편집기를 붙이기만 하고 dispose하지 않는다. */
   terminal: Terminal;
@@ -50,7 +54,7 @@ export interface TerminalRunnerOptions {
    * `signal`이 abort되면(Ctrl+C·`stop()`·`reset()`·`dispose()`·크래시) core가 이미 읽기를 끝냈으므로 그 뒤 값은 버려진다.
    */
   inputProvider?: InputProvider;
-  /** 상태가 바뀔 때 부른다. 첫 상태(`loading` 또는 `not-isolated`)는 `createTerminalRunner`가 반환하기 전에 동기로 온다. */
+  /** 상태가 바뀔 때 부른다. 첫 상태(`loading`·`not-isolated`·`unsupported`)는 `createTerminalRunner`가 반환하기 전에 동기로 온다. */
   onStatus?: (status: RunnerStatus) => void;
   /** Python의 stdout·stderr 조각(화면에 그린 것과 같다). */
   onOutput?: (chunk: OutputChunk) => void;
@@ -167,9 +171,12 @@ export function createTerminalRunner(
         options.onOutput?.(chunk);
       },
       onStatus: (status) => {
-        // 비격리는 worker가 없어 이후 어떤 신호도 없다. 사용자가 이유를 볼 수 있게 안내를 먼저 낸다(ADR-0004).
+        // 비격리·미지원은 worker가 없어 이후 어떤 신호도 없다. 사용자가 이유를 볼 수 있게 안내를 먼저 낸다(ADR-0004,
+        // design.md D4).
         if (status === "not-isolated") {
           promptRow.notice(NOT_ISOLATED_NOTICE, "warning");
+        } else if (status === "unsupported") {
+          promptRow.notice(UNSUPPORTED_BROWSER_NOTICE, "warning");
         }
         options.onStatus?.(status);
       },

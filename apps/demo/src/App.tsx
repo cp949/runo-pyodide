@@ -49,7 +49,7 @@ export function App() {
       <p>
         crossOriginIsolated:{" "}
         <output data-testid="cross-origin-isolated">
-          {String(crossOriginIsolated)}
+          {String(globalThis.crossOriginIsolated === true)}
         </output>
       </p>
       {view === "runner" ? (

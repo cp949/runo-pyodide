@@ -10,6 +10,7 @@
  * `reflected_ffi_timeout`도 걸러내지 않는다). 타입(`BridgeMain.Worker`)이 표준 `WorkerOptions`로 제한해 TS 초과 속성 검사가 1차로
  * 막을 뿐이다.
  */
+import { detectRuntimeSupport } from "@cp949/runo-pyodide-core";
 import coincidentMain from "@cp949/runo-coincident/window/main";
 
 /** main에서 만드는 Worker. `proxy`에 main 함수를 등록하면 worker가 `proxy.<name>(...)`으로 호출한다. */
@@ -53,12 +54,14 @@ function canCreateGrowableSharedArrayBuffer(): boolean {
 }
 
 /**
- * dom-bridge를 쓸 수 있는 페이지인가: `crossOriginIsolated === true`이고 growable SharedArrayBuffer 생성이 된다. worker를 만들기
- * 전에 걸러 조기 실패시키는 데 쓴다. 기능 탐지만 하고 UA는 판별하지 않는다(검증은 Chromium에서만 했다).
+ * dom-bridge를 쓸 수 있는 페이지인가: `detectRuntimeSupport() === "supported"`(빌드 floor 이상 브라우저 + pyodide 런타임
+ * wasm 지원 + cross-origin isolation, design.md D4)이고 growable SharedArrayBuffer 생성이 된다. worker를 만들기 전에
+ * 걸러 조기 실패시키는 데 쓴다. 기능 탐지만 하고 UA는 판별하지 않는다(검증은 Chromium에서만 했다). growable 판정 자체의
+ * 한계(H5, 구버전 엔진 오탐 가능)는 이 DELTA의 범위 밖이다(design.md "범위 밖").
  */
 export function isDomBridgeSupported(): boolean {
   return (
-    globalThis.crossOriginIsolated === true &&
+    detectRuntimeSupport() === "supported" &&
     canCreateGrowableSharedArrayBuffer()
   );
 }
