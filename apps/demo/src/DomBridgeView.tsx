@@ -146,11 +146,6 @@ function DomBridgeRunner({ fit }: { fit: boolean }) {
       <p>
         result: <output data-testid="result">{result}</output>
       </p>
-      <p>
-        draw 코드:
-        <pre data-testid="draw-code">{DRAW_CODE}</pre>
-      </p>
-      <canvas id="dom-canvas" data-testid="canvas" width={200} height={100} />
       <PythonRunner
         ref={runnerRef}
         data-testid="terminal"
@@ -163,6 +158,9 @@ function DomBridgeRunner({ fit }: { fit: boolean }) {
         }}
         onOutput={(chunk) => log("out", chunk)}
       />
+      <p>draw 코드:</p>
+      <pre data-testid="draw-code">{DRAW_CODE}</pre>
+      <canvas id="dom-canvas" data-testid="canvas" width={200} height={100} />
     </>
   );
 }
