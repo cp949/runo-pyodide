@@ -590,6 +590,9 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
    */
   async function finish({ label = "dev", ...extra } = {}) {
     const finalRows = (await rows()).filter((r) => r !== "");
+    // Playwright 1.63의 `connectOverCDP` browser.close()는 transport만 끊고 원격 페이지는 안 닫는다
+    // (legacy-smoke.mjs가 h.finish() 대신 page.close()+browser.close()를 수동으로 부르는 이유와 동일).
+    if (cdpEndpoint) await page.close();
     await browser.close();
     const ok = Object.values(checks).every(Boolean) && pageErrors.length === 0;
     const result = {
