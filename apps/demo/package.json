@@ -38,6 +38,7 @@
     "e2e:react-strictmode": "node e2e/checks/react-strictmode-check.mjs",
     "e2e:react-fit": "node e2e/checks/react-fit-check.mjs",
     "e2e:dom-bridge": "node e2e/checks/dom-bridge-check.mjs",
+    "e2e:legacy": "node e2e/legacy/legacy-smoke.mjs",
     "e2e:boot-press": "node e2e/measure/boot-press.mjs",
     "e2e:press-loss": "node e2e/measure/press-loss.mjs",
     "e2e:burst-matrix": "node e2e/measure/burst-matrix.mjs",

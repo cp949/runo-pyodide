@@ -68,14 +68,21 @@ function readEnvNumber(name, min) {
  *   L0(vitest) 상수에는 적용되지 않는다.
  * 두 값은 결과 JSON `notes`에 기본값이어도 항상 기록되고, 기본값이 아니면 시작 시 콘솔 경고를 한 줄 낸다.
  */
-export async function open(url, { viewport, before, waitUntil = "load" } = {}) {
+export async function open(url, { viewport, before, waitUntil = "load", cdpEndpoint } = {}) {
   const cpuThrottle = readEnvNumber("E2E_CPU_THROTTLE", 1);
   const timeScale = readEnvNumber("E2E_TIME_SCALE", Number.MIN_VALUE);
   if (cpuThrottle !== 1 || timeScale !== 1) {
     console.warn(`경고: E2E_CPU_THROTTLE=${cpuThrottle} E2E_TIME_SCALE=${timeScale} (기본 1이 아님, 결과 notes에 기록됨)`);
   }
-  const browser = await chromium.launch();
-  const page = await browser.newPage(viewport ? { viewport } : undefined);
+  // DELTA-06(구버전 Chromium 실측): `cdpEndpoint`를 주면 로컬에서 새 브라우저를 띄우는 대신
+  // 이미 떠 있는 브라우저(구버전 Chromium 컨테이너)에 CDP로 붙는다. 기존 호출자는 이 옵션을
+  // 주지 않으므로 `chromium.launch()` 경로가 그대로다(기존 스크립트 동작 불변).
+  const browser = cdpEndpoint ? await chromium.connectOverCDP(cdpEndpoint) : await chromium.launch();
+  const context = cdpEndpoint ? (browser.contexts()[0] ?? (await browser.newContext())) : undefined;
+  const page = cdpEndpoint
+    ? await context.newPage()
+    : await browser.newPage(viewport ? { viewport } : undefined);
+  if (cdpEndpoint && viewport) await page.setViewportSize(viewport);
   // CDP 세션은 감속이 켜졌을 때만 만든다. 첫 프롬프트 성공 시점(waitPrompt)에 감속을 1회 적용한다.
   const cdp = cpuThrottle > 1 ? await page.context().newCDPSession(page) : null;
   let throttleApplied = false;
