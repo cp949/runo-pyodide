@@ -115,8 +115,7 @@ ctx = document.getElementById("c").getContext("2d")
 `native`는 coincident 옵션이 아니라 `@webreflection/utils`가 모듈 평가 시점에 `new SharedArrayBuffer(4, { maxByteLength: 8 })`의 성공 여부로 정하는 탐지 결과다(`docs/traps/TRP-066`). `false`(growable `SharedArrayBuffer` 불가, 서비스워커 없음)이면 DOM 프록시 동기식 코드가 예외 없이 무효가 되고 오류가 뒤 줄에서 다른 모양으로 나온다(`docs/traps/TRP-065`).
 
 - 방침: **`native === false`이면 `prepare`가 명시 오류로 조기 실패한다**(세션 `load-failed`, 새 상태는 만들지 않는다). 문구: `동기 DOM 브리지(native)를 쓸 수 없다. growable SharedArrayBuffer가 필요하다(cross-origin isolation: COOP same-origin·COEP require-corp, 지원 브라우저). 서비스워커 경로는 지원하지 않는다. …`. 이때 `runo` 모듈은 등록하지 않는다. 서비스워커(sabayon) 경로와 `await` 전용 API는 만들지 않는다(`docs/history/first-roadmap.md` "보류" 절).
-- 소비자는 worker를 만들기 전에 `isDomBridgeSupported()`로 거를 수 있다. UA를 판별하지 않고 기능 탐지(`detectRuntimeSupport()`
-  + growable `SharedArrayBuffer`)만 쓴다. 미검증 브라우저도 막지 않는다.
+- 소비자는 worker를 만들기 전에 `isDomBridgeSupported()`로 거를 수 있다. UA를 판별하지 않고 기능 탐지(`detectRuntimeSupport()`·growable `SharedArrayBuffer`)만 쓴다. 미검증 브라우저도 막지 않는다.
 - 시험 훅 `?native=0`(demo): main·worker **양쪽 realm**에서 growable 생성만 던지는 `SharedArrayBuffer` Proxy를 coincident import보다 먼저 적용한다(고정 길이 생성은 통과해야 core의 interrupt buffer·메일박스가 동작한다). 한쪽만 바꾸면 양쪽 `native`가 갈린다. 시험은 `&native=0`에서 main의 `native`·`isDomBridgeSupported()`가 `false`이고 worker를 만들지 않는 것(N0a), `&native=0&gate=off`에서 worker가 만들어져 `load-failed`와 명시 문구가 나오는 것(N0b)을 본다.
 
 ## 16.8 동기 호출 중 중단(S5)
