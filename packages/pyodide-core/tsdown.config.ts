@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { defineConfig } from "tsdown";
+import { BROWSER_TARGET } from "../../browser-target.mts";
 
 /** `import text from "./x.py?raw"`를 문자열 모듈로 만든다. vite의 `?raw`와 같은 의미(rolldown에는 없다). */
 function rawTextPlugin() {
@@ -21,6 +22,8 @@ export default defineConfig({
   entry: ["src/index.ts", "src/worker.ts"],
   format: ["esm"],
   dts: true,
+  // 빌드 floor(ADR-0008). 런타임 floor는 별도(pyodide가 정한다, `detectRuntimeSupport()`).
+  target: [...BROWSER_TARGET],
   // `pyodide`는 타입으로만 쓴다(런타임에는 worker가 CDN에서 불러온다). 그대로 두면 `.d.mts`에 타입이 통째로 인라인돼 소비자(repl)의
   // `pyodide` 타입과 서로 다른 선언이 된다(TS2719). 외부로 남겨 소비자의 `pyodide`를 해석하게 한다(optional peer로도 선언했다).
   // 예외로 `pyodide/package.json`은 번들에 넣는다: 고정 버전 값(`PYODIDE_VERSION`)을 JSON에서 읽어 인라인하려는 것이다.

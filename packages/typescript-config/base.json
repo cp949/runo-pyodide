@@ -3,6 +3,9 @@
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
+    // 루트 `browser-target.mts`(빌드 floor 상수, ADR-0008)를 `tsdown.config.ts`·`vite.config.ts`에서 확장자 그대로
+    // import한다(`check-types`는 모든 패키지가 `tsc --noEmit`으로만 돌려 emit 걱정이 없다).
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "incremental": false,
     "isolatedModules": true,

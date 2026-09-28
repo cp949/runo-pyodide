@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { defineConfig } from "tsdown";
+import { BROWSER_TARGET } from "../../browser-target.mts";
 
 /** `import text from "./x.py?raw"`를 문자열 모듈로 만든다. vite의 `?raw`와 같은 의미(rolldown에는 없다). */
 function rawTextPlugin() {
@@ -21,5 +22,7 @@ export default defineConfig({
   entry: ["src/index.ts", "src/worker.ts"],
   format: ["esm"],
   dts: true,
+  // 빌드 floor(ADR-0008).
+  target: [...BROWSER_TARGET],
   plugins: [rawTextPlugin()],
 });

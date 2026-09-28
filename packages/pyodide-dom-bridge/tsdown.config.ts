@@ -1,4 +1,5 @@
 import { defineConfig } from "tsdown";
+import { BROWSER_TARGET } from "../../browser-target.mts";
 
 export default defineConfig({
   // worker.ts는 '@cp949/runo-pyodide-dom-bridge/worker' 서브패스로 노출한다(worker 파일의 첫 정적 import).
@@ -7,4 +8,6 @@ export default defineConfig({
   entry: ["src/index.ts", "src/worker.ts", "src/bootstrap-observer-install.ts"],
   format: ["esm"],
   dts: true,
+  // 빌드 floor(ADR-0008).
+  target: [...BROWSER_TARGET],
 });
