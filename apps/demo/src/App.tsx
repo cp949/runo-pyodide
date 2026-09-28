@@ -18,10 +18,34 @@ const fit = params.get("fit") === "1";
 /** 쿼리 `?completionPopover=1`이면 REPL 화면에 completion popover(RD-049)를 켠다. 기본은 꺼짐(텍스트 목록). */
 const completionPopover = params.get("completionPopover") === "1";
 
+/** 예제 사이 네비게이션(RD-023). 실제 페이지 이동(`<a>`)을 쓴다 — dom-bridge는 coincident 전역 패치 순서 제약이 있어(`./force-non-native` 주석) 같은 페이지에서 다른 예제로 전환하면 안전하지 않다. */
+function Nav() {
+  const examples: { view: string | null; testid: string; label: string }[] = [
+    { view: null, testid: "nav-repl", label: "REPL" },
+    { view: "runner", testid: "nav-runner", label: "Runner" },
+    { view: "dom-bridge", testid: "nav-dom-bridge", label: "Dom Bridge" },
+  ];
+  return (
+    <nav>
+      {examples.map((e) => (
+        <a
+          key={e.testid}
+          data-testid={e.testid}
+          href={e.view === null ? "/" : `/?view=${e.view}`}
+          aria-current={view === e.view ? "page" : undefined}
+        >
+          {e.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 export function App() {
   return (
     <main>
       <h1>runo-pyodide-repl</h1>
+      <Nav />
       <p>
         crossOriginIsolated:{" "}
         <output data-testid="cross-origin-isolated">

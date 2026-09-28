@@ -60,20 +60,30 @@ export function DomBridgeView({ fit }: { fit: boolean }) {
   );
 }
 
+/** canvas(`#dom-canvas`)에 파란 사각형을 그리는 고정 Python 코드(`draw` 버튼용). */
+const DRAW_CODE = [
+  "from runo.browser import document",
+  'ctx = document.getElementById("dom-canvas").getContext("2d")',
+  'ctx.fillStyle = "rgb(0,120,255)"',
+  "ctx.fillRect(70, 30, 60, 40)",
+  'print("drawn", flush=True)',
+].join("\n");
+
 function DomBridgeRunner({ fit }: { fit: boolean }) {
   const runnerRef = useRef<PythonRunnerHandle>(null);
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<RunnerStatus>("loading");
   const [result, setResult] = useState("");
 
-  const run = () => {
+  /** `code`를 실행하고 결과를 `result`에 반영한다(`run`·`draw` 공통). */
+  const runCode = (label: string, source: string) => {
     const runner = runnerRef.current;
     if (runner === null) return;
     setResult("");
-    log("runStart");
+    log(label);
     // 입력(`input()`)을 바로 칠 수 있게 터미널에 포커스를 준다.
     runner.focus();
-    runner.run(code).then(
+    runner.run(source).then(
       (outcome) => {
         log("outcome", outcome);
         setResult(JSON.stringify(outcome));
@@ -84,6 +94,9 @@ function DomBridgeRunner({ fit }: { fit: boolean }) {
       },
     );
   };
+
+  const run = () => runCode("runStart", code);
+  const draw = () => runCode("drawStart", DRAW_CODE);
 
   return (
     <>
@@ -101,6 +114,9 @@ function DomBridgeRunner({ fit }: { fit: boolean }) {
       <div>
         <button type="button" data-testid="run" onClick={run}>
           run
+        </button>{" "}
+        <button type="button" data-testid="draw" onClick={draw}>
+          draw
         </button>{" "}
         <button
           type="button"
@@ -129,6 +145,10 @@ function DomBridgeRunner({ fit }: { fit: boolean }) {
       </div>
       <p>
         result: <output data-testid="result">{result}</output>
+      </p>
+      <p>
+        draw 코드:
+        <pre data-testid="draw-code">{DRAW_CODE}</pre>
       </p>
       <canvas id="dom-canvas" data-testid="canvas" width={200} height={100} />
       <PythonRunner
