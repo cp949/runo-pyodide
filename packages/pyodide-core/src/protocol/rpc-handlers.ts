@@ -8,7 +8,8 @@ export function composeRpcHandlers(...tables: RpcHandlers[]): RpcHandlers {
   const merged: RpcHandlers = {};
   for (const table of tables) {
     for (const [name, handler] of Object.entries(table)) {
-      if (Object.hasOwn(merged, name)) {
+      // `Object.hasOwn`(Chrome 93+)은 빌드 floor Chrome 84를 넘는다(ADR-0008) — 같은 뜻의 호출로 대체한다.
+      if (Object.prototype.hasOwnProperty.call(merged, name)) {
         throw new Error(`RPC 핸들러 이름이 겹친다: ${name}`);
       }
       merged[name] = handler;

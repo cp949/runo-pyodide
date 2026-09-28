@@ -93,7 +93,9 @@ export function splitAboveRead(prefix: string, text: string): AboveReadSplit {
  * 보관 원문이 자라 조각 수의 제곱으로 다시 분리한다(second-opinion 2차 SO2-S1).
  */
 function compactResume(prefix: string, resume: string): string {
-  const sgr = resume.slice(prefix.length).replaceAll("\r", "");
+  // `replaceAll`(Chrome 85+)은 빌드 floor Chrome 84를 넘는다(ADR-0008) — `\r`은 정규식 특수문자가 아니지만 split/join으로
+  // 대체해 일관되게 둔다.
+  const sgr = resume.slice(prefix.length).split("\r").join("");
   if (sgr === "") return `${prefix}\r`;
   const state = createOutputTail();
   state.feed(`${prefix}${sgr}\r`);

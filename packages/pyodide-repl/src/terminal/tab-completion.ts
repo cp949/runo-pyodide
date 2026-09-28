@@ -38,7 +38,8 @@ export function mentionsImportKeyword(text: string): boolean {
 export function planTab(buf: string, pos: number, pending?: string): TabPlan {
   const source = buf.slice(0, pos);
   const line = source.slice(source.lastIndexOf("\n") + 1);
-  if (line === "" || STEM_DELIMITERS.includes(line.at(-1) ?? "")) {
+  // `.at(-1)`(Chrome 92+)은 빌드 floor Chrome 84를 넘는다(ADR-0008) — 인덱스 접근으로 대체한다.
+  if (line === "" || STEM_DELIMITERS.includes(line[line.length - 1] ?? "")) {
     const context = pending ? `${pending}\n${source}` : source;
     if (mentionsImportKeyword(context)) return { kind: "complete", source };
     const column = [...line].length;

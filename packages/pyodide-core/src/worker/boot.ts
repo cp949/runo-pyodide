@@ -102,10 +102,13 @@ export async function bootWorker(
       try {
         await plugin.prepare({ pyodide });
       } catch (error) {
-        throw new Error(
+        // Error 두 번째 인자 `{ cause }`(Chrome 93+)는 빌드 floor Chrome 84를 넘는다(ADR-0008). own 속성으로 같은 결과를
+        // 만든다(전역 polyfill 없이).
+        const wrapped = new Error(
           `plugin "${plugin.name}": ${describePluginFailure(error)}`,
-          { cause: error },
         );
+        wrapped.cause = error;
+        throw wrapped;
       }
     }
     pyconsole = session.createConsole({ pyodide, sinks, frame });

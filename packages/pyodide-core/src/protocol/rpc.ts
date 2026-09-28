@@ -56,7 +56,8 @@ export function createRpc(port: RpcPort, handlers: RpcHandlers = {}): Rpc {
       return;
     }
     // 핸들러 표는 own 속성만 본다. `toString` 같은 Object.prototype 이름을 상대가 실행하게 두지 않는다.
-    if (!Object.hasOwn(handlers, message.name)) {
+    // `Object.hasOwn`(Chrome 93+)은 빌드 floor Chrome 84를 넘는다(ADR-0008) — 같은 뜻의 호출로 대체한다.
+    if (!Object.prototype.hasOwnProperty.call(handlers, message.name)) {
       if (message.kind === "req") {
         port.postMessage({
           kind: "res",
