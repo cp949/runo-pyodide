@@ -103,7 +103,9 @@ export async function bootWorker(
         await plugin.prepare({ pyodide });
       } catch (error) {
         // Error 두 번째 인자 `{ cause }`(Chrome 93+)는 빌드 floor Chrome 84를 넘는다(ADR-0008). own 속성으로 같은 결과를
-        // 만든다(전역 polyfill 없이).
+        // 만든다(전역 polyfill 없이). 한 가지 차이: 네이티브 `{ cause }`의 `cause`는 non-enumerable이지만 대입은
+        // enumerable이다(2026-09-28 리뷰 지적) — 이 저장소는 이 오류를 `String(error)`로만 소비해(`onLoadFailed` 등)
+        // 지금은 영향이 없다. `Object.keys`·JSON 직렬화로 다루는 코드가 생기면 이 차이를 다시 본다.
         const wrapped = new Error(
           `plugin "${plugin.name}": ${describePluginFailure(error)}`,
         );

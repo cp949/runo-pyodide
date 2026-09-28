@@ -37,18 +37,23 @@ const ALLOWED_BELOW_FLOOR_RULES = {
 const FEATURE_DETECTED_RULES = {
   // `pyodide-core/src/protocol/stdin-mailbox.ts`가 `Atomics.waitAsync` 존재 검사 후 `setTimeout` 폴백을 쓴다.
   "es-x/no-atomics-waitasync": "off",
-  // `pyodide-dom-bridge/src/index.ts`의 `canCreateGrowableSharedArrayBuffer()`가 growable `SharedArrayBuffer` 생성을
-  // try/catch로 감싸 지원 여부만 boolean으로 돌려준다(미지원 엔진에서 던지는 것 자체가 판정 수단이다, design.md D2 계획에
-  // 없던 발견, 2026-09-28 DELTA-03에서 실측).
+  // `pyodide-dom-bridge/src/index.ts`의 `canCreateGrowableSharedArrayBuffer()`가 growable `SharedArrayBuffer` 생성자
+  // 호출을 try/catch로 감싼 의도적 기능 탐지다(design.md D2 계획에 없던 발견, 2026-09-28 DELTA-03에서 실측). 판정 정확성은
+  // 이 게이트 밖이다 — growable을 지원하지 않는 구버전 엔진 중 일부는 두 번째 인자(`maxByteLength`)를 무시하고 던지지 않아
+  // 오탐(`true`)할 수 있다는 것이 design.md H5·"범위 밖"에 별도로 기록돼 있다(2026-09-28 opus 리뷰가 지적: "미지원
+  // 엔진에서 던진다"는 앞 문구는 틀렸다). 이 규칙을 켜 두면 그 의도적 호출 자체가 항상 걸려 게이트를 쓸 수 없다.
   "es-x/no-resizable-and-growable-arraybuffers": "off",
 };
 
 /**
  * aggressive 모드는 receiver를 보지 않아 이름이 겹치는 규칙이 오탐을 낸다(2026-09-28 실측, geul
  * `scripts/check-escompat.mjs`와 같은 문제): 이 저장소의 `createInitReceiver().take(...)`(`pyodide-core/src/worker/init-receiver.ts`)가
- * ES2025 `Iterator.prototype.take`로 잘못 잡힌다(`worker.mjs`). Iterator helper·Set 메서드(ES2025)류 규칙을 해제해도 잃는 것이
- * 없다: 이 저장소의 `tsconfig`(`packages/typescript-config/base.json`)가 `lib: ["es2022", ...]`로 그 API 자체를 타입 수준에서
- * 이미 막는다(소스에서 실제로 쓸 수 없다).
+ * ES2025 `Iterator.prototype.take`로 잘못 잡힌다(`worker.mjs`). 실측 범위는 `.take` 하나가 아니다 — aggressive 모드는 이름이
+ * 같은 모든 member call을 잡으므로 평범한 배열 메서드(`.map`·`.filter`·`.forEach`·`.find`·`.some` 등, Iterator helper·Set 메서드와
+ * 이름이 겹치는 것)도 이 규칙군을 켜면 대량 오탐이 난다(2026-09-28 opus 리뷰 재확인: 끄지 않으면 14건). Iterator helper·Set
+ * 메서드(ES2025)류 규칙을 해제해도 잃는 것이 없다: 이 저장소의 `tsconfig`(`packages/typescript-config/base.json`)가
+ * `lib: ["es2022", ...]`로 그 API 자체를 타입 수준에서 이미 막는다(소스에서 실제로 쓸 수 없다 — `any` 캐스트로 우회하지
+ * 않는 한. tsdown은 타입 검사를 하지 않으므로 이 보장은 `pnpm check-types`가 선다).
  */
 const COLLISION_PRONE_PATTERN = /^es-x\/no-(?:iterator|set)-prototype-/;
 
@@ -59,6 +64,18 @@ const WEB_API_PATTERNS = [
   ["AbortSignal.timeout", 103, /\bAbortSignal\s*\.\s*timeout\s*\(/],
   ["AbortSignal.any", 116, /\bAbortSignal\s*\.\s*any\s*\(/],
 ];
+
+/**
+ * 블록 주석과 줄 주석을 지운다(`check-dist.mjs` `stripComments`와 같은 패턴). Web API 정규식은 정적 문법 분석이 아니라
+ * 문자열 매칭이라, 주석 속 언급("`structuredClone(x)`는 Chrome 98+")도 그대로 잡던 오탐이 있었다(2026-09-28 opus 리뷰).
+ * 문자열 리터럴 속 언급은 여전히 오탐일 수 있다(파싱하지 않는다 — 실사용 0건인 현재 위험은 낮다).
+ */
+function stripComments(text) {
+  return text.replace(
+    /\/\*[\s\S]*?\*\/|(^|\s)\/\/.*$/gm,
+    (_, lineCommentLead) => lineCommentLead ?? "",
+  );
+}
 
 const DIST_JS_FILE = /\.(?:mjs|js)$/;
 
@@ -108,11 +125,12 @@ async function listDistJsFiles(dir) {
     .sort();
 }
 
-/** `text`(파일 내용)에서 발견한 Web API 위반 설명 목록. */
+/** `text`(파일 내용)에서 발견한 Web API 위반 설명 목록. 주석을 지운 코드에서만 찾는다(위 `stripComments`). */
 function findWebApiViolations(text) {
+  const code = stripComments(text);
   const violations = [];
   for (const [name, chromeVersion, pattern] of WEB_API_PATTERNS) {
-    if (pattern.test(text)) {
+    if (pattern.test(code)) {
       violations.push(`${name}(Chrome ${chromeVersion}+) 사용`);
     }
   }

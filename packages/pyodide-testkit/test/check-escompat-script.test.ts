@@ -79,6 +79,9 @@ describe("check-escompat 스크립트", () => {
       ],
       ["top-level await", "await Promise.resolve();\nexport {};\n"],
       ["structuredClone(Web API)", "export const f = (x) => structuredClone(x);\n"],
+      ["String.prototype.replaceAll", 'export const f = (s) => s.replaceAll("a", "b");\n'],
+      ["Promise.any", "export const f = (ps) => Promise.any(ps);\n"],
+      ["class static block", "export class C {\n  static x;\n  static {\n    C.x = 1;\n  }\n}\n"],
     ])("%s가 있으면 실패한다", (name, code) => {
       const dist = makeDist({ "index.mjs": code });
 
@@ -86,6 +89,17 @@ describe("check-escompat 스크립트", () => {
 
       expect(status, name).toBe(1);
       expect(output).toContain(FAIL_MARK);
+    });
+
+    test("주석·문자열 리터럴 속 Web API 이름 언급은 오탐하지 않는다(2026-09-28 opus 리뷰)", () => {
+      const dist = makeDist({
+        "index.mjs":
+          "// structuredClone(x)는 Chrome 98+\n/* crypto.randomUUID() 참고 */\nexport const a = 1;\n",
+      });
+
+      const { status, output } = run(dist);
+
+      expect(status, output).toBe(0);
     });
   });
 
@@ -123,6 +137,17 @@ describe("check-escompat 스크립트", () => {
       });
 
       expect(run(dist).status).toBe(0);
+    });
+
+    test("이름이 Iterator helper·Set 메서드와 겹치는 배열/도메인 메서드 호출(collision 해제 회귀 시험)", () => {
+      const dist = makeDist({
+        "index.mjs":
+          "export const f = (a) => a.map((x) => x).filter(Boolean).forEach(() => {});\nexport const g = (receiver) => receiver.take((frame) => frame);\n",
+      });
+
+      const { status, output } = run(dist);
+
+      expect(status, output).toBe(0);
     });
   });
 
