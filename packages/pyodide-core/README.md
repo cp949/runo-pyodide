@@ -31,7 +31,7 @@ const runner = createRunner({
       type: "module",
     }),
   onOutput: ({ stream, text }) => {}, // stdout·stderr 원문 조각. 줄 끝·색은 소비자가 정한다
-  onStatus: (status) => {}, // loading | ready | running | waiting-input | restarting | load-failed | crashed | not-isolated
+  onStatus: (status) => {}, // loading | ready | running | waiting-input | restarting | load-failed | crashed | not-isolated | unsupported
   inputProvider: async (prompt, signal) => "한 줄", // 생략하면 input()은 읽기 취소(KeyboardInterrupt)를 받는다
   // filename?: "main.py", topLevelAwait?: false, pyodide?: { indexURL }
 });
@@ -53,6 +53,7 @@ runner.dispose();
 
 - 한 번에 하나만 실행한다. 실행 중(대기 포함)의 `run()`은 `RunRejectedError("busy")`다. 로딩·재시작 중의 `run()`은 `ready`까지 기다린다.
 - 페이지가 cross-origin isolated여야 한다. 아니면 worker를 만들지 않고 상태 `not-isolated`, `run()`은 `unavailable`이다.
+- 브라우저가 pyodide 런타임이 요구하는 wasm 기능(런타임 floor)을 지원하지 않으면 worker를 만들지 않고 상태 `unsupported`, `run()`은 `unavailable`이다. 빌드 floor(Chrome 84)와 런타임 floor는 다른 값이다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
 - `input()`은 `InputProvider`가 받는다. provider 생략 또는 `null` 반환은 읽기 취소라서 `input()`이 `EOFError`가 아니라 `KeyboardInterrupt`이고 결과는 `interrupted`다.
 - 옵션 오류(빈 `filename` 등)는 worker를 만들기 전에 동기로 던진다.
 - 상태 전이표·`run()` 거부 조건·`stop()` 결말·`InputProvider` 계약은 `docs/design/14-runner.md`.

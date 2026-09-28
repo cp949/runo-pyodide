@@ -8,7 +8,7 @@
 
 처음 오는 에이전트는 1→2→3 순서로 읽는다. 특정 RD를 맡았으면 3의 해당 절만 읽어도 된다.
 
-1. **무엇을, 왜**: `docs/design/00-architecture.md`(목표·채널·생명주기·패키지·공개 인터페이스), `docs/adr/`(결정 7건)
+1. **무엇을, 왜**: `docs/design/00-architecture.md`(목표·채널·생명주기·패키지·공개 인터페이스), `docs/adr/`(결정 8건)
 2. **통신 계약**: `docs/design/01-protocols.md`(RPC 메시지, stdin 메일박스, interrupt buffer, 초기화 프레임, 시퀀스)
 3. **기능 규칙**(이전 구현이 3.14 pty 실측으로 확정한 것을 계승):
    - `02-console-core.md` PyodideConsole·제출 실행·top-level await·종료, `runSource`(5.6)
@@ -34,7 +34,8 @@
 | REPL         | `packages/pyodide-repl` = `@cp949/runo-pyodide-repl`. REPL driver + REPL 프런트(core·terminal 위). tsdown ESM + d.ts. 프레임워크 무관. React·MUI 의존 없음                                                                                                                                                                                                                                                                             |
 | 실행창       | `packages/pyodide-terminal` = `@cp949/runo-pyodide-terminal`(private, RD-022). xterm 실행창 `createTerminalRunner`와 repl이 공유하는 부품 5종(`./internal`, repl 전용·lockstep; 화면 조립·수명은 `surface`, 프롬프트 행 연산은 `promptRow`, RD-027). tsdown ESM + d.ts. coincident 비의존                                                                                                                                              |
 | React        | `packages/pyodide-repl-react` = `@cp949/runo-pyodide-repl-react`(private, RD-024). `<PythonRunner>`·`<PythonRepl>`·`usePythonRunner`. core·terminal·repl 위에서 xterm 생성·`FitAddon`·dispose 순서·StrictMode를 처리한다. peer `react`·`react-dom` ^19·`@xterm/xterm` ^6, `xterm.css`는 소비자가 import. tsdown ESM + d.ts. coincident 비의존                                                                                          |
-| DOM 브리지   | `packages/pyodide-dom-bridge` = `@cp949/runo-pyodide-dom-bridge`(private, RD-023). worker Python이 main의 `window`·`document`를 동기 프록시로 쓰는 플러그인(`from runo.browser import document`). coincident `4.1.1`·reflected-ffi `0.7.2` 정확한 버전 고정(포크 없음), 저장소에서 coincident에 의존하는 유일한 패키지. core `runWorker({ plugins })` 위에서 동작하고 REPL과는 지원하지 않는다. Chromium에서만 검증. tsdown ESM + d.ts |
+| DOM 브리지   | `packages/pyodide-dom-bridge` = `@cp949/runo-pyodide-dom-bridge`(private, RD-023). worker Python이 main의 `window`·`document`를 동기 프록시로 쓰는 플러그인(`from runo.browser import document`). coincident `4.1.1`·reflected-ffi `0.7.2` 정확한 버전 고정(포크 없음), 저장소에서 coincident에 의존하는 유일한 패키지. core `runWorker({ plugins })` 위에서 동작하고 REPL과는 지원하지 않는다. Chromium에서만 검증([ADR-0008](docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md)). tsdown ESM + d.ts |
+| 브라우저 호환 | 빌드 floor Chrome 84(모든 패키지 `dist`), 런타임 floor는 pyodide가 정한다(정적 판정 96, 실측 확인 97 — dom-bridge는 별도 미확정 floor). 정적 게이트 `scripts/check-escompat.mjs`, 실측은 `docker/chromium-legacy/` + `e2e:legacy`(CI 아님, 수동). 결정·근거는 [ADR-0008](docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md) 한 곳 |
 | 줄 편집      | `packages/xterm-readline` = `@cp949/runo-xterm-readline`. strtok/xterm-readline 1.2.2 소스 벤더링(MIT). 원본 `/work/thrd/xterm-readline`                                                                                                                                                                                                                                                                                               |
 | 터미널       | `@xterm/xterm` 6                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 데모         | `apps/demo`: Vite 8 + React 19. UI 라이브러리 미정(필수 아님)                                                                                                                                                                                                                                                                                                                                                                          |
@@ -53,4 +54,6 @@
 
 ## 미확정 사항(구현 시점에 확인)
 
-- Firefox·Safari 동작. 이전 구현은 Chromium만 확인했다. 브라우저별 차이는 `10-parity-deviations.md`에 적는다.
+- Firefox·Safari 동작. 이전 구현은 Chromium만 확인했다. 브라우저별 차이는 `10-parity-deviations.md`에 적는다. 엔진 범위 결정(Chrome 전용, 미검증 엔진은 `load-failed`)은 [ADR-0008](docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md).
+- Chrome 94~96(pyodide 런타임 floor 정적 판정 96과 실측 확인 97 사이)은 Debian snapshot에 해당 버전이 없어 미실측이다(ADR-0008).
+- dom-bridge의 실제 안전 런타임 floor(growable `SharedArrayBuffer` 판정 오탐 가능 구간, GitHub 이슈 #1)와 `check-escompat` 게이트가 못 잡는 Web API(GitHub 이슈 #2).

@@ -2,7 +2,7 @@
 
 worker의 Python에서 main 페이지의 `window`·`document`를 동기 프록시로 쓰게 하는 플러그인(`from runo.browser import document`). [coincident](https://github.com/WebReflection/coincident) `4.1.1`(upstream 그대로, 포크 없음)과 `reflected-ffi` `0.7.2`를 정확한 버전으로 고정해 쓴다. core(`@cp949/runo-pyodide-core`) 위에 얹히고, `input()`·출력·Ctrl+C는 core 채널로 가며 coincident를 거치지 않는다. **coincident는 이 패키지에만 있다**: core·terminal·repl·react는 coincident에 의존하지 않고 시험·`check-dist`·`smoke:pack`이 이를 강제한다. private이고 공개 API로 확정하지 않은 내부 계약이다. 배포는 `pnpm pack` tarball이다.
 
-규칙 본문은 `docs/design/16-dom-bridge.md`. 검증 범위: Chromium(스파이크 결과 `제한 있는 지원`). Firefox·Safari는 검증하지 않았다. UA를 판별하지 않고 기능 탐지(`native`)로만 판정한다. REPL과 함께 쓰는 조합은 지원하지 않는다(REPL은 프롬프트 대기 중 main→worker 요청이 필요한데 coincident 동기 대기가 이를 막는다, ADR-0006).
+규칙 본문은 `docs/design/16-dom-bridge.md`. 검증 범위: Chromium(스파이크 결과 `제한 있는 지원`, 엔진 범위 결정은 [ADR-0008](../../docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md)). Firefox·Safari는 검증하지 않았다. UA를 판별하지 않고 기능 탐지(`native`)로만 판정한다. REPL과 함께 쓰는 조합은 지원하지 않는다(REPL은 프롬프트 대기 중 main→worker 요청이 필요한데 coincident 동기 대기가 이를 막는다, ADR-0006). 이 패키지의 런타임 floor는 core·terminal의 것(Chrome 97 실측)과 다르다 — ADR-0008 "dom-bridge는 이 런타임 floor를 그대로 물려받지 않는다" 참고.
 
 ## 진입점
 

@@ -28,7 +28,7 @@ import { createTerminalSurface } from "./surface";
 const NOT_ISOLATED_NOTICE =
   "경고: cross-origin isolation이 꺼져 있어 Python 세션을 시작하지 않습니다. 서버가 COOP/COEP 헤더를 보내야 합니다.";
 
-/** 런타임 미지원 페이지에서 세션을 시작하지 않는 이유를 알리는 안내. REPL의 `UNSUPPORTED_BROWSER_WARNING`과 같은 문구다(design.md D4). */
+/** 런타임 미지원 페이지에서 세션을 시작하지 않는 이유를 알리는 안내. REPL의 `UNSUPPORTED_BROWSER_WARNING`과 같은 문구다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`). */
 const UNSUPPORTED_BROWSER_NOTICE =
   "경고: 이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아 Python 세션을 시작하지 않습니다. 브라우저 호환(README) 절을 확인하세요.";
 
@@ -172,7 +172,7 @@ export function createTerminalRunner(
       },
       onStatus: (status) => {
         // 비격리·미지원은 worker가 없어 이후 어떤 신호도 없다. 사용자가 이유를 볼 수 있게 안내를 먼저 낸다(ADR-0004,
-        // design.md D4).
+        // ADR-0008).
         if (status === "not-isolated") {
           promptRow.notice(NOT_ISOLATED_NOTICE, "warning");
         } else if (status === "unsupported") {

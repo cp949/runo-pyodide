@@ -35,7 +35,8 @@ export const NOT_ISOLATED_WARNING =
 
 /**
  * 브라우저가 pyodide 런타임의 wasm 기능을 지원하지 않는 페이지에서 세션을 시작하지 않는 이유를 알리는 터미널 안내
- * 문구(design.md D4). 런타임 floor 값을 하드코딩하지 않고 README 호환 절을 가리킨다.
+ * 문구(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`). 런타임 floor 값을 하드코딩하지 않고
+ * README 호환 절을 가리킨다.
  */
 export const UNSUPPORTED_BROWSER_WARNING =
   "경고: 이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아 Python 세션을 시작하지 않습니다. 브라우저 호환(README) 절을 확인하세요.";
@@ -46,8 +47,8 @@ export const RESET_NOTICE =
 
 /**
  * 세션의 생애를 앱에 알리는 값. RD-004는 `loading`·`ready`·`load-failed`·`not-isolated`를 발행하고, RD-005부터
- * `terminated`(`exit()`)를 발행한다. `crashed`는 RD-010이 발행한다. `unsupported`는 design.md D4(브라우저가 pyodide
- * 런타임 wasm 기능을 지원하지 않음, 판정 순서는 `detectRuntimeSupport()`).
+ * `terminated`(`exit()`)를 발행한다. `crashed`는 RD-010이 발행한다. `unsupported`는 브라우저가 pyodide 런타임 wasm
+ * 기능을 지원하지 않을 때다(판정 순서는 `detectRuntimeSupport()`, 결정: `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
  */
 export type ReplStatus =
   | "loading"
@@ -172,7 +173,7 @@ export function createRepl(options: ReplOptions): ReplHandle {
 
   if (!supported) {
     // not-isolated: SharedArrayBuffer가 없어 초기화 프레임을 만들 수 없다(ADR-0004, TRP-002). unsupported: 브라우저가
-    // pyodide 런타임 wasm 기능을 지원하지 않는다(design.md D4). 두 경우 모두 폴백은 없다.
+    // pyodide 런타임 wasm 기능을 지원하지 않는다(ADR-0008). 두 경우 모두 폴백은 없다.
     surface.promptRow.notice(
       support === "not-isolated"
         ? NOT_ISOLATED_WARNING

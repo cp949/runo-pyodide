@@ -100,11 +100,11 @@ core `run-driver.py`의 함수. 컴파일(`CodeRunner`, exec)·`await console.ru
 _Avoid_: run_code(runner 전용 준비까지 포함한 함수)
 
 **runner(`createRunner`)**:
-main 쪽 UI 비의존 실행 핸들. worker 생성·재생성, worker마다 새 interrupt buffer·송신기, core 세션, 상태 8종, `run`·`stop`·`interrupt`·`reset`·`dispose`, 슬롯 점유 `busy`를 맡는다. `MainDriver`를 구현해 core 세션 위에 얹힌다. xterm 실행창(`createTerminalRunner`, terminal 패키지)과 다른 소비자가 이것을 쓴다. `interrupt()`는 `InterruptResult`(`"sent" | "input-cancelled" | "ignored"`)를 돌려준다(`docs/design/14-runner.md` 14.3.3).
+main 쪽 UI 비의존 실행 핸들. worker 생성·재생성, worker마다 새 interrupt buffer·송신기, core 세션, 상태 9종, `run`·`stop`·`interrupt`·`reset`·`dispose`, 슬롯 점유 `busy`를 맡는다. `MainDriver`를 구현해 core 세션 위에 얹힌다. xterm 실행창(`createTerminalRunner`, terminal 패키지)과 다른 소비자가 이것을 쓴다. `interrupt()`는 `InterruptResult`(`"sent" | "input-cancelled" | "ignored"`)를 돌려준다(`docs/design/14-runner.md` 14.3.3).
 _Avoid_: 세션 매니저, 실행기
 
 **runner 상태**:
-`RunnerStatus` = `loading`·`ready`·`running`·`waiting-input`·`restarting`·`load-failed`·`crashed`·`not-isolated`. REPL의 `ReplStatus`(6종)와 다르다(`terminated` 없음, 앞의 세 개가 새것). 전이표는 `docs/design/14-runner.md` 14.3.1.
+`RunnerStatus` = `loading`·`ready`·`running`·`waiting-input`·`restarting`·`load-failed`·`crashed`·`not-isolated`·`unsupported`. REPL의 `ReplStatus`(7종)와 다르다(`terminated` 없음, 앞의 세 개가 새것). `not-isolated`·`unsupported` 판정은 `detectRuntimeSupport()`(아래 "호환 탐지", 빌드 floor·런타임 floor 결정은 `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`) 하나가 낸다. 전이표는 `docs/design/14-runner.md` 14.3.1.
 
 **결말(`RunResult`)**:
 `run()`이 코드가 실행됐을 때 돌려주는 값. worker가 만드는 `RunOutcome`(`ok`·`error{ errorType, traceback }`·`interrupted{ traceback }`·`exit{ code }`)에 main이 만드는 `restarted`를 더한 것이다. 코드가 실행되지 못했거나 실행 중 worker가 사라지면 값이 아니라 `RunRejectedError`로 reject한다.
@@ -149,3 +149,18 @@ _Avoid_: 오류, 실패, unsupported
 
 **호환 경고**:
 main core 세션의 `ready` 핸들러가 `versionMismatch` 또는 `degraded`가 비어 있지 않을 때만 세션당 1회 내는 `console.warn("[session] pyodide 호환 경고", { expected, actual, degraded, details })`. worker는 경고를 내지 않고 `report(id, detail)`로 수집기에 보고한다.
+
+### 브라우저 호환(빌드 floor·런타임 floor)
+
+이 절은 pyodide 비공개 API 호환(위 "호환 탐지")과 다른 종류의 호환이다 — 브라우저 자체가 라이브러리 문법·pyodide wasm을 실행할 수 있는가를 다룬다. 결정·근거는 [`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`](../../docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md) 한 곳, 판정 규칙은 `docs/design/14-runner.md` 14.3.1 한 곳에 있다.
+
+**빌드 floor**:
+이 저장소 모든 패키지 `dist`가 지원을 약속하는 가장 낮은 브라우저 버전(Chrome 84). tsdown·Vite `target`으로 문법을 하향하고 `scripts/check-escompat.mjs`(런타임 API)로 강제한다. 라이브러리 문법 요구사항이지 pyodide 요구사항이 아니다.
+_Avoid_: 지원 브라우저(런타임 floor와 합쳐 부르면 어느 쪽 실패인지 흐려진다)
+
+**런타임 floor**:
+pyodide 런타임(wasm)이 요구하는 가장 낮은 브라우저 버전. 빌드 floor와 다른 값이고 pyodide가 정한다(라이브러리가 고를 수 없다). 정적 판정 Chrome 96, 실측 확인 Chrome 97(94~96은 Debian snapshot에 없어 미실측). `pyodide-dom-bridge`는 별도의 더 높을 수 있는 미확정 floor를 갖는다.
+
+**`detectRuntimeSupport()`**:
+`packages/pyodide-core/src/runtime-support.ts`. 빌드 floor ≤ 브라우저 < 런타임 floor 구간(또는 그 미만)을 `"unsupported"`로, 지원 구간인데 비격리면 `"not-isolated"`로 가른다. `createRunner`·`createRepl`·`createTerminalRunner`·dom-bridge `isDomBridgeSupported()`가 모두 이 함수 하나로 판정한다(다른 곳에서 재판정하지 않는다).
+_Avoid_: 브라우저 감지, feature detection(더 넓은 일반 용어, 이 함수는 wasm 기능 하나만 본다)

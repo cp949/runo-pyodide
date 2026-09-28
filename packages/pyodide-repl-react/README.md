@@ -21,7 +21,7 @@
 
 ## 사용
 
-앱이 worker 파일을 조립한다. Vite `worker.format`은 `'es'`여야 하고, 페이지는 cross-origin isolated여야 한다(COOP `same-origin` + COEP `require-corp`, dev·preview·배포 모두). 아니면 worker를 만들지 않고 상태 `not-isolated`가 된다.
+앱이 worker 파일을 조립한다. Vite `worker.format`은 `'es'`여야 하고, 페이지는 cross-origin isolated여야 한다(COOP `same-origin` + COEP `require-corp`, dev·preview·배포 모두). 아니면 worker를 만들지 않고 상태 `not-isolated`가 된다. 브라우저가 pyodide 런타임 floor 미만이면 같은 방식으로 상태 `unsupported`다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
 
 ```ts
 // runner.worker.ts

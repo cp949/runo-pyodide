@@ -23,7 +23,7 @@ _Avoid_: 커널, 인스턴스
 _Avoid_: 재시작(크래시 복구를 가리킬 때만), 화면 지우기(Ctrl+L, 별개 동작)
 
 **상태**:
-`ReplStatus`. 세션의 생애를 앱에 알리는 값(`loading`·`ready`·`load-failed`·`not-isolated`·`terminated`·`crashed`).
+`ReplStatus`. 세션의 생애를 앱에 알리는 값(`loading`·`ready`·`load-failed`·`not-isolated`·`unsupported`·`terminated`·`crashed`, 7종). `not-isolated`·`unsupported`는 core `detectRuntimeSupport()`가 정한다(빌드 floor·런타임 floor 용어·결정은 core `CONTEXT.md` "브라우저 호환", `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
 _Avoid_: 단계, 페이즈
 
 ### 읽기

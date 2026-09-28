@@ -9,7 +9,7 @@ import "@xterm/xterm/css/xterm.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createWorker } from "./create-worker";
 
-/** 세션이 없으면(비격리·런타임 미지원) 리셋 버튼도 못 쓴다(RD-010 확정 8, design.md D4). */
+/** 세션이 없으면(비격리·런타임 미지원) 리셋 버튼도 못 쓴다(RD-010 확정 8, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`). */
 const supported = detectRuntimeSupport() === "supported";
 
 /** 드래그 자동 복사 on/off를 저장하는 localStorage 키(RD-017 확정 6). */

@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * `createTerminalRunner`의 `unsupported`(`detectRuntimeSupport()` wasm 미지원, design.md D4) 분기만 따로 본다. 나머지
+ * `createTerminalRunner`의 `unsupported`(`detectRuntimeSupport()` wasm 미지원, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`) 분기만 따로 본다. 나머지
  * `terminal-runner*.test.ts`는 jsdom 환경에서 core `createRunner`를 실제로 붙이며 모듈을 공유하므로, `WebAssembly.validate`를
  * 거짓으로 바꾸려면 `vi.resetModules()` + 동적 import로 이 파일만 독립된 모듈 인스턴스를 써야 한다(`pyodide-core/test/session/runner-unsupported.test.ts`·
  * `pyodide-repl/test/create-repl/unsupported.test.ts`와 같은 이유). `@vitest-environment node`도 같은 이유(jsdom 파일과 워커를

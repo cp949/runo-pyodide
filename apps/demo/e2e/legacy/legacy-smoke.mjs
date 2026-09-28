@@ -1,4 +1,4 @@
-// DELTA-06(design.md D5) 구버전 Chromium 실측. `docker/chromium-legacy/`로 빌드한 이미지(`chromium-legacy:<84|93|97>`)를
+// 구버전 Chromium 실측(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`). `docker/chromium-legacy/`로 빌드한 이미지(`chromium-legacy:<84|93|97>`)를
 // `--network host`로 띄우고(CDP 포트 127.0.0.1:9222) 이 스크립트가 Playwright `chromium.connectOverCDP()`로 붙는다.
 // 컨테이너 안에는 node·Playwright가 없다 — 이미지를 미리 빌드해 뒀어야 한다:
 //   docker build --build-arg SNAPSHOT_TIME=<시각> --build-arg CHROMIUM_VERSION=<버전> -t chromium-legacy:<84|93|97> \
@@ -8,7 +8,7 @@
 //
 // 사용: node e2e/legacy/legacy-smoke.mjs <84|93|97> [previewURL](생략 시 http://localhost:4173)
 //
-// 판정(design.md D5 표):
+// 판정(ADR-0008 표):
 //   84(빌드 floor): REPL·runner 뷰는 `[data-testid=status]` === "unsupported". dom-bridge 뷰는 미지원이면
 //     `<PythonRunner>` 자체를 안 그려 `status` testid가 없다(`DomBridgeView.tsx`) — 대신
 //     `[data-testid=supported]` === "false" + `[data-testid=unsupported]` 안내 문구로 판정한다. 셋 다
@@ -17,7 +17,7 @@
 //   93(격리 O·wasm X): 위와 같되 `[data-testid=cross-origin-isolated]` === "true"(격리는 됐지만 wasm 미지원이라
 //     `not-isolated`가 아니라 `unsupported`).
 //   97(런타임 floor): runner `print(1+1)` → 출력 행 `2`, `input()` 왕복, `while True: pass` + Ctrl+C →
-//     KeyboardInterrupt 트레이스백. REPL `1+1` → `2`. dom-bridge는 관찰만(H5, 완료 조건 아님) — 상태만 기록한다.
+//     KeyboardInterrupt 트레이스백. REPL `1+1` → `2`. dom-bridge는 관찰만(GitHub 이슈 #1, 완료 조건 아님) — 상태만 기록한다.
 //   CDP로 붙은 브라우저의 `/json/version` `Browser` 문자열이 요청한 버전과 일치하는지 먼저 확인한다(9222
 //   포트에 이전 실행의 낡은 컨테이너가 남아 있으면 다른 버전에 거짓 통과할 수 있다, opus 리뷰 지적).
 //
@@ -33,7 +33,7 @@ const VERSIONS = ["84", "93", "97"];
 const BOOT_TIMEOUT_MS = 90000;
 
 // 버전은 위치 인자 또는 `CHROMIUM_VERSION` 환경변수로 받는다(`package.json`의 `e2e:legacy`는
-// `CHROMIUM_VERSION=84|93|97 pnpm --filter demo e2e:legacy` 형태로 호출한다, design.md D5). 첫 위치
+// `CHROMIUM_VERSION=84|93|97 pnpm --filter demo e2e:legacy` 형태로 호출한다). 첫 위치
 // 인자가 유효한 버전이면 그것을 쓰고(그러면 다음 인자가 URL), 아니면 환경변수를 쓰고 첫 위치 인자를 URL로 본다.
 const rest = process.argv.slice(2);
 const versionArg = VERSIONS.includes(rest[0]) ? rest[0] : process.env.CHROMIUM_VERSION;

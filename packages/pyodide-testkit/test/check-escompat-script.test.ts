@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * 루트 `scripts/check-escompat.mjs`(빌드 floor Chrome 84 런타임 API 게이트, design.md D2) 시험. 스크립트를 자식 프로세스로
+ * 루트 `scripts/check-escompat.mjs`(빌드 floor Chrome 84 런타임 API 게이트, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`) 시험. 스크립트를 자식 프로세스로
  * 실행해 종료 코드와 메시지를 본다. 실제 패키지의 `dist`를 검사하는 것은 각 패키지의 `check-dist` 스크립트 뒤에 연결된
  * `check-escompat`이다(turbo `check-dist`가 `build` 뒤에 돌린다).
  */

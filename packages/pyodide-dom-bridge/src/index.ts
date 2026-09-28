@@ -55,9 +55,10 @@ function canCreateGrowableSharedArrayBuffer(): boolean {
 
 /**
  * dom-bridge를 쓸 수 있는 페이지인가: `detectRuntimeSupport() === "supported"`(빌드 floor 이상 브라우저 + pyodide 런타임
- * wasm 지원 + cross-origin isolation, design.md D4)이고 growable SharedArrayBuffer 생성이 된다. worker를 만들기 전에
- * 걸러 조기 실패시키는 데 쓴다. 기능 탐지만 하고 UA는 판별하지 않는다(검증은 Chromium에서만 했다). growable 판정 자체의
- * 한계(H5, 구버전 엔진 오탐 가능)는 이 DELTA의 범위 밖이다(design.md "범위 밖").
+ * wasm 지원 + cross-origin isolation, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`)이고 growable
+ * SharedArrayBuffer 생성이 된다. worker를 만들기 전에 걸러 조기 실패시키는 데 쓴다. 기능 탐지만 하고 UA는 판별하지
+ * 않는다(검증은 Chromium에서만 했다). growable 판정 자체는 Chrome 97~110에서 오탐(true)할 수 있다 — 개선은 이
+ * 저장소 범위 밖이다(GitHub 이슈 #1).
  */
 export function isDomBridgeSupported(): boolean {
   return (

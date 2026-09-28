@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * `detectRuntimeSupport()`(design.md D4, 규칙 정의: `docs/design/14-runner.md` 14.3.1)의 판정표를 고정한다.
+ * `detectRuntimeSupport()`(결정: `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`, 규칙 정의: `docs/design/14-runner.md` 14.3.1)의 판정표를 고정한다.
  * `WebAssembly.validate`를 스텁해 wasm 실제 지원 여부와 무관하게 세 분기를 각각 재현한다. 모듈 스코프 캐시 때문에
  * `vi.resetModules()` + 동적 import로 매번 새 인스턴스를 만든다.
  */
@@ -126,7 +126,7 @@ describe("detectRuntimeSupport", () => {
     expect(calls).toBe(1);
   });
 
-  it("wasm 판정만 캐시하고 격리 여부는 매번 새로 읽는다(design.md D4 편차, 같은 인스턴스에서 격리 값이 바뀌면 결과도 바뀐다)", async () => {
+  it("wasm 판정만 캐시하고 격리 여부는 매번 새로 읽는다(같은 인스턴스에서 격리 값이 바뀌면 결과도 바뀐다)", async () => {
     let calls = 0;
     WebAssembly.validate = () => {
       calls += 1;

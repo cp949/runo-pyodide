@@ -41,7 +41,7 @@ catalog 값을 바꾼 뒤에는 `pnpm install`이 끝나야 `pyodide/package.jso
 ## 13.3 patch 절차
 
 1. `pnpm-workspace.yaml`의 `catalog.pyodide`를 새 버전으로 고치고 `pnpm install`(13.1). minor가 바뀌지 않았는지 확인한다(core `peerDependencies.pyodide`의 `^314.0.7`은 같은 minor 안에서 유지된다).
-2. `pnpm check-types`·`pnpm lint`·`pnpm test`·`pnpm build`·`pnpm check-dist`·`pnpm smoke:pack`(L0). 실패한 시험 목록을 기록한다. 실제 pyodide를 로드하는 node 시험이 비공개 경로를 직접 단정하므로 여기서 깨지는 것이 업그레이드 알림이다(`09-testing.md` 9.1). 13.5의 "고정 버전 부팅" 시험 3건이 `degraded: []`·`versionMismatch: false`를 단정하므로 저하 지점이 생기면 이 시험이 실패한다.
+2. `pnpm check-types`·`pnpm lint`·`pnpm test`·`pnpm build`·`pnpm check-dist`·`pnpm smoke:pack`(L0). 실패한 시험 목록을 기록한다. 실제 pyodide를 로드하는 node 시험이 비공개 경로를 직접 단정하므로 여기서 깨지는 것이 업그레이드 알림이다(`09-testing.md` 9.1). 13.5의 "고정 버전 부팅" 시험 3건이 `degraded: []`·`versionMismatch: false`를 단정하므로 저하 지점이 생기면 이 시험이 실패한다. 런타임 floor 탐지 바이트도 재확인한다(13.6 "런타임 floor 탐지 바이트 재검증").
 3. `pnpm --filter demo e2e:baseline`(L2)을 사용자 지시가 있을 때 돌려 기준선과 비교한다. 지시가 없으면 돌리지 않고 "미실행"으로 판단 자료에 적는다(`docs/agents/rubber-workflow.md` "검증 실행 예산").
 4. 판단 자료(13.5)를 작성한다.
 5. **멈춘다.** 사용자가 결정한다. CDN 위치는 `PYODIDE_VERSION`에서 자동으로 유도되므로 별도 수정이 없다.
@@ -100,6 +100,16 @@ console.warn("[session] pyodide 호환 경고", { expected, actual, degraded, de
 - 식별자 6개는 고정이다. 새 지점을 더하면 이 표·`worker/compat.ts`의 `CoreDegradedId`(core 4개)·driver `probe` 반환(REPL 2개)·시험을 함께 고친다.
 - `probe` 계약(driver 내부): `WorkerDriverSession.probe?(context: { pyodide, pyconsole }): string[]`. 선택 메서드이고 탐지할 지점이 없는 driver는 구현하지 않는다. core가 `createConsole` 직후 한 번 부르고 결과를 `degraded`에 합친다. 콘솔·전역 상태를 바꾸지 않아야 하고, 던지면 `loadFailed`다.
 - 각 지점은 가짜 객체·실제 pyodide 속성 삭제/문구 변조 시험과 변이 검사로 고정돼 있다: core `worker/boot-compat.test.ts`·`worker/compat.test.ts`·`protocol/ready-payload.test.ts`·`session/core-session.test.ts`, repl `worker/console-compat.test.ts`·`worker/repl-driver-probe.test.ts`·`worker/boot.test.ts`.
+
+### 런타임 floor 탐지 바이트(`WASM_RUNTIME_PROBE`) 재검증
+
+`packages/pyodide-core/src/runtime-support.ts`의 `WASM_RUNTIME_PROBE`(29바이트 wasm 모듈)는 **pyodide 314.0.7이 요구하는 두 wasm 기능**(reference types + legacy Wasm 예외 처리, [ADR-0008](../adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md))만 검사하도록 고정된 것이다 — pyodide 버전 자체가 아니라 그 버전의 wasm 산출물(`pyodide.asm.wasm`)이 요구하는 기능 집합에 묶여 있다.
+
+patch·minor 절차(13.3·13.4) 모두, `pyodide.asm.wasm`이 바뀌면(pyodide 업그레이드마다 재빌드된다) 다음을 13.5 판단 자료에 추가한다:
+
+- 새 `pyodide.asm.wasm`이 요구하는 wasm 기능이 이전과 같은지 확인한다(`wasm-tools`/`wabt` 등으로 type·tag 섹션을 다시 읽거나, node의 `--experimental-wasm-*` 플래그 조합으로 어떤 기능이 필수인지 재확인 — ADR-0008 "런타임 floor: 정적 판정과 실측"과 같은 방법).
+- 요구 기능이 바뀌지 않았으면 `WASM_RUNTIME_PROBE`는 그대로 두고 판단 자료에 "탐지 바이트 재확인: 변경 없음"을 남긴다.
+- 요구 기능이 바뀌었으면(예: exnref로 전환) `WASM_RUNTIME_PROBE`를 새 최소 모듈로 교체하고, 런타임 floor 정적 판정·실측(ADR-0008)을 다시 한다 — 이 교체는 "필요할 때만 올린다"(13.2)는 patch 사유 중 "브라우저 호환"에 해당한다.
 
 ## 13.7 소비자 요구사항
 

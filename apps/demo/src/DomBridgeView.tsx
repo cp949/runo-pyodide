@@ -23,7 +23,7 @@ function describeError(error: unknown): string {
   return JSON.stringify({ error: String(error) });
 }
 
-/** dom-bridge를 쓸 수 없는 이유(사용자에게 보여 준다). `isDomBridgeSupported()`가 false인 세 원인을 구분한다(design.md D4). */
+/** dom-bridge를 쓸 수 없는 이유(사용자에게 보여 준다). `isDomBridgeSupported()`가 false인 세 원인을 구분한다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`). */
 function unsupportedReason(): string {
   const support = detectRuntimeSupport();
   if (support === "unsupported")

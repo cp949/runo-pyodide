@@ -33,7 +33,7 @@ const runner = createTerminalRunner({
     new Worker(new URL("./runner.worker.ts", import.meta.url), {
       type: "module",
     }),
-  onStatus: (status) => {}, // "loading" | "ready" | "running" | "waiting-input" | "restarting" | "load-failed" | "crashed" | "not-isolated"
+  onStatus: (status) => {}, // "loading" | "ready" | "running" | "waiting-input" | "restarting" | "load-failed" | "crashed" | "not-isolated" | "unsupported"
 });
 
 try {
@@ -49,6 +49,7 @@ runner.dispose(); // Terminal은 dispose하지 않는다
 ```
 
 - 페이지가 cross-origin isolated여야 한다(COOP/COEP). 아니면 worker를 만들지 않고 안내 한 줄 + 상태 `not-isolated`이며 `run()`은 `unavailable`이다.
+- 브라우저가 pyodide 런타임 floor 미만이면(빌드 floor Chrome 84 이상이어도) 같은 방식으로 안내 한 줄 + 상태 `unsupported`다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
 - 실행창은 `input()` 대기 중에만 한 줄 입력을 받는다. 그 밖의 키·붙여넣기는 버린다. Ctrl+C는 상태(선택 복사 / `running` 인터럽트 / 입력 취소 / 무동작)로 갈린다.
 - `inputProvider`를 주면 xterm 입력 대신 그 함수가 `input()`을 받는다. 생략하면 xterm에서 한 줄을 읽는다.
 - 상태·결과·`stop()` 1000ms 폴백·`InputProvider` 계약·키 정책은 `docs/design/14-runner.md`.

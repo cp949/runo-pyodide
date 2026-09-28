@@ -32,16 +32,15 @@ const ALLOWED_BELOW_FLOOR_RULES = {
 
 /**
  * 기능 탐지 뒤 사용하는 API. 소스에서 `typeof`·존재 검사로 감싸고 폴백이 있어 게이트 대상이 아니다. 규칙을 끌 때는 이
- * 목록에만 둔다(design.md D2).
+ * 목록에만 둔다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
  */
 const FEATURE_DETECTED_RULES = {
   // `pyodide-core/src/protocol/stdin-mailbox.ts`가 `Atomics.waitAsync` 존재 검사 후 `setTimeout` 폴백을 쓴다.
   "es-x/no-atomics-waitasync": "off",
   // `pyodide-dom-bridge/src/index.ts`의 `canCreateGrowableSharedArrayBuffer()`가 growable `SharedArrayBuffer` 생성자
-  // 호출을 try/catch로 감싼 의도적 기능 탐지다(design.md D2 계획에 없던 발견, 2026-09-28 DELTA-03에서 실측). 판정 정확성은
-  // 이 게이트 밖이다 — growable을 지원하지 않는 구버전 엔진 중 일부는 두 번째 인자(`maxByteLength`)를 무시하고 던지지 않아
-  // 오탐(`true`)할 수 있다는 것이 design.md H5·"범위 밖"에 별도로 기록돼 있다(2026-09-28 opus 리뷰가 지적: "미지원
-  // 엔진에서 던진다"는 앞 문구는 틀렸다). 이 규칙을 켜 두면 그 의도적 호출 자체가 항상 걸려 게이트를 쓸 수 없다.
+  // 호출을 try/catch로 감싼 의도적 기능 탐지다. 판정 정확성은 이 게이트 밖이다 — growable을 지원하지 않는 구버전 엔진
+  // 중 일부는 두 번째 인자(`maxByteLength`)를 무시하고 던지지 않아 Chrome 97~110에서 오탐(`true`)할 수 있다
+  // (GitHub 이슈 #1). 이 규칙을 켜 두면 그 의도적 호출 자체가 항상 걸려 게이트를 쓸 수 없다.
   "es-x/no-resizable-and-growable-arraybuffers": "off",
 };
 

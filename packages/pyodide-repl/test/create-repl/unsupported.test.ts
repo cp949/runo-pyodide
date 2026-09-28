@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * `createRepl`의 `unsupported`(`detectRuntimeSupport()` wasm 미지원, design.md D4) 분기만 따로 본다. 다른 `create-repl/*.test.ts`는
+ * `createRepl`의 `unsupported`(`detectRuntimeSupport()` wasm 미지원, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`) 분기만 따로 본다. 다른 `create-repl/*.test.ts`는
  * `useReplHarness()`로 `createRepl`을 최상위에서 정적 import해 core의 wasm 지원 캐시를 공유하므로, `WebAssembly.validate`를 거짓으로
  * 바꾸려면 `vi.resetModules()` + 동적 import로 이 파일만 독립된 모듈 인스턴스를 써야 한다(`pyodide-core/test/session/runner-unsupported.test.ts`와
  * 같은 이유). `@vitest-environment node`도 core와 같은 이유로 둔다 — jsdom 환경 파일들과 워커/컨텍스트를 공유하면 이 파일의

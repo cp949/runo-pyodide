@@ -283,7 +283,7 @@ provider가 구분하지 못하므로 `reset()`·크래시 뒤에도 줄바꿈�
 `detectRuntimeSupport()`(판정 규칙은 14.3.1)가 `"not-isolated"`·`"unsupported"`면 worker를 만들지 않고 노란 안내 한 줄을 쓴다 —
 `not-isolated`는 `경고: cross-origin isolation이 꺼져 있어...`(REPL `NOT_ISOLATED_WARNING`과 같은 문구, ADR-0004),
 `unsupported`는 `경고: 이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아...`(REPL `UNSUPPORTED_BROWSER_WARNING`과 같은
-문구, design.md D4) — 그 상태가 된다. `run()`은 `RunRejectedError("unavailable")`이고 화면·상태는 그대로다. 두 문구 상수 모두
+문구, [ADR-0008](../adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md)) — 그 상태가 된다. `run()`은 `RunRejectedError("unavailable")`이고 화면·상태는 그대로다. 두 문구 상수 모두
 terminal 안에 복제돼 있다(repl이 terminal에 의존하고 반대 방향 의존은 경계 시험이 막는다).
 
 ## 14.6 데모와 검증

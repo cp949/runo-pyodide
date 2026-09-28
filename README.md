@@ -41,7 +41,7 @@ REPL이 아니라 스크립트 한 편을 처음부터 끝까지 실행하는 �
 
 ### [`@cp949/runo-pyodide-dom-bridge`](packages/pyodide-dom-bridge)
 
-worker 안 Python 코드에서 메인 페이지의 `window`·`document`를 동기 프록시로 쓰게 하는 선택적 플러그인(`from runo.browser import document`). `createRunner`·`createTerminalRunner`와 조합한다(REPL과는 조합 미지원). Chromium에서만 검증했다.
+worker 안 Python 코드에서 메인 페이지의 `window`·`document`를 동기 프록시로 쓰게 하는 선택적 플러그인(`from runo.browser import document`). `createRunner`·`createTerminalRunner`와 조합한다(REPL과는 조합 미지원). Chromium에서만 검증했다(엔진 범위: [ADR-0008](docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md); 이 패키지는 core·terminal의 런타임 floor를 그대로 물려받지 않는다 — 같은 문서 "dom-bridge는 이 런타임 floor를 그대로 물려받지 않는다").
 
 ### [`@cp949/runo-xterm-readline`](packages/xterm-readline)
 
@@ -183,6 +183,16 @@ Cross-Origin-Embedder-Policy: require-corp
 ```
 
 dev·preview·정적 배포 모두 필요하다. 헤더가 없는 페이지에서는 세션을 시작하지 않고 터미널에 경고만 낸다(상태 `not-isolated`).
+
+## 브라우저 호환
+
+결정·근거는 [ADR-0008](docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md) 한 곳에 있다. 요약:
+
+- **빌드 floor Chrome 84.** 모든 패키지 `dist`의 문법·런타임 API를 Chrome 84로 하향하고 정적 게이트로 강제한다.
+- **런타임 floor는 pyodide가 정한다**(Chrome 96 정적 판정, 97 실측 확인 — 둘은 다른 값이다). 빌드 floor ≤ 브라우저 < 런타임 floor 구간은 worker를 만들지 않고 상태 `unsupported`로 멈춘다(판정 규칙: [`docs/design/14-runner.md`](docs/design/14-runner.md) 14.3.1). `pyodide-dom-bridge`는 별도의(더 높을 수 있는) 미확정 floor를 갖는다 — ADR-0008 참고.
+- **소비자 책임**: `react`·`@xterm/xterm`·`coincident` 등 peer 의존성의 문법은 소비자 번들러 target이, 런타임 API 폴리필은 소비자가 맡는다(이 저장소는 자기 `dist`만 하향한다). 예: `@xterm/xterm` 6(`lib/xterm.mjs`)은 `??=`/`||=`/`&&=`(Chrome 85)와 `replaceChildren`(86)을 쓴다 — Chrome 84~85로 내리려면 소비자가 번들러 target을 하향하고 `replaceChildren` DOM 폴리필(ECMAScript가 아니라 DOM API라 core-js로는 안 된다, `apps/demo/src/main.tsx`의 데모 전용 인라인 폴리필 참고)을 직접 넣어야 한다. 이걸 안 하면 xterm 자체가 던져 `unsupported` 안내 문구(터미널에 그려야 하는데 xterm이 먼저 깨진다)가 화면에 안 나타난다 — `status` 값 자체는 정상이다.
+- **Firefox·Safari는 미검증**이다(ADR-0008 결정 1). 판정 바이트가 참이어도 pyodide의 문법·API 지원을 보장하지 않으므로 이런 엔진은 `unsupported`가 아니라 worker 로드 시도 뒤 `load-failed`가 될 수 있다.
+- **한계**: 정적 게이트가 못 잡는 API가 있고(GitHub 이슈 #2), 구버전 실측은 84·93·97 세 버전뿐이며 CI 게이트가 아니라 수동 실행이다.
 
 ## 상태
 

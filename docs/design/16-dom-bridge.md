@@ -152,7 +152,7 @@ Chromium은 terminate 요청 뒤 유휴가 아닌 worker(`input()` 대기·`time
 ## 16.11 비지원과 검증 범위
 
 - **REPL + dom-bridge는 지원하지 않는다.** REPL은 프롬프트 대기 중 main→worker 요청(Tab 완성)이 필요한데 coincident 동기 대기가 그것을 막는다(ADR-0006, ADR-0001). `runReplWorker()`는 `plugins`를 받지 않는다. 문서화만 하고 코드로 막지는 않는다.
-- **Chromium에서만 검증했다.** Firefox·Safari는 검증하지 않았다(coincident가 Firefox에서 worker 전역 `postMessage` 우회 경로를 쓴다는 점 때문에 S1·S6 경로가 달라질 수 있다). `native`는 기능 탐지로만 판정하고 UA는 판별하지 않는다. Firefox 공존 실측은 착수 조건이 아니라 `docs/history/first-roadmap.md` "보류" 절 항목이다.
+- **Chromium에서만 검증했다**(엔진 범위 결정: [ADR-0008](../adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md)). Firefox·Safari는 검증하지 않았다(coincident가 Firefox에서 worker 전역 `postMessage` 우회 경로를 쓴다는 점 때문에 S1·S6 경로가 달라질 수 있다). `native`는 기능 탐지로만 판정하고 UA는 판별하지 않는다. Firefox 공존 실측은 착수 조건이 아니라 `docs/history/first-roadmap.md` "보류" 절 항목이다.
 - 서비스워커(sabayon) 경로는 측정하지 않았다(`docs/history/first-roadmap.md` "보류" 절). `native: false`는 16.7의 명시 오류다.
 - CSP 헤더를 실제로 건 브라우저 실측은 하지 않았다. `worker-src 'self'`에서 위반 0건은 canvas 저장소의 실측(F23)이고 이 저장소에서 재확인하지 않았다. 이 저장소가 하는 것은 16.12의 정적 검사다.
 - 재생성 20회 누수·S5 N=10 반복은 스파이크 결과의 인용이고 저장소에서 다시 재지 않았다. 통과 셀의 반복 안정성은 전체 재실행 2회로만 봤다.

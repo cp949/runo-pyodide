@@ -2,7 +2,7 @@
 
 ## Contexts
 
-- [pyodide-core](./packages/pyodide-core/CONTEXT.md): 공통 부분. 프로토콜(RPC·메일박스·interrupt buffer·초기화 프레임), worker 커널(`runWorker`), main 세션(`startCoreSession`)과 driver 경계의 용어, 실행 driver(`runDriver`)·runner(`createRunner`)·`InputProvider`. UI·xterm·coincident 비의존, private(RD-020·RD-022, [ADR-0006](./docs/adr/0006-pyodide-core-and-plugin-packages.md)).
+- [pyodide-core](./packages/pyodide-core/CONTEXT.md): 공통 부분. 프로토콜(RPC·메일박스·interrupt buffer·초기화 프레임), worker 커널(`runWorker`), main 세션(`startCoreSession`)과 driver 경계의 용어, 실행 driver(`runDriver`)·runner(`createRunner`)·`InputProvider`. 빌드 floor·런타임 floor·`detectRuntimeSupport()`(브라우저 호환) 용어도 여기 있다([ADR-0008](./docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md)). UI·xterm·coincident 비의존, private(RD-020·RD-022, [ADR-0006](./docs/adr/0006-pyodide-core-and-plugin-packages.md)).
 - [pyodide-terminal](./packages/pyodide-terminal/CONTEXT.md): xterm 실행창(`createTerminalRunner`)과 repl이 공유하는 xterm 결합 부품 5종(`./internal`). 실행창·읽기 밖 입력·Ctrl+C 분기·abort 정리·프롬프트 행의 용어. core의 용어는 core `CONTEXT.md`를 따른다. coincident 비의존, private(RD-022).
 - [pyodide-repl](./packages/pyodide-repl/CONTEXT.md): REPL driver와 REPL 프런트. main 쪽(터미널·읽기·인터럽트 송신 연결)과 worker 쪽(콘솔 확장·제출 러너·REPL 루프)의 용어, 호스트가 REPL 세션에 코드를 실행시키는 `runSource`(슬롯·루프 명령·정착, RD-022a). core의 용어는 core `CONTEXT.md`를 따른다.
 - [pyodide-repl-react](./packages/pyodide-repl-react/CONTEXT.md): React 컴포넌트·hook(`PythonRunner`·`PythonRepl`·`usePythonRunner`)이 core·terminal·repl을 React 수명에 붙이는 패키지(RD-024). handle 위임·생성 옵션·latest-ref·fit·StrictMode의 용어. main·worker·읽기·인터럽트 용어는 repl, runner·실행창은 terminal, driver·core 세션은 core `CONTEXT.md`를 따른다. coincident 비의존, private([ADR-0006](./docs/adr/0006-pyodide-core-and-plugin-packages.md)).
