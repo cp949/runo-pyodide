@@ -421,10 +421,8 @@ async function runDev(url) {
 
   // ── strict: StrictMode 이중 마운트 — worker 1개, .xterm 1개, 콘솔 경고 0 ──
   await step("strict: 로드 직후 worker 1개·.xterm 1개", async () => {
-    if (h.workers.created > 2) {
-      // StrictMode의 mount, cleanup, mount로 worker가 2개까지 생성될 수 있다.
-      // 생성 수는 판정하지 않는다. `page.workers()`는 살아 있는 것만 센다.
-    }
+    // StrictMode의 mount, cleanup, mount로 worker가 2개까지 생성될 수 있다.
+    // 생성 수는 판정하지 않는다. `page.workers()`는 살아 있는 것만 센다.
     const liveWorkers = page.workers().length;
     if (liveWorkers !== 1) throw new Error(`page.workers().length = ${liveWorkers}`);
     const xtermCount = await page.locator(".xterm").count();

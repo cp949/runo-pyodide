@@ -357,7 +357,7 @@ async function runRuntimeFloorSmoke() {
         20000,
       );
       const supported = await h.page.locator('[data-testid="supported"]').textContent({ timeout: 5000 }).catch(() => "<없음>");
-      console.log(`관찰  dom-bridge(97, H5, 완료 조건 아님): status=${status} supported=${supported}`);
+      console.log(`관찰  dom-bridge(97, 완료 조건 아님): status=${status} supported=${supported}`);
     } catch (e) {
       console.log(`관찰  dom-bridge(97) 읽기 실패(완료 조건 아님): ${e.message}`);
     }

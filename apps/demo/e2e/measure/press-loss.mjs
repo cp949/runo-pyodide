@@ -26,18 +26,10 @@ const resultsDir = process.env.E2E_RESULTS_DIR ?? path.join(measureDir, "..", "r
 const label = url.includes(":4173") ? "preview" : "dev";
 
 const h = await open(url);
-const { waitPrompt, waitPromptTail, clear, type, enter, rows, cursorRow, focus, ctrlC, startBlockLine, countTracebacks, page } = h;
+const { waitPrompt, waitPromptTail, clear, type, enter, rows, focus, ctrlC, startBlockLine, countTracebacks, page } = h;
 
 await waitPrompt(">>>", 60000);
 await focus();
-
-/** 마지막 텍스트 행이 프롬프트로 끝나고 커서가 그 행에 있는지 한 번만 본다(대기하지 않는다). */
-async function atPrompt() {
-  const all = await rows();
-  let last = all.length - 1;
-  while (last >= 0 && all[last] === "") last -= 1;
-  return last >= 0 && all[last].endsWith(">>>") && (await cursorRow()) === last;
-}
 
 let hangs = 0;
 let probeRecovered = 0;
