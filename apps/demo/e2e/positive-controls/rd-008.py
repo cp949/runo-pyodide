@@ -21,7 +21,7 @@
   - 확인은 `checks/input-cancel-check.mjs`를 `ONLY=RM2`, `ONLY=E1`로 셀마다 돌린다.
   - 기대: RM2가 실패한다(`EOFError` 트레이스백).
   - E1(정상 `input()`)은 통과해야 한다.
-- 2: `packages/pyodide-core/src/worker/boot.ts`의 `signalInterrupt` 주입이 요청 번호를 올리지 않게 한다.
+- 2: `packages/pyodide-core/src/worker/runtime-attach.ts`의 `signalInterrupt` 주입이 요청 번호를 올리지 않게 한다.
   - 확인은 `checks/input-cancel-check.mjs`를 `ONLY=T35`, `ONLY=RM2`로 셀마다 돌린다.
   - 기대: 둘 다 실패한다(시간 초과).
   - 이유: 핸들러가 설치 시점 번호 0을 `last_seq`로 잡는다.
@@ -29,16 +29,10 @@
   - CPython이 읽기를 재시도해 프롬프트로 돌아오지 않는다.
   - 이 대조는 검출력만 증명한다. 국소성은 1번과 3번이 증명한다.
   - T35는 "번호가 0에서 1이 된 뒤에도 전진해야 한다"를 고정하려 남겼다.
-- 3: `packages/pyodide-repl/src/repl-main-driver.ts`의 `isIdle`에서 `|| cancelSettling` 삭제.
+- 3: `packages/pyodide-repl/src/repl-main-driver.ts`의 `isIdle`에서 `cancel-settling` phase를 뺀다.
   - 확인은 `checks/prompt-cancel-check.mjs`를 `ONLY=I`, `ONLY=RM1`로 셀마다 돌린다.
   - 기대: I가 실패한다(취소 직후 연타가 `^C`를 에코한다).
   - RM1은 통과해야 한다.
-
-현재 상태:
-- 2번과 3번의 `find`가 현재 소스에 없다. `main`이 `find 문자열이 없다`로 중단한다.
-- 2번: `signalInterrupt` 주입은 `packages/pyodide-core/src/worker/runtime-attach.ts`에 있다.
-- 3번: `isIdle`이 `phase !== "idle"`로 바뀌었다. `cancelSettling` 항이 없다. 취소 직후 구간은 `cancel-settling` phase다.
-- 다시 쓰려면 대상 파일과 `find`·`replace`를 현재 구조에 맞춘다.
 
 전제:
 - 깨끗한 트리에서만 실행한다. 시작 전 `git status --short`가 비어야 한다.
@@ -75,7 +69,7 @@ CONTROLS = {
         ],
     },
     "2": {
-        "file": "packages/pyodide-core/src/worker/boot.ts",
+        "file": "packages/pyodide-core/src/worker/runtime-attach.ts",
         "find": "        signalInterrupt: () => signalInterrupt(interruptBuffer),",
         "replace": "        signalInterrupt: () => Atomics.store(interruptBuffer, 0, 2),",
         "scripts": [
@@ -84,14 +78,12 @@ CONTROLS = {
         ],
     },
     "3": {
-        # 이 게이트는 원래 index.ts에 있었다.
-        # RD-010의 세션 추출로 session.ts의 `pythonRunning` 계산식으로 옮겼다(문자열은 그대로, 파일과 들여쓰기(2→4칸)만 다르다).
-        # RD-020이 게이트를 core 세션(`alive && inputReadsPending === 0 && !driver.isIdle()`)과 REPL main driver의 `isIdle`로 갈랐다.
-        # `cancelSettling` 항이 있는 곳은 REPL의 `isIdle`이라 그 항을 뺐다(같은 변조, 파일만 다르다).
-        # 이후 `isIdle`이 `phase !== "idle"`로 바뀌어 이 find는 맞지 않는다.
+        # 게이트는 core 세션(`alive && inputReadsPending === 0 && !driver.isIdle()`)과 REPL main driver의 `isIdle`로 나뉜다.
+        # `isIdle`은 `phase !== "idle"`이다. 취소 직후 구간은 `cancel-settling` phase다.
+        # 변조는 `isIdle`이 그 phase를 빼고 읽기 phase(`readOpen()`)만 보게 한다.
         "file": "packages/pyodide-repl/src/repl-main-driver.ts",
-        "find": "    isIdle: () => readLinePending || cancelSettling,",
-        "replace": "    isIdle: () => readLinePending,",
+        "find": "    isIdle: () => phase !== \"idle\",",
+        "replace": "    isIdle: () => readOpen(),",
         "scripts": [
             ["prompt-cancel-check.mjs", URL, {"ONLY": "I"}],
             ["prompt-cancel-check.mjs", URL, {"ONLY": "RM1"}],

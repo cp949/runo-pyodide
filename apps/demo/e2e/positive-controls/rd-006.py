@@ -26,15 +26,9 @@ vitest 변이 실행기가 아니라 브라우저 스크립트를 돌려야 해�
 - 2: `packages/pyodide-core/src/worker/stdin-callback.ts`에서 `requestInput`을 `wait()` 뒤로 옮긴다.
   - 확인은 `stdin-input-check.mjs ONLY=RM1`이다.
   - 기대: 읽기가 시작되지 않아 입력이 버려져 실패한다.
-  - 현재 소스와 맞지 않는다. 아래 "현재 상태"를 본다.
 - 3: `packages/pyodide-repl/src/terminal/read-guard.ts`의 `await replRead` 삭제.
   - 확인은 `bg-input-guard-probe.mjs`다.
   - 기대: REPL 읽기가 고아가 되어 프롬프트가 돌아오지 않는다.
-
-현재 상태:
-- 2번의 `find`가 현재 소스에 없다. `main`이 `find 문자열이 없다`로 중단한다.
-- `createStdinCallback`이 `deps.requestInput(true);`와 `const result = deps.wait();`, `result.kind` 분기 구조로 바뀌었다.
-- 다시 쓰려면 `find`·`replace`를 그 구조에 맞춘다.
 
 전제:
 - 깨끗한 트리에서만 실행한다. 시작 전 `git status --short`가 비어야 한다.
@@ -76,13 +70,11 @@ CONTROLS = {
         ],
     },
     "2": {
-        # 원본 find는 `deps.requestInput(true);\n    return deps.wait();\n`이다.
-        # stdin-callback.ts가 EOF 처리(`signalInterrupt`·`checkInterrupt`)를 더하며 구조가 바뀌었다.
-        # 그때 구조 `const line = deps.wait(); if (line !== null) return line;`에 맞춰 옮긴 것이 아래 find다.
-        # 이후 구조가 `const result = deps.wait();`와 `result.kind` 분기로 다시 바뀌어 이 find는 맞지 않는다.
+        # 현재 구조는 `deps.requestInput(true);`, `const result = deps.wait();`, `result.kind` 분기다.
+        # find·replace는 이 구조에 맞춘 값이다. 구조가 바뀌면 다시 맞춘다.
         "file": "packages/pyodide-core/src/worker/stdin-callback.ts",
-        "find": "    deps.requestInput(true);\n    const line = deps.wait();\n",
-        "replace": "    const line = deps.wait();\n    deps.requestInput(true);\n",
+        "find": "    deps.requestInput(true);\n    const result = deps.wait();\n",
+        "replace": "    const result = deps.wait();\n    deps.requestInput(true);\n",
         # worker가 알림 없이 메일박스에서 정지하면 이후 확인이 모두 연쇄로 실패한다.
         # 그래서 첫 확인 하나만 본다.
         "scripts": [["stdin-input-check.mjs", URL, {"ONLY": "RM1"}]],

@@ -17,7 +17,7 @@
 사용: python3 rd-009.py <1|2|3>
 
 변조와 기대:
-- 1: `packages/pyodide-core/src/worker/boot.ts`의 `suppressWebLoopReraise(...)` 호출 제거.
+- 1: `packages/pyodide-core/src/worker/runtime-attach.ts`의 `suppressWebLoopReraise(...)` 호출 제거.
   - 확인은 `checks/ctrl-c-check.mjs`다.
   - 기대: 재보고가 다시 나 `pageErrors총계`가 0보다 크다(재발).
 - 2: `packages/pyodide-core/src/worker/sleep-slice.py`의 `secs <= SLEEP_SLICE` 분기에서 `poll()` 제거.
@@ -27,12 +27,6 @@
 - 3: `packages/pyodide-core/src/worker/boot.ts`의 `startInterruptWatch(...)` 호출 제거. `stopWatch`는 no-op이 된다.
   - 확인은 `measure/sleep-await-check.mjs ONLY=arun5`다.
   - 기대: `arun5` 셀이 5초 뒤에야 복귀한다(`셀중앙값`이 초 단위).
-
-현재 상태:
-- 1번과 3번의 `find`가 현재 소스에 없다. `main`이 `find 문자열이 없다`로 중단한다.
-- 1번: `suppressWebLoopReraise(pyodide, { report });` 호출이 `runtime-attach.ts`로 옮겨졌다.
-- 3번: `startInterruptWatch` 인자 `interruptIdle`이 `attached.interruptIdle`로 바뀌었다.
-- 다시 쓰려면 대상 파일과 `find`·`replace`를 현재 구조에 맞춘다.
 
 전제:
 - 확인 스크립트 경로는 `apps/demo/e2e` 기준이다. `sleep-await-check.mjs`는 RD-012판 16셀 정본이고 `measure/`에 있다.
@@ -61,14 +55,9 @@ DEV_LOG = os.environ.get("DEV_LOG", os.path.join(tempfile.gettempdir(), "rd-009-
 # - `scripts`: 돌릴 확인 `[파일, 인자..., {환경변수}]` 목록.
 CONTROLS = {
     "1": {
-        "file": "packages/pyodide-core/src/worker/boot.ts",
-        # RD-021: `warn` 주입이 수집기 `report`로 바뀌어 호출이 한 줄이 됐다(TRP-034).
-        # 이후 호출이 `runtime-attach.ts`로 옮겨져 이 find는 맞지 않는다.
-        "find": (
-            "    // WebLoop의 KeyboardInterrupt·SystemExit 재보고 억제. "
-            "세션당 1회, 실패해도 REPL 동작은 그대로다(`webloop-handlers`로 알린다).\n"
-            "    suppressWebLoopReraise(pyodide, { report: collector.report });\n"
-        ),
+        "file": "packages/pyodide-core/src/worker/runtime-attach.ts",
+        # 호출은 `attachRuntime` 안 한 줄이다(TRP-034).
+        "find": "  suppressWebLoopReraise(pyodide, { report });\n",
         "replace": "",
         "scripts": [
             ["checks/ctrl-c-check.mjs", URL, {}],
@@ -87,13 +76,12 @@ CONTROLS = {
         ],
     },
     "3": {
-        # 이 블록은 boot.ts에서 들여쓰기가 2칸에서 4칸으로 바뀌었다(호이스팅 관련 리팩토링).
-        # 아래 find·replace는 그 들여쓰기에 맞춘 값이다.
-        # 이후 `interruptIdle` 인자가 `attached.interruptIdle`로 바뀌어 이 find는 맞지 않는다.
+        # 이 블록은 boot.ts 안 `try` 블록이라 들여쓰기가 4칸이다.
+        # `interruptIdle` 인자는 `attached.interruptIdle`이다.
         "file": "packages/pyodide-core/src/worker/boot.ts",
         "find": (
             "    const stopWatch = startInterruptWatch({\n"
-            "      interruptIdle,\n"
+            "      interruptIdle: attached.interruptIdle,\n"
             "      atPrompt: () => session.atPrompt(),\n"
             "      hasPending: () => hasPendingInterrupt(interruptBuffer),\n"
             "      consume: () => consumeInterrupt(interruptBuffer),\n"
