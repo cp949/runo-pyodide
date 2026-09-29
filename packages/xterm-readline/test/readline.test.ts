@@ -9,12 +9,12 @@
  */
 import { expect, test } from "vitest";
 import { Readline } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 test("read()는 앞선 write가 flush된 뒤의 cursorY를 잡는다", () => {
   const term = new StubTerminal(20, 6);
   const rl = new Readline();
-  rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
+  rl.activate(asTerminal(term));
 
   // read() 전에 배너를 찍는다. cursorY가 버퍼를 따라 내려간다.
   rl.println("line1");
@@ -36,7 +36,7 @@ test("read()는 앞선 write가 flush된 뒤의 cursorY를 잡는다", () => {
 test("onData 입력이 State를 움직여 화면을 갱신한다", async () => {
   const term = new StubTerminal(20, 6);
   const rl = new Readline();
-  rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
+  rl.activate(asTerminal(term));
 
   const promise = rl.read("> ");
   // 입력 전에 한 틱 양보한다. read() 안의 term.write("", cb) 콜백이 돌아 State가 만들어진 뒤여야 한다.
@@ -51,7 +51,7 @@ test("onData 입력이 State를 움직여 화면을 갱신한다", async () => {
 test("붙여넣은 탭을 버퍼에 보존한다", async () => {
   const term = new StubTerminal(40, 8);
   const rl = new Readline();
-  rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
+  rl.activate(asTerminal(term));
 
   rl.read("> ");
   await Promise.resolve();
@@ -63,7 +63,7 @@ test("붙여넣은 탭을 버퍼에 보존한다", async () => {
 test("단독 탭 키는 여전히 무시한다", async () => {
   const term = new StubTerminal(40, 8);
   const rl = new Readline();
-  rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
+  rl.activate(asTerminal(term));
 
   rl.read("> ");
   await Promise.resolve();
@@ -75,7 +75,7 @@ test("단독 탭 키는 여전히 무시한다", async () => {
 test("onResize는 Tty를 다시 맞추고 활성 읽기를 다시 그린다", () => {
   const term = new StubTerminal(40, 8);
   const rl = new Readline();
-  rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
+  rl.activate(asTerminal(term));
 
   rl.read("> ");
   for (const ch of "abc") term.feed(ch);

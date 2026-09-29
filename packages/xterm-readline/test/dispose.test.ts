@@ -7,7 +7,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { Readline } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 /** `observe`가 돌려주는 promise의 현재 상태. */
 type Outcome =
@@ -43,7 +43,7 @@ function createReadline(asyncWrite: boolean) {
   const term = new StubTerminal(80, 24);
   term.asyncWrite = asyncWrite;
   const readline = new Readline({ persist: false });
-  readline.activate(term as unknown as Parameters<Readline["activate"]>[0]);
+  readline.activate(asTerminal(term));
   return { readline, term, flush: () => term.flush() };
 }
 

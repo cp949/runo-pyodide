@@ -5,16 +5,14 @@
  */
 import { describe, expect, test } from "vitest";
 import { Readline } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
-
-type Term = Parameters<Readline["activate"]>[0];
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 /** `cols` 20·`rows` 6 가짜 터미널에 `Readline`을 붙여 돌려준다. `asyncWrite`가 참이면 `term.flush()`까지 write 콜백을 미룬다. */
 function activated(asyncWrite = false) {
   const term = new StubTerminal(20, 6);
   term.asyncWrite = asyncWrite;
   const rl = new Readline();
-  rl.activate(term as unknown as Term);
+  rl.activate(asTerminal(term));
   return { term, rl };
 }
 
@@ -48,7 +46,7 @@ describe("writeReady", () => {
     rl.write("x".repeat(20000));
     const term = new StubTerminal(20, 6);
     term.asyncWrite = true;
-    rl.activate(term as unknown as Term);
+    rl.activate(asTerminal(term));
     rl.write("y".repeat(10001));
     expect(rl.writeReady()).toBe(false);
     term.flush();

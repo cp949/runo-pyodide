@@ -13,7 +13,7 @@
 import { describe, expect, expectTypeOf, test } from "vitest";
 import { InputType, type Input } from "../src/keymap";
 import { READ_EOF, Readline, type ReadOptions } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 type Outcome =
   | { state: "pending" }
@@ -43,7 +43,7 @@ function tick(): Promise<void> {
 function createSession(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
-  readline.activate(term as unknown as Parameters<Readline["activate"]>[0]);
+  readline.activate(asTerminal(term));
   return { term, readline };
 }
 

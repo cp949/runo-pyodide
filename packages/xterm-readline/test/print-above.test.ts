@@ -13,13 +13,13 @@
  */
 import { describe, expect, test } from "vitest";
 import { Readline } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 /** `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
-  readline.activate(term as unknown as Parameters<Readline["activate"]>[0]);
+  readline.activate(asTerminal(term));
   return { term, readline };
 }
 

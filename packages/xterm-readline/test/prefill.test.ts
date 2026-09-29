@@ -8,6 +8,7 @@
  */
 import { expect, test } from "vitest";
 import { Readline } from "../src/readline";
+import { asTerminal } from "./stub-terminal";
 import { VTerm } from "../src/vterm";
 
 /**
@@ -78,7 +79,7 @@ class DeferredStubTerminal {
 function setup(cols = 20, rows = 6) {
   const term = new DeferredStubTerminal(cols, rows);
   const rl = new Readline();
-  rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
+  rl.activate(asTerminal(term));
   return { term, rl };
 }
 

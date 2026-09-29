@@ -1,3 +1,4 @@
+import type { Readline } from "../src/readline";
 import { VTerm } from "../src/vterm";
 
 /**
@@ -147,4 +148,9 @@ export class StubTerminal {
       type: "keydown",
     } as KeyboardEvent);
   }
+}
+
+/** 가짜 터미널을 `Readline.activate`가 받는 xterm `Terminal` 타입으로 단언한다. */
+export function asTerminal(term: unknown): Parameters<Readline["activate"]>[0] {
+  return term as Parameters<Readline["activate"]>[0];
 }

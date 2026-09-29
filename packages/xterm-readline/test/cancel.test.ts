@@ -6,7 +6,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { Readline, ReadCancelledError } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 type Outcome =
   | { state: "pending" }
@@ -36,7 +36,7 @@ function tick(): Promise<void> {
 function createSession(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
-  readline.activate(term as unknown as Parameters<Readline["activate"]>[0]);
+  readline.activate(asTerminal(term));
   return { term, readline };
 }
 
@@ -205,7 +205,7 @@ describe("cancelRead()", () => {
       },
     };
     const readline = new Readline({ persist: false });
-    readline.activate(term as unknown as Parameters<Readline["activate"]>[0]);
+    readline.activate(asTerminal(term));
 
     const outcome = observe(readline.read("> "));
     // write 콜백이 아직 오지 않은 상태(pendingReads)에서 취소한다.

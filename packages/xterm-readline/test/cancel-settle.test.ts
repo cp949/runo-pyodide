@@ -13,7 +13,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { Readline, ReadCancelledError } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 type Outcome =
   | { state: "pending" }
@@ -43,7 +43,7 @@ function tick(): Promise<void> {
 function setup(cols = 20, rows = 10) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
-  readline.activate(term as unknown as Parameters<Readline["activate"]>[0]);
+  readline.activate(asTerminal(term));
   return { term, readline };
 }
 

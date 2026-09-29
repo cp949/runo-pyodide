@@ -15,13 +15,13 @@
 import { describe, expect, test, vi } from "vitest";
 import { InputType, type Input } from "../src/keymap";
 import { Readline, type ReadlineOptions } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 /** 옵션을 받아 `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 8, options: ReadlineOptions = {}) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false, ...options });
-  readline.activate(term as unknown as Parameters<Readline["activate"]>[0]);
+  readline.activate(asTerminal(term));
   return { term, readline };
 }
 
@@ -131,7 +131,7 @@ describe("type-ahead 버퍼", () => {
     term.flush();
 
     const term2 = new StubTerminal(20, 8);
-    readline.activate(term2 as unknown as Parameters<Readline["activate"]>[0]);
+    readline.activate(asTerminal(term2));
     void readline.read(">>> ");
     expect(readline.getLine()).toBe("");
     expect(term2.vt.screen()).toBe(">>>");
@@ -143,7 +143,7 @@ describe("type-ahead 버퍼", () => {
     term.type("old");
     readline.dispose();
     const term2 = new StubTerminal(20, 8);
-    readline.activate(term2 as unknown as Parameters<Readline["activate"]>[0]);
+    readline.activate(asTerminal(term2));
     term2.type("new");
     void readline.read(">>> ");
 

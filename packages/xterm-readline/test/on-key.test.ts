@@ -10,19 +10,14 @@ import { describe, expect, test } from "vitest";
 import { Input, InputType } from "../src/keymap";
 import type { Input as ExportedInput } from "../src/index";
 import { Readline } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 /** 훅 없는 `Readline`을 `StubTerminal`에 활성화한다. */
 function setup(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
-  readline.activate(readline_term(term));
+  readline.activate(asTerminal(term));
   return { term, readline };
-}
-
-/** `StubTerminal`을 `Readline.activate`가 받는 xterm `Terminal` 타입으로 단언한다. */
-function readline_term(term: StubTerminal) {
-  return term as unknown as Parameters<Readline["activate"]>[0];
 }
 
 const BACKSPACE = "\x7f";
@@ -103,7 +98,7 @@ describe("onKey 훅", () => {
   test("활성 읽기가 없으면 onKey를 부르지 않는다", () => {
     const term = new StubTerminal(20, 8);
     const readline = new Readline({ persist: false });
-    readline.activate(readline_term(term));
+    readline.activate(asTerminal(term));
     let called = 0;
 
     // read() 호출 전에는 activeRead가 없다. CtrlC는 ctrlCHandler 분기로만 간다.
@@ -163,7 +158,7 @@ describe("skipBlankHistory", () => {
   test("켜지면 공백뿐인 제출은 history에 남지 않고 cursor는 처음으로 돌아간다", async () => {
     const term = new StubTerminal(20, 8);
     const readline = new Readline({ persist: false, skipBlankHistory: true });
-    readline.activate(readline_term(term));
+    readline.activate(asTerminal(term));
 
     const first = readline.read("> ");
     term.type("real");
@@ -183,7 +178,7 @@ describe("skipBlankHistory", () => {
   test("기본값은 false라 공백뿐인 제출도 history에 남는다", async () => {
     const term = new StubTerminal(20, 8);
     const readline = new Readline({ persist: false });
-    readline.activate(readline_term(term));
+    readline.activate(asTerminal(term));
 
     const first = readline.read("> ");
     term.type("real");

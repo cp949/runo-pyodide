@@ -7,19 +7,14 @@
  */
 import { describe, expect, test } from "vitest";
 import { Readline, ReadlineOptions } from "../src/readline";
-import { StubTerminal } from "./stub-terminal";
+import { asTerminal, StubTerminal } from "./stub-terminal";
 
 /** 훅을 단 `Readline`을 `StubTerminal`에 활성화한다. */
 function setup(onKeyEvent?: ReadlineOptions["onKeyEvent"]) {
   const term = new StubTerminal(20, 8);
   const readline = new Readline({ persist: false, onKeyEvent });
-  readline.activate(readline_term(term));
+  readline.activate(asTerminal(term));
   return { term, readline };
-}
-
-/** `StubTerminal`을 `Readline.activate`가 받는 xterm `Terminal` 타입으로 단언한다. */
-function readline_term(term: StubTerminal) {
-  return term as unknown as Parameters<Readline["activate"]>[0];
 }
 
 // Shift+Enter keydown 이벤트
