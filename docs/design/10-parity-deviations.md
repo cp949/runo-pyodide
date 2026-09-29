@@ -75,11 +75,11 @@ Tab 완성:
     - 메뉴 필터·쪽 넘김·선택 UI가 없다.
 17. **`input()` 안 Tab 무동작**(3.14는 완성한다).
 18. **환경 모듈 집합 차이**: 빈 cwd 기준 3.14 pty `import ` 후보 192개(3.14.4), pyodide 178개(314.0.7).
-    - pyodide에 없는 것: 네이티브에만 있는 밑줄 없는 15개(`curses`, `dbm`, `ensurepip`, `grp`, `idlelib`, `pip`, `pwd`, `pydoc_data`, `readline`, `resource`, `syslog`, `tkinter`, `turtle`, `turtledemo`, `venv`)와 밑줄 17개.
-    - pyodide에만 있는 8개 중 `pyodide`는 `import ` 빈 스템 후보에 남는다.
-    - `_test*` 5개는 `import _` 스템에서 후보에 남는다. `INTERNAL_PREFIXES`가 `_pyodide`·`___`로 시작하는 것만 거른다.
-    - 178 = 192 − 밑줄 없는 15 + `pyodide`. `ModuleCompleter().get_completions('import ')`로 실측했다.
-    - `import ` 목록: 3.14는 22행 쪽으로 넘기고 `108 more...`를 붙인다. 이 저장소는 178개를 한 번에 그린다(편차 16).
+    - pyodide에 없는 것: 네이티브에만 있는 밑줄 없는 모듈(`curses`, `dbm`, `ensurepip`, `grp`, `idlelib`, `pip`, `pwd`, `pydoc_data`, `readline`, `resource`, `syslog`, `tkinter`, `turtle`, `turtledemo`, `venv`)과 밑줄 모듈.
+    - pyodide에만 있는 것 중 `pyodide`는 `import ` 빈 스템 후보에 남는다.
+    - `_test*`는 `import _` 스템에서 후보에 남는다. `INTERNAL_PREFIXES`가 `_pyodide`·`___`로 시작하는 것만 거른다.
+    - 집합은 `ModuleCompleter().get_completions('import ')`로 실측했다.
+    - `import ` 목록: 3.14는 쪽으로 넘기고 `N more...`를 붙인다. 이 저장소는 후보를 한 번에 그린다(편차 16).
 19. **번들 pyodide는 Python 3.14.2, 기준 pty는 3.14.4**.
     - 코퍼스 대조에서 zip 보정 뒤 파서 결과 차이는 없었다.
     - 소스 차이 자체를 배제하지는 않았다.
@@ -98,7 +98,7 @@ Tab 완성 배선(RD-015, `07-tab-completion.md` 7.1·`06-editing.md` 6.5):
   - Tab, 붙여넣기, Tab 순서로 치면 `lastKeyWasTab`이 붙여넣기에 반응하지 않고 유지된다.
   - 두 번째 Tab도 "연속 두 번째"로 판정된다. 첫 Tab처럼 삽입/공백이 아니라 목록이 열린다.
 - **Tab 완성 중 Ctrl+C는 `exec()`/`eval()` 경계에서 한계가 있다.**
-  - 사용자 코드가 REPL 프롬프트에 직접 입력된 경로(컴파일 파일명이 `<console>`)에서는 완성 계산(`console.complete`) 중 Ctrl+C가 즉시 `KeyboardInterrupt`로 복귀한다(실측 25.4ms).
+  - 사용자 코드가 REPL 프롬프트에 직접 입력된 경로(컴파일 파일명이 `<console>`)에서는 완성 계산(`console.complete`) 중 Ctrl+C가 즉시 `KeyboardInterrupt`로 복귀한다(실측).
   - `exec()`/`eval()` 등으로 정의된 코드(파일명이 `<console>`이 아님)의 `__getattr__`/`__repr__`이 블로킹이면 완성 평가가 멎을 수 있다.
   - 이유: worker `sigint-handler.py`가 `co_filename == "<console>"` 규칙으로만 사용자 코드 실행 중을 인식한다. 그런 프레임을 못 알아본다.
   - RD-012 계열 기존 설계다.
@@ -233,7 +233,7 @@ stdin 읽기의 끝:
     - `>>> `·`... `·`input()` 읽기 중이면 취소하지 않는다. `^C`도 찍지 않는다(`decideKey`가 선택 유무로 분기, `06-editing.md` 6.6).
     - 선택 시 자동 복사(마우스를 뗀 순간의 `mouseup`)도 3.14 pty에는 없는 동작이다.
     - 3.14 pty에는 선택 개념이 없다. Ctrl+C는 항상 SIGINT다.
-    - RD-017, 사용자 결정이다. Windows Terminal·VS Code 통합 터미널의 "선택 있으면 Ctrl+C=복사, 없으면 SIGINT" 관례를 따른 의도적 선택이다.
+    - RD-017. Windows Terminal·VS Code 통합 터미널의 "선택 있으면 Ctrl+C=복사, 없으면 SIGINT" 관례를 따른 의도적 선택이다.
 
 화면 지우기(Ctrl+L):
 
@@ -245,7 +245,6 @@ stdin 읽기의 끝:
     - 지우는 단위가 "입력줄만"이다.
       - 코어가 앞서 합성해 그린 꼬리(`t`)는 입력줄의 일부가 아니라 그 앞 프롬프트 꼬리다. 같이 지워지지 않는다.
       - 코어에 꼬리를 인식해 걷어내는 로직이 없다.
-    - 코드 변경 없이 관찰만 하고 이 편차로 등록했다.
     - `prompt-join-check.mjs` AD 절이 이 실측값을 기대값으로 고정해 회귀를 감시한다.
 
 읽기가 없는 구간의 키 버퍼링(type-ahead, RD-019):
@@ -284,8 +283,7 @@ stdin 읽기의 끝:
     - 웹 버퍼는 합계 4096 코드 유닛이다.
       - 넘치는 덩어리는 통째로 버린다. 앞에 쌓인 것은 유지하고 이후 작은 덩어리는 수용한다. 알림은 없다.
       - 벤더 단위 시험 "상한 …"과 변이 검사로 고정한다.
-    - 3.14.4 pty 실측(`pty/rd-019/results.md` "상한 4096 초과 입력"): 실행 중 `time.sleep(2); v = input()` 뒤 한 줄로 `a` 4095·4096·5000개 + Enter를 넣었다.
-      - 모두 `input()`이 받은 값이 `a` 4095개다. 벨(`\x07`)은 읽히지 않았다.
+    - 3.14.4 pty 실측(`pty/rd-019/results.md` "상한 4096 초과 입력"): 실행 중 `time.sleep(2); v = input()` 뒤 한 줄이 4095자를 넘어도 `input()`이 받은 값은 4095자다.
     - 붙여넣기(한 덩어리) 4096자 초과: 웹은 아무것도 남기지 않고 3.14는 앞 4095자를 남긴다.
     - 키 입력은 한 글자씩 온다. 웹은 앞 4096자를 남기고 이후를 버린다.
     - **여러 줄에 걸친 누적이 4096을 넘는 경우의 3.14 동작은 측정하지 않았다.**
@@ -293,7 +291,7 @@ stdin 읽기의 끝:
 
 실행창(RD-022, `14-runner.md`). 기준은 REPL이 아니라 `python main.py`(run마다 새 프로세스)다.
 
-- 아래 4건은 pty 실측이 아니다.
+- 아래 편차는 pty 실측이 아니다.
 - worker 하나를 재사용하는 구조와 입력 정책에서 오는 차이다.
 - 3.14와 나란히 측정하지 않았다.
 
@@ -325,7 +323,7 @@ stdin 읽기의 끝:
     - CPython은 설치돼 있지 않으면 `ModuleNotFoundError`다.
     - REPL도 같은 `PyodideConsole.runcode`를 거치므로 같은 동작으로 보이나 REPL에서는 확인하지 않았다. 편차 20은 Tab 후보만 다룬다.
 
-열린 읽기 위 배경 출력(RD-022b, 편차 4의 세부). 아래 세 건은 3.14와 나란히 측정하지 않았다. 3.14 기본 REPL에는 대응 경로가 없고 `python -m asyncio`는 미측정이다.
+열린 읽기 위 배경 출력(RD-022b, 편차 4의 세부). 아래 편차는 3.14와 나란히 측정하지 않았다. 3.14 기본 REPL에는 대응 경로가 없고 `python -m asyncio`는 미측정이다.
 
 54. **읽기 시작 꼬리와 배경 미종결 조각이 함께 있으면 시간 순서가 뒤집혀 보인다.**
     - 읽기를 시작할 때 벤더에 넘긴 프롬프트 문자열 전체(꼬리가 합성된 `a\x1b[0m>>> `)가 붙박이다. 배경 조각은 그 앞 접두로만 붙는다.
@@ -349,8 +347,7 @@ stdin 읽기의 끝:
       - 벤더가 Enter 시점 접두를 보관해 폴백으로 꼬리를 채우는 방식을 구현·시험했다(RD-026). 폴백에 닿으려면 떼기 호출 조건을 풀어야 한다.
       - 풀면 접두가 남은 채 `input()` 코드를 Enter로 제출하는 정상 경로에서 접두가 stdin 프롬프트로 다시 그려지거나 `input("name: ")` 프롬프트를 덮을 수 있다. 추정이고 시험하지 않았다.
       - 경합과 정상 지연을 main이 구분할 수단이 없다.
-      - 기존 read-guard 시험 2건의 기대값도 바꿔야 한다.
-    - 사용자가 편차 등록으로 확정했다.
+      - 기존 read-guard 시험의 기대값도 바꿔야 한다.
     - 재개 조건: 그 둘을 구분할 수단(알림에 응답 수신 표지 등)이 생길 때.
     - 브라우저 셀은 없다.
 
@@ -363,7 +360,7 @@ top-level await 대기 중 Ctrl+C는 **편차로 등록하지 않는다**.
   - 우리 TLA 옵션의 기준이 기본 REPL이 아니라 `python -m asyncio`이기 때문이다(편차 1과 같은 정렬).
 - 2절 "범위 밖"에도 넣지 않는다. 재현하지 않기로 한 차이가 아니라 차이가 아니다.
 
-## 2. 범위 밖 확정 (2026-09-21)
+## 2. 범위 밖 확정
 
 3.14 pty와의 차이 중 웹에서 원리적으로 재현하기 어렵거나 사용자 시나리오에 닿지 않는 것.
 
