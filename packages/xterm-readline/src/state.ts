@@ -475,9 +475,6 @@ export class State {
       this.line.pos_buffer(),
       this.promptSize,
     );
-    if (cursor === this.layout.cursor) {
-      return;
-    }
     const viewport = this.tty.viewportRows();
     const inWindow =
       cursor.row >= this.layout.scrollOffset &&
