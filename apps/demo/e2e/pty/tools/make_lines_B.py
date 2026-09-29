@@ -1,7 +1,16 @@
-"""측정 B 입력 줄 목록(lines_B.json)을 만든다: A 케이스의 커서까지 텍스트 + DELTA 추가 패턴 + 기대값 확인용 + 보강.
+"""측정 B 입력 줄 목록 `lines_B.json`을 만든다(RD-016).
+
 사용: python3 make_lines_B.py --dir <출력 폴더> [--cases <cases_import.json>]
-- 입력 기본값은 저장소 기준 데이터 apps/demo/e2e/pty/rd-016/cases_import.json(읽기 전용).
+- 입력: 케이스 정의 JSON. 기본값은 저장소 기준 데이터 `apps/demo/e2e/pty/rd-016/cases_import.json`(읽기 전용)이다.
+- 출력: `<출력 폴더>/lines_B.json`. 줄 수를 stdout에 낸다.
 - 순수 데이터 조립이라 어느 파이썬으로 돌려도 같다(pty·pyte 불필요).
+- 파이프라인 위치는 pty/tools/README.md "의존 관계(rd-016)"다.
+
+줄 출처(`origin`):
+- A 케이스의 커서까지 텍스트(`origin`은 케이스 id).
+- `추가 패턴`: 측정 B가 더한 패턴.
+- `기대값 확인`: 사전 조사 기대값 절에 나오지만 A에 없는 줄.
+- `보강`: 파서 분기와 환경 차이 진단용 줄.
 """
 import argparse
 import json
@@ -12,6 +21,10 @@ DEFAULT_CASES = os.path.normpath(os.path.join(HERE, "..", "rd-016", "cases_impor
 
 
 def build(cfg):
+    """케이스 정의 `cfg`에서 줄 목록을 만든다. 항목은 `{line, origin, note, id}`(`id`는 `B001`부터)다.
+
+    같은 줄이 두 번 나오면 AssertionError다.
+    """
     rows = []
 
     def add(line, origin, note=""):
@@ -42,7 +55,7 @@ def build(cfg):
     ]:
         add(line, "추가 패턴", note)
 
-    # 3) 기대값 절에 나오지만 A에 없는 줄
+    # 3) 기대값 확인: 기대값 절에 나오지만 A에 없는 줄
     for line in ["import os.p", "from os.p", "from .. import ", "from sys import ", "import os as x", "from os import p"]:
         add(line, "기대값 확인")
 
@@ -87,6 +100,7 @@ def build(cfg):
     ]:
         add(line, "보강", note)
 
+    # 줄 중복을 막고 순번 id를 붙인다.
     seen = set()
     for i, r in enumerate(rows):
         assert r["line"] not in seen, f"중복 줄: {r['line']!r}"
@@ -96,6 +110,7 @@ def build(cfg):
 
 
 def main():
+    """`lines_B.json`을 `--dir`에 쓴다(폴더가 없으면 만든다)."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cases", default=DEFAULT_CASES, help=f"케이스 정의 JSON(기본: {DEFAULT_CASES})")
     ap.add_argument("--dir", required=True, help="출력 폴더(lines_B.json)")

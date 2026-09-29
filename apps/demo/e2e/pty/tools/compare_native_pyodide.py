@@ -1,12 +1,21 @@
-"""native_result.json + pyodide_result.json + lines_B.json -> native_vs_pyodide.json(+ .meta.json).
+"""네이티브와 pyodide의 프로브 결과를 줄별로 대조해 `native_vs_pyodide.json`·`.meta.json`을 만든다(RD-016 측정 B).
+
 사용: python3 compare_native_pyodide.py --dir <작업 폴더>
-작업 폴더에 lines_B.json·native_result.json·pyodide_result.json이 있어야 하고, native_vs_pyodide.json(+ .meta.json)을 같은 폴더에 쓴다.
-순수 JSON 조립이라 어느 파이썬으로 돌려도 같다.
-차이 분류 규칙(위에서부터 처음 맞는 것):
-  env        차이 항목이 전부 환경 전용 최상위 모듈(import 빈 스템·import _ 줄에서 도출한 네이티브 전용/pyodide 전용 집합)이거나 그 서브모듈이다.
-  zip stdlib 네이티브에만 있고, 항목이 전부 HARDCODED_SUBMODULES 확장(collections.abc, os.path, xml.parsers.expat.errors|model)이다.
-             (_is_stdlib_module이 FileFinder만 stdlib로 인정해서 zipimporter인 pyodide에서 빠진다)
-  기타       위 둘로 설명되지 않는 것(파서 결과 parse가 다른 경우 포함).
+- 입력(작업 폴더에 있어야 한다): `lines_B.json`·`native_result.json`·`pyodide_result.json`.
+- 출력(같은 폴더): `native_vs_pyodide.json`·`native_vs_pyodide.meta.json`. 카운트와 차이 줄을 stdout에도 낸다.
+- 순수 JSON 조립이라 어느 파이썬으로 돌려도 같다.
+- 파이프라인 위치는 pty/tools/README.md "의존 관계(rd-016)"다.
+
+차이 분류 규칙(줄의 `result`가 다를 때 위에서부터 처음 맞는 것):
+- `기타`: 한쪽만 None이다. None과 목록·`[]`은 판정 자체가 다르다.
+- `env`: 차이 항목이 전부 환경 전용 최상위 모듈이거나 그 서브모듈이다.
+  - 환경 전용 집합은 `import `·`import _` 줄에서 도출한 네이티브 전용·pyodide 전용 최상위 모듈이다.
+- `zip stdlib`: 네이티브에만 있고, 항목이 전부 HARDCODED_SUBMODULES 확장이다.
+  - 확장: `collections.abc`, `os.path`, `xml.parsers.expat.errors`, `xml.parsers.expat.model`.
+  - `_is_stdlib_module`이 FileFinder만 stdlib로 인정해서 zipimporter인 pyodide에서 빠진다.
+- `기타`: 위 어느 것으로도 설명되지 않는다. 항목 집합이 같고 순서만 다른 줄도 여기에 든다.
+
+`parse`(`ImportParser` 결과)가 다른 줄은 분류와 별개로 `counts["parse 불일치"]`로 센다.
 """
 import argparse
 import json
@@ -20,6 +29,7 @@ nat = json.load(open(os.path.join(here, "native_result.json")))
 pyo = json.load(open(os.path.join(here, "pyodide_result.json")))
 assert len(lines) == len(nat["rows"]) == len(pyo["rows"])
 
+# zip stdlib 분류의 기준. 네이티브 `ModuleCompleter`의 HARDCODED_SUBMODULES 확장이다.
 HARDCODED = {"collections": ["abc"], "os": ["path"], "xml.parsers.expat": ["errors", "model"]}
 zip_items = set()
 for path, subs in HARDCODED.items():
@@ -28,7 +38,9 @@ for path, subs in HARDCODED.items():
 
 by_line = {m["line"]: (m, n, p) for m, n, p in zip(lines, nat["rows"], pyo["rows"])}
 def top(line):
+    """`line`의 (네이티브, pyodide) 결과를 집합 쌍으로 돌려준다. None은 빈 집합이다."""
     return set(by_line[line][1]["result"] or []), set(by_line[line][2]["result"] or [])
+# 환경 전용 최상위 모듈: 빈 스템(`import `)과 밑줄 스템(`import _`)의 후보 차집합.
 n_top = top("import ")[0] | top("import _")[0]
 p_top = top("import ")[1] | top("import _")[1]
 env_native_only = sorted(n_top - p_top)
@@ -36,11 +48,14 @@ env_pyodide_only = sorted(p_top - n_top)
 env_names = set(env_native_only) | set(env_pyodide_only)
 
 def is_env(item):
+    """후보 항목이 환경 전용 모듈이거나 그 서브모듈인가."""
     return item in env_names or item.split(".")[0] in env_names
 
 def kind(r):
+    """결과를 종류 문자열로 줄인다: `None`, `[]`, `list(N)`."""
     return "None" if r is None else ("[]" if r == [] else f"list({len(r)})")
 
+# 줄 텍스트를 키로 줄마다 한 행을 만들고 차이를 분류한다.
 out = {}
 counts = {"same": 0, "diff": 0, "env": 0, "zip stdlib": 0, "기타": 0, "parse 불일치": 0, "순서만 다름": 0}
 for m, n, p in zip(lines, nat["rows"], pyo["rows"]):
@@ -76,7 +91,8 @@ for m, n, p in zip(lines, nat["rows"], pyo["rows"]):
     assert m["line"] not in out
     out[m["line"]] = row
 json.dump(out, open(os.path.join(here, "native_vs_pyodide.json"), "w"), ensure_ascii=False, indent=1)
-# 출처별(A 텍스트 / DELTA 추가 패턴 / 기대값 확인 / 보강) 동일·차이 수: 사전 조사 65케이스와 비교할 때 DELTA가 명시한 줄만 따로 본다
+# 출처(`origin`)별 동일·차이 수. 출처는 A 케이스(`A\d+`, 한 키로 합친다)·추가 패턴·기대값 확인·보강이다.
+# 사전 조사의 65케이스와 비교할 때 앞의 셋만 따로 본다(verify_expectations.py, make_summary.py).
 import re
 counts_by_origin = {}
 for r in out.values():

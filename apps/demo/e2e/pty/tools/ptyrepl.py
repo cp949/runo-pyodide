@@ -1,14 +1,18 @@
-"""CPython _pyrepl을 pty로 구동하고 pyte로 화면을 렌더링하는 하니스(측정용).
+"""CPython `_pyrepl`을 pty로 구동하고 pyte로 화면을 렌더링하는 하니스(RD-015·RD-016 캡처 공용).
 
-실행 전제
+- 라이브러리로 쓴다: `Session`(pty·pyte), 인터프리터 해석·게이트(`setup`)·인자 헬퍼.
+- 직접 실행하면 셀프테스트를 돈다: `python ptyrepl.py [--python P] [--allow-version-mismatch] [--check-only]`.
+- 사용법·전제·설치는 pty/README.md, 인자 규칙은 pty/tools/README.md "인자 규칙"이 원천이다.
+
+실행 전제:
 - 하니스(이 파일을 실행하는 파이썬)에는 requirements.txt(pyte==0.8.2, wcwidth==0.8.4)를 설치한다.
-  단 **대상 인터프리터(자식 REPL이 뜨는 쪽)에는 설치하지 않는다.** 자식의 sys.path/site-packages가 바뀌면
-  ModuleCompleter 후보 집합이 달라져 기준 데이터와 어긋난다(TRAP-27). 그래서 하니스는 venv에서 돌리고,
-  대상 인터프리터는 아래 3단으로 따로 지정한다. venv 인터프리터를 대상으로 지정하면 중단한다.
-- 대상 인터프리터 해석 순서: (1) --python <path> (2) 환경변수 PTY_PYTHON (3) PATH의 python3.14
-- 시작 시 대상 인터프리터의 sys.version을 읽어 기대 버전(EXPECTED_VERSION)과 다르면 중단한다.
-  --allow-version-mismatch가 있을 때만 경고 후 진행한다.
-- 직접 실행하면 셀프테스트를 돈다: python ptyrepl.py [--python P] [--allow-version-mismatch] [--check-only]
+- 대상 인터프리터(자식 REPL이 뜨는 쪽)에는 설치하지 않는다.
+  - 자식의 `sys.path`·site-packages가 바뀌면 ModuleCompleter 후보 집합이 달라져 기준 데이터와 어긋난다(TRAP-27).
+  - 그래서 하니스는 venv에서 돌리고 대상 인터프리터는 따로 지정한다.
+  - venv 인터프리터를 대상으로 지정하면 중단한다.
+- 대상 인터프리터 해석 순서: (1) `--python <path>` (2) 환경변수 `PTY_PYTHON` (3) `PATH`의 `python3.14`.
+- 시작 시 대상의 `sys.version`을 읽어 기대 버전(`EXPECTED_VERSION`)과 다르면 중단한다.
+  `--allow-version-mismatch`가 있을 때만 경고하고 진행한다.
 """
 import argparse
 import fcntl
@@ -31,33 +35,37 @@ try:
 except ImportError:  # 게이트 단계(인터프리터 해석·버전 확인)는 pyte 없이도 돈다
     pyte = None
 
+# 재측정(새 버전)은 EXPECTED_VERSION·WHICH_NAME을 바꾼다(pty/REGEN.md "3.15 재측정 시 실행 순서").
 EXPECTED_VERSION = "3.14.4"
 ENV_PYTHON = "PTY_PYTHON"
 WHICH_NAME = "python3.14"
 
+# 키 바이트. 화살표는 TERM=xterm 기준이다. 시퀀스가 TERM과 어긋나면 _pyrepl이 오류 없이 버린다(TRAP-18).
 LEFT = b"\x1bOD"   # TERM=xterm의 kcub1
 RIGHT = b"\x1bOC"  # kcuf1
 UP = b"\x1bOA"
 DOWN = b"\x1bOB"
 TAB = b"\t"
 ENTER = b"\r"
-# Shift+Enter: xterm-readline에서는 \x1b[13;2u 류일 수 있으나 _pyrepl에서는 paste 또는 개행 삽입 키가 없다.
+# _pyrepl에는 Shift+Enter 같은 개행 삽입 키가 없다.
 # 여러 줄 버퍼는 bracketed paste(\x1b[200~ ... \x1b[201~)로 만든다.
 PASTE_BEGIN = b"\x1b[200~"
 PASTE_END = b"\x1b[201~"
 
 
 class InterpreterError(RuntimeError):
-    """대상 인터프리터를 해석하지 못했거나 게이트를 통과하지 못했다."""
+    """대상 인터프리터를 해석하지 못했거나 게이트(버전·venv·pyte)를 통과하지 못했다."""
 
 
 @dataclass
 class Interpreter:
+    """게이트를 통과해 확정된 대상 인터프리터. 필드는 산출물 메타 기록과 실행에 쓴다."""
+
     path: str      # 자식 REPL을 띄울 실행 파일 경로(realpath 처리하지 않는다: venv 판별이 경로에 의존한다)
     source: str    # 어느 단계에서 정해졌는가: "--python" | "PTY_PYTHON" | "PATH"
     version: str   # 대상의 sys.version 전체 문자열(산출물 메타에 기록용)
     release: str   # "3.14.4" 형태
-    mismatch: bool # release != EXPECTED_VERSION (--allow-version-mismatch로 통과한 경우 True)
+    mismatch: bool # release != EXPECTED_VERSION. --allow-version-mismatch로 통과한 경우 True
 
 
 _ORDER_HELP = (
@@ -72,7 +80,11 @@ _current = None  # setup()이 확정한 인터프리터(프로세스당 하나)
 
 
 def resolve_python(cli=None):
-    """(경로, 출처)를 돌려준다. 실행 가능하지 않으면 해석 순서를 담아 InterpreterError."""
+    """대상 인터프리터를 해석 순서대로 찾아 `(절대경로, 출처)`를 돌려준다.
+
+    - 순서: `cli`(`--python`) > 환경변수 `PTY_PYTHON` > `PATH`의 `python3.14`.
+    - 찾지 못하거나 실행 파일이 아니면 해석 순서를 담아 `InterpreterError`다.
+    """
     if cli:
         cand, source = cli, "--python"
     elif os.environ.get(ENV_PYTHON):
@@ -87,7 +99,8 @@ def resolve_python(cli=None):
     return cand, source
 
 
-# 대상 인터프리터에서 한 번 실행해 버전·환경을 읽는다. -I는 PYTHON* 환경변수·사용자 site를 무시한다.
+# 대상 인터프리터에서 한 번 실행해 버전·환경을 읽는 코드. `-I`로 돌려 PYTHON* 환경변수·사용자 site를 무시한다.
+# 출력 JSON: version, release, venv 여부, prefix, 대상에 import되는 pyte·wcwidth 목록.
 _PROBE_CODE = (
     "import sys, json, importlib.util as u\n"
     "print(json.dumps({'version': sys.version,"
@@ -99,7 +112,14 @@ _PROBE_CODE = (
 
 
 def setup(python=None, allow_version_mismatch=False):
-    """대상 인터프리터를 해석하고 게이트(버전·환경)를 통과시킨 뒤 확정한다. 자식 REPL은 띄우지 않는다."""
+    """대상 인터프리터를 해석하고 게이트를 통과시킨 뒤 확정해 `Interpreter`를 돌려준다. 자식 REPL은 띄우지 않는다.
+
+    - 게이트: (1) 버전 (2) 대상이 venv면 중단 (3) 대상에서 `pyte`·`wcwidth`가 import되면 중단.
+    - (2)·(3)은 `allow_version_mismatch`로 우회되지 않는다. 자식의 모듈 후보 집합이 바뀌기 때문이다(TRAP-27).
+    - 버전 불일치는 `allow_version_mismatch`일 때만 stderr 경고(`경고: 버전 불일치(...)`) 뒤 진행한다.
+    - 실패하면 `InterpreterError`다.
+    - 부수 효과: 확정한 값을 모듈 전역 `_current`에 둔다.
+    """
     global _current
     path, source = resolve_python(python)
     try:
@@ -109,7 +129,8 @@ def setup(python=None, allow_version_mismatch=False):
     if cp.returncode != 0:
         raise InterpreterError(f"대상 인터프리터가 sys.version 조회에 실패했다({source}): {path}\n{cp.stderr.strip()}")
     info = json.loads(cp.stdout)
-    # venv나 pyte·wcwidth 설치 환경이면 자식의 모듈 후보 집합이 오염된다(TRAP-27). 버전 불일치와 달리 우회 옵션이 없다.
+    # venv나 pyte·wcwidth 설치 환경이면 자식의 모듈 후보 집합이 오염된다(TRAP-27).
+    # 버전 불일치와 달리 우회 옵션이 없다.
     if info["venv"]:
         raise InterpreterError(
             f"대상 인터프리터가 venv다({source}): {path} (prefix={info['prefix']}).\n"
@@ -138,12 +159,16 @@ def setup(python=None, allow_version_mismatch=False):
 
 
 def get_interpreter():
-    """확정된 인터프리터. setup()이 안 불렸으면 환경변수·PATH로 해석하고 엄격한 게이트를 건다."""
+    """확정된 인터프리터를 돌려준다.
+
+    `setup()`이 아직 안 불렸으면 인자 없이 `setup()`을 부른다.
+    환경변수·`PATH`로 해석하고 버전 불일치는 우회하지 않는다.
+    """
     return _current or setup()
 
 
 def add_interpreter_args(parser):
-    """실행기 공용 인터프리터 인자(--python, --allow-version-mismatch)."""
+    """실행기 공용 인터프리터 인자 `--python`·`--allow-version-mismatch`를 파서에 더한다."""
     parser.add_argument(
         "--python", default=None,
         help=f"대상 인터프리터 경로. 없으면 환경변수 {ENV_PYTHON}, 그것도 없으면 PATH의 {WHICH_NAME}",
@@ -155,7 +180,7 @@ def add_interpreter_args(parser):
 
 
 def setup_from_args(args):
-    """파싱된 인자로 setup()을 부르고, 실패하면 메시지를 stderr에 내고 종료 코드 2로 끝낸다."""
+    """파싱된 인자로 `setup()`을 부른다. 실패하면 `오류: ...`를 stderr에 내고 종료 코드 2로 끝낸다."""
     try:
         return setup(args.python, args.allow_version_mismatch)
     except InterpreterError as e:
@@ -164,6 +189,15 @@ def setup_from_args(args):
 
 
 class Session:
+    """대상 인터프리터의 REPL을 pty로 띄우고 pyte 화면으로 읽는 세션.
+
+    - 인자: 창 크기 `rows`×`cols`, `TERM` 값 `term`, 자식 환경에 더할 `extra_env`, 인터프리터 인자 `args`(기본 `-q`),
+      자식 cwd `cwd`(기본은 빈 임시 폴더), 훅의 `mc` 기록 여부 `with_mc`.
+    - 자식에게 넘기는 환경은 pty/tools/README.md "자식 REPL 환경"이 원천이다.
+    - 생성 시 인터프리터를 `get_interpreter()`로 확정하고 창 크기를 맞춘 뒤 출력이 멈추기를 기다린다.
+    - 다 쓰면 `close()`를 부른다.
+    """
+
     def __init__(self, rows=24, cols=80, term="xterm", extra_env=None, args=("-q",), cwd=None, with_mc=False):
         if pyte is None:
             raise RuntimeError("pyte를 import할 수 없다. 하니스 venv에서 `pip install -r requirements.txt`를 실행한다.")
@@ -190,8 +224,9 @@ class Session:
             env["PTY_HOOK_MC"] = "1"  # hook_startup.py가 log 항목에 mc 필드를 기록한다
         if extra_env:
             env.update(extra_env)
-        # 재현성: 자식 REPL의 cwd는 빈 임시 폴더로 고정한다. sys.path[0]==''이라 ModuleCompleter가
-        # cwd의 .py 파일·패키지를 모듈 후보로 나열한다(하니스 폴더에서 돌리면 import 빈 스템이 192 -> 196개가 된다).
+        # 재현성: 자식 REPL의 cwd는 빈 임시 폴더로 고정한다.
+        # sys.path[0]==''이라 ModuleCompleter가 cwd의 .py 파일·패키지를 모듈 후보로 나열한다.
+        # 하니스 폴더에서 돌리면 import 빈 스템의 후보가 192 -> 196개가 된다(TRAP-27).
         self.cwd = cwd or tempfile.mkdtemp()
         py = self.python
         pid, fd = pty.fork()
@@ -209,6 +244,7 @@ class Session:
         self.settle(1.5)
 
     def _drain(self, timeout):
+        """`timeout`초 동안 출력이 없을 때까지 pty를 읽어 pyte에 먹인다. 데이터를 받았으면 참이다."""
         got = False
         while True:
             r, _, _ = select.select([self.fd], [], [], timeout)
@@ -225,12 +261,14 @@ class Session:
             self.stream.feed(data)
 
     def settle(self, quiet=0.4, maxwait=6.0):
+        """출력이 `quiet`초 멈출 때까지 기다린다. 계속 나와도 `maxwait`초에서 멈춘다."""
         end = time.time() + maxwait
         while time.time() < end:
             if not self._drain(quiet):
                 return
 
     def send(self, data, quiet=0.4):
+        """바이트(또는 str)를 보내고 출력이 `quiet`초 멈출 때까지 기다린다."""
         if isinstance(data, str):
             data = data.encode()
         os.write(self.fd, data)
@@ -241,6 +279,7 @@ class Session:
         self.send(text.encode(), quiet=quiet)
 
     def lines(self, keep_blank_tail=False):
+        """화면 행 목록을 돌려준다. 행마다 오른쪽 공백을 지우고, 기본은 끝의 빈 행도 뺀다."""
         out = [ln.rstrip() for ln in self.screen.display]
         if not keep_blank_tail:
             while out and out[-1] == "":
@@ -248,6 +287,7 @@ class Session:
         return out
 
     def show(self, title="", cursor=True):
+        """현재 화면을 행 번호와 함께 출력한다. `cursor`가 참이면 커서 위치를 덧붙인다."""
         ls = self.lines()
         print(f"--- {title} ---")
         for i, ln in enumerate(ls):
@@ -256,7 +296,7 @@ class Session:
             print(f"cursor(row={self.screen.cursor.y}, col={self.screen.cursor.x})")
 
     def clear_line(self):
-        # Ctrl+A, Ctrl+K: 줄 처음으로 가서 줄 끝까지 지운다(_pyrepl kill-line)
+        """입력 줄을 비운다. Ctrl+A로 줄 처음에 가서 Ctrl+K로 줄 끝까지 지운다(_pyrepl kill-line)."""
         self.send(b"\x01\x0b", 0.2)
 
     def wait_exit(self, timeout=5.0):
@@ -271,6 +311,7 @@ class Session:
         return None
 
     def close(self):
+        """자식이 아직 살아 있으면 SIGKILL로 끝내고 회수한 뒤 pty fd를 닫는다."""
         if not self._reaped:
             try:
                 os.kill(self.pid, signal.SIGKILL)
@@ -288,6 +329,7 @@ class Session:
 
 
 def probe():
+    """부팅 화면만 출력해 보는 수동 점검용 함수. 셀프테스트는 쓰지 않는다."""
     s = Session()
     s.show("boot")
     s.close()
@@ -315,6 +357,10 @@ def selftest():
 
 
 def main(argv=None):
+    """인터프리터를 확정해 정보를 출력하고 셀프테스트를 돈다. 종료 코드 0(통과)·1(실패)을 돌려준다.
+
+    `--check-only`면 해석·게이트만 하고 0을 돌려준다. 게이트 실패는 종료 코드 2다.
+    """
     ap = argparse.ArgumentParser(description="pty 하니스 셀프테스트")
     add_interpreter_args(ap)
     ap.add_argument("--check-only", action="store_true", help="인터프리터 해석·게이트만 확인하고 pty를 띄우지 않는다")

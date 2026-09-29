@@ -1,30 +1,34 @@
 """기준 데이터 디렉터리와 재생성 디렉터리를 정규화 비교한다(RD-025). 표준 라이브러리만 쓴다.
 
 사용:
-  python3 compare_baseline.py <기준 디렉터리> <재생성 디렉터리> [--json <출력 JSON>] [--files NAME[=재생성이름] ...] [--max-rows N]
-      [--ignore-baseline-candidates 기준파일명=이름,이름,...]
+  python3 compare_baseline.py <기준 디렉터리> <재생성 디렉터리> [--json <출력 JSON>] [--max-rows N]
+      [--files NAME[=재생성이름] ...] [--ignore-baseline-candidates 기준파일명=이름,이름,...]
 
-종료 코드
-  0  판정값 차이 0(환경 유래 차이는 있어도 된다. 표에 기록만 한다)
-  1  판정값 차이 있음(고치려 들지 말고 차이 표를 사용자에게 올린다)
-  2  실행 오류(디렉터리·파일 없음, JSON 파싱 실패, 인자 오류)
+종료 코드:
+  0  판정값 차이 0. 환경 유래 차이는 있어도 된다(표에 기록만 한다).
+  1  판정값 차이 있음. 고치려 들지 말고 차이 표를 사용자에게 올린다.
+  2  실행 오류(디렉터리·파일 없음, JSON 파싱 실패, 인자 오류).
 
-정규화 규칙
-- 본문 JSON: 파싱한 값을 비교한다(키 순서·들여쓰기 무시, 배열 순서는 의미가 있으므로 그대로, bool과 int는 구분).
-  본문의 모든 차이가 판정값 차이다: 케이스별 screen·cursor·res·mc·log, 게이트 분류 4종(class_native·class_pyodide 등),
-  native_vs_pyodide의 차이 분류(env/zip stdlib/기타)·항목 목록·후보 집합.
-- `*.meta.json`: 화이트리스트(META_JUDGEMENT_PATTERNS) 키만 비교한다. 나머지 필드는 값이 달라도 판정에 넣지 않고
-  "환경 유래 차이" 표에 기록한다(META_EXCLUDED_REASONS에 사유).
-- `env_*_top_level`(환경 전용 최상위 모듈 집합)은 TRAP-27 때문에 환경 유래로 기록한다(META_ENV_PATTERNS).
-  단 분류 결과(counts·env/zip stdlib/기타)가 바뀌면 그 차이는 counts와 본문에서 판정값 차이로 따로 잡힌다.
-- 기본 대상은 rd-016 6파일이다. rd-015처럼 파일명이 다르면 --files 기준이름=재생성이름 으로 짝지어 준다.
-- `--ignore-baseline-candidates 기준파일명=이름,이름,...`(반복 가능): 기준 파일에만 있는 후보 이름을 기준의 `res` 배열에서 빼고
-  재생성과 비교한다(기준 데이터 수집 당시 cwd에 있던 파일명이 모듈 후보에 섞인 경우, TRAP-27). 목록은 실행 인자로만 준다.
-  * 그 파일에만 적용된다. 이름은 재생성 `res`에서는 빼지 않으므로 재생성에 있으면 차이로 남는다.
-  * 기준 파일 어디에서도 빼지 못한 이름은 판정값 차이다(목록이 어긋난 것).
-  * `res`를 뺀 케이스의 `screen*` 차이는 후보 열 폭(가장 긴 후보 이름)이 바뀐 열 배치 차이라 재계산할 수 없다.
-    그 케이스의 `screen*` 차이는 판정이 아닌 환경 유래 표로 옮기되, 양쪽 화면에 나온 이름이 모두 해당 쪽 `res`의 원소일 때만 옮긴다.
-  * 옵션 사용 사실은 출력과 --json(`ignored_baseline_candidates`)에 남는다.
+정규화 규칙(원천은 pty/tools/README.md "`compare_baseline.py`"):
+- 본문 JSON: 파싱한 값을 비교한다.
+  - 키 순서·들여쓰기는 무시한다.
+  - 배열 순서는 의미가 있으므로 그대로 둔다.
+  - bool과 int는 구분한다.
+  - 본문의 모든 차이가 판정값 차이다.
+- `*.meta.json`: 화이트리스트(`META_JUDGEMENT_PATTERNS`) 키만 판정값으로 비교한다.
+  - 나머지 필드는 값이 달라도 "환경 유래 차이" 표에만 기록한다. 사유는 `META_EXCLUDED_REASONS`다.
+  - `env_*_top_level`(환경 전용 최상위 모듈 집합)도 환경 유래로 기록한다(`META_ENV_PATTERNS`, TRAP-27).
+  - 분류 결과(counts·env/zip stdlib/기타)가 바뀌면 `counts`와 본문에서 판정값 차이로 따로 잡힌다.
+- 기본 대상은 rd-016 6파일이다. 파일명이 다르면(rd-015 등) `--files 기준이름=재생성이름`으로 짝짓는다.
+- `--ignore-baseline-candidates 기준파일명=이름,이름,...`(반복 가능):
+  - 기준 파일의 `res` 배열에서만 지정한 이름을 뺀 뒤 재생성과 비교한다. 기준 수집 당시 cwd에 있던 파일명이 후보에 섞인 경우다(TRAP-27).
+  - 목록은 실행 인자로만 준다. 그 파일에만 적용한다.
+  - 재생성 `res`에서는 이름을 빼지 않는다. 재생성에 있으면 차이로 남는다.
+  - 기준 어디에서도 빼지 못한 이름은 판정값 차이다. 목록이 어긋난 것이다.
+  - `res`를 뺀 케이스의 `screen*` 차이는 후보 열 폭(가장 긴 후보 이름)이 바뀐 열 배치 차이라 재계산할 수 없다.
+    - 양쪽 화면의 단어가 모두 해당 쪽 `res`의 원소일 때만 환경 유래 표로 옮긴다.
+  - 옵션 사용 사실은 출력과 `--json`의 `ignored_baseline_candidates`에 남는다.
+  - `*.meta.json`에는 적용되지 않는다.
 """
 import argparse
 import fnmatch
@@ -32,7 +36,7 @@ import json
 import os
 import sys
 
-# rd-016 기준 데이터 6파일(파일명은 기준·재생성이 같아야 한다)
+# `--files`가 없을 때의 대상: rd-016 기준 데이터 6파일. 기준·재생성의 파일명이 같아야 한다.
 DEFAULT_FILES = [
     "res_import.json",
     "res_import_extra.json",
@@ -42,7 +46,8 @@ DEFAULT_FILES = [
     "native_vs_pyodide.meta.json",
 ]
 
-# *.meta.json에서 판정에 넣는 키 이름(어느 깊이든 키 이름으로 매칭, fnmatch). 매칭된 키의 값 전체를 비교한다.
+# *.meta.json에서 판정에 넣는 키 이름 패턴.
+# 어느 깊이든 키 이름으로 fnmatch 매칭하고, 매칭된 키의 값 전체를 비교한다.
 META_JUDGEMENT_PATTERNS = [
     "cases",                   # 케이스 수
     "counts*",                 # counts·counts_by_origin·counts_native·counts_pyodide: 동일·차이·분류(env/zip stdlib/기타)·게이트 분류 4종 개수
@@ -52,12 +57,14 @@ META_JUDGEMENT_PATTERNS = [
     "gate_true_none_*",        # 게이트 분류: 게이트 참인데 None인 줄(오탐)
 ]
 
-# 환경 유래로 기록하되 판정에 넣지 않는 후보 집합 키(TRAP-27: 대상 인터프리터의 site-packages·cwd 등이 후보를 바꾼다).
+# 환경 유래로 기록하되 판정에 넣지 않는 후보 집합 키 패턴.
+# 대상 인터프리터의 site-packages·cwd 등이 후보를 바꾼다(TRAP-27).
 META_ENV_PATTERNS = [
     "env_*_top_level",
 ]
 
-# 화이트리스트 밖 필드가 제외되는 이유(값이 달라도 판정에 넣지 않는다). 여기에 없는 키도 제외되며 사유는 "화이트리스트 밖"으로 적는다.
+# 화이트리스트 밖 필드의 제외 사유. 값이 달라도 판정에 넣지 않는다.
+# 여기에 없는 키도 제외한다. 사유는 "화이트리스트 밖"으로 적는다.
 META_EXCLUDED_REASONS = {
     "cwd": "실행마다 다른 임시 폴더 경로(기준 값은 이전 세션 scratchpad 경로라 재현 불가)",
     "stdlib_path": "인터프리터 설치 경로(환경 유래)",
@@ -68,7 +75,7 @@ META_EXCLUDED_REASONS = {
     "note": "고정 안내 문구(측정값 아님)",
     "gate_regex_js": "고정 상수 문자열(측정값 아님)",
 }
-# 시간 필드(msPer_* 등 측정 시간)는 이름 패턴으로 제외한다
+# 시간 필드(`msPer_*` 등 측정 시간)는 이름 패턴으로 제외한다.
 META_EXCLUDED_PATTERNS = {
     "msPer_*": "측정 시간(환경 유래)",
     "*_ms": "측정 시간(환경 유래)",
@@ -76,16 +83,17 @@ META_EXCLUDED_PATTERNS = {
     "*time*": "시간 필드(환경 유래)",
 }
 
+# 한쪽에 키·원소가 없음을 나타내는 표식. None 값과 구분한다.
 MISSING = object()
 
 
 def escape(seg):
-    """JSON 포인터(RFC 6901) 토큰 이스케이프."""
+    """JSON 포인터(RFC 6901) 토큰을 이스케이프한다(`~` -> `~0`, `/` -> `~1`)."""
     return str(seg).replace("~", "~0").replace("/", "~1")
 
 
 def brief(v, limit=70):
-    """표 셀용 짧은 표현."""
+    """값을 표 셀용 JSON 문자열로 줄인다. `limit`자를 넘으면 자르고 `…`을 붙인다. `MISSING`은 `(없음)`이다."""
     if v is MISSING:
         return "(없음)"
     s = json.dumps(v, ensure_ascii=False)
@@ -93,7 +101,11 @@ def brief(v, limit=70):
 
 
 def diff(base, regen, path=""):
-    """(pointer, 기준값, 재생성값) 목록. bool과 int, int와 float는 다른 타입으로 취급한다."""
+    """두 JSON 값의 차이를 `(JSON 포인터, 기준값, 재생성값)` 목록으로 돌려준다.
+
+    - 한쪽에만 있는 키·원소는 없는 쪽 값을 `MISSING`으로 둔다.
+    - 타입이 다르면 값이 같아 보여도 차이다(bool과 int, int와 float).
+    """
     out = []
     if isinstance(base, dict) and isinstance(regen, dict):
         for k in base:
@@ -117,12 +129,13 @@ def diff(base, regen, path=""):
     return out
 
 
+# `annotate()`가 포인터에서 판정 필드 이름을 고를 때 쓰는 목록.
 JUDGEMENT_FIELDS = ("screen", "cursor", "res", "mc", "log", "typed", "typed_cursor", "class", "native_only", "pyodide_only",
                     "native", "pyodide", "class_native", "class_pyodide", "gate_js", "gate_py", "parse_native", "parse_pyodide")
 
 
 def annotate(pointer):
-    """포인터에서 케이스(첫 토큰)와 판정 필드 이름을 뽑는다(표 가독성용)."""
+    """JSON 포인터에서 케이스(첫 토큰)와 판정 필드 이름을 뽑아 `(케이스, 필드)`로 돌려준다. 표 가독성용이다."""
     toks = pointer.split("/")[1:]
     case = toks[0] if toks else ""
     field = next((t for t in toks[1:] if t in JUDGEMENT_FIELDS), "")
@@ -130,10 +143,12 @@ def annotate(pointer):
 
 
 def matches(key, patterns):
+    """`key`가 `patterns`의 어느 fnmatch 패턴에든 맞는가(대소문자 구분)."""
     return any(fnmatch.fnmatchcase(key, p) for p in patterns)
 
 
 def excluded_reason(key):
+    """메타 키 `key`가 판정에서 제외되는 사유를 돌려준다. 사유표에 없으면 `화이트리스트 밖`이다."""
     if key in META_EXCLUDED_REASONS:
         return META_EXCLUDED_REASONS[key]
     for p, why in META_EXCLUDED_PATTERNS.items():
@@ -143,7 +158,11 @@ def excluded_reason(key):
 
 
 def compare_meta(base, regen):
-    """메타 비교: (판정값 차이, 환경 유래 차이) 두 목록을 돌려준다. 키 이름을 어느 깊이에서든 화이트리스트와 대조한다."""
+    """메타 JSON을 비교해 `(판정값 차이, 환경 유래 차이)` 두 목록을 돌려준다.
+
+    - 키 이름을 어느 깊이에서든 화이트리스트와 대조한다.
+    - 환경 유래 항목은 `(포인터, 기준값, 재생성값, 사유)`다.
+    """
     judge, env = [], []
 
     def walk(b, r, path):
@@ -157,7 +176,7 @@ def compare_meta(base, regen):
                     d = diff(bv, rv, p) if bv is not MISSING and rv is not MISSING else [(p, bv, rv)]
                     env.extend((pp, x, y, "환경 전용 최상위 모듈 집합(TRAP-27)") for pp, x, y in d)
                 elif isinstance(bv, dict) and isinstance(rv, dict):
-                    walk(bv, rv, p)  # native·pyodide 같은 묶음은 안으로 내려가 화이트리스트 키만 고른다
+                    walk(bv, rv, p)  # native·pyodide 같은 묶음은 안으로 내려가 화이트리스트 키를 고른다
                 else:
                     d = diff(bv, rv, p) if bv is not MISSING and rv is not MISSING else [(p, bv, rv)]
                     env.extend((pp, x, y, excluded_reason(k)) for pp, x, y in d)
@@ -169,14 +188,18 @@ def compare_meta(base, regen):
 
 
 def load(path):
+    """UTF-8 JSON 파일을 읽는다."""
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
 
 def strip_ignored(base, names):
-    """기준 JSON의 케이스별 log 항목 `res` 배열에서 names를 뺀 복사본과 사용 기록을 돌려준다.
-    기록: removed(이름별 제거 횟수), cases(제거가 일어난 케이스)."""
+    """기준 JSON의 `res` 배열에서 `names`를 뺀 복사본과 사용 기록을 돌려준다.
+
+    - 기준이 dict가 아니면 그대로 돌려준다.
+    - 기록: `removed`(이름별 제거 횟수), `cases`(제거가 일어난 케이스).
+    """
     names = set(names)
     removed = {n: 0 for n in names}
     cases = []
@@ -213,7 +236,10 @@ def strip_ignored(base, names):
 
 
 def screen_names_in_res(entry, case_data):
-    """화면(첫 줄 입력행·마지막 `N more...` 줄 제외)의 모든 단어가 그 케이스 log의 어느 res에든 있는지."""
+    """화면 `entry`(행 목록)의 모든 단어가 그 케이스 `log`의 어느 `res`에든 있는가.
+
+    첫 줄(입력행)과 마지막 `N more...` 줄은 검사에서 뺀다.
+    """
     pool = {x for e in case_data.get("log", []) for x in e.get("res", []) if isinstance(x, str)}
     rows = entry[1:]
     if rows and rows[-1].strip().endswith("more..."):
@@ -222,6 +248,14 @@ def screen_names_in_res(entry, case_data):
 
 
 def compare_file(base_path, regen_path, name, ignore=None):
+    """파일 한 쌍을 비교해 결과 레코드를 돌려준다.
+
+    - 레코드 키: `name`, `status`, `judgement_diffs`, `env_diffs`, `error`.
+    - 제외 옵션을 쓰면 `ignored_baseline_candidates`가 더해진다.
+    - `status`: `same`, `judgement-diff`, `error`(파일 없음·JSON 읽기 실패).
+    - `name`이 `.meta.json`으로 끝나면 메타 규칙으로 비교한다.
+    - `ignore`(제외할 기준 후보 이름 집합)는 본문 JSON에만 적용한다.
+    """
     rec = {"name": name, "status": None, "judgement_diffs": [], "env_diffs": [], "error": None}
     if ignore:
         rec["ignored_baseline_candidates"] = {"names": sorted(ignore)}
@@ -241,7 +275,8 @@ def compare_file(base_path, regen_path, name, ignore=None):
     elif ignore:
         stripped, used = strip_ignored(base, ignore)
         judge, env = diff(stripped, regen), []
-        # 제거가 일어난 케이스의 screen* 차이는 열 배치 차이(가장 긴 후보 이름이 열 폭을 정한다)라 환경 유래로 옮긴다
+        # 제거가 일어난 케이스의 screen* 차이는 열 배치 차이라 환경 유래로 옮긴다.
+        # 가장 긴 후보 이름이 열 폭을 정한다.
         moved, kept = [], []
         for d in judge:
             toks = d[0].split("/")[1:]
@@ -277,7 +312,7 @@ def compare_file(base_path, regen_path, name, ignore=None):
 
 
 def parse_files(specs):
-    """'기준이름' 또는 '기준이름=재생성이름' 목록을 (기준, 재생성) 짝으로."""
+    """`기준이름` 또는 `기준이름=재생성이름` 목록을 `(기준, 재생성)` 짝으로 바꾼다. 재생성 이름을 생략하면 기준과 같다."""
     pairs = []
     for s in specs:
         base, _, regen = s.partition("=")
@@ -286,6 +321,7 @@ def parse_files(specs):
 
 
 def print_report(report, max_rows):
+    """파일별 한 줄 요약과 판정값·환경 유래 차이 표(앞 `max_rows`건)를 stdout에 낸다."""
     print(f"기준: {report['baseline_dir']}\n재생성: {report['regen_dir']}\n")
     for f in report["files"]:
         tag = {"same": "일치", "judgement-diff": "차이", "error": "오류"}[f["status"]]
@@ -313,6 +349,10 @@ def print_report(report, max_rows):
 
 
 def main(argv=None):
+    """인자를 검증해 파일 쌍을 비교하고 보고한다. 종료 코드(0·1·2)를 돌려준다.
+
+    `--json`이 있으면 같은 내용을 기계 판독 JSON으로 쓴다.
+    """
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("baseline", help="기준 데이터 디렉터리(읽기 전용)")
     ap.add_argument("regen", help="재생성 디렉터리")

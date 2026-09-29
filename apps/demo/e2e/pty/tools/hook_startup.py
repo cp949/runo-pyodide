@@ -1,8 +1,19 @@
-# _pyrepl.readline.ReadlineAlikeReader.get_completions 호출을 기록만 한다(동작 변경 없음).
-# mc 필드 = ModuleCompleter 원시 결과(None / [] / 후보 목록). res(최종 후보)만으로는
-# None 폴백(공백 후보·rlcompleter 결과)과 [] 무동작을 구분할 수 없어서 넣는다.
-# mc 필드는 환경변수 PTY_HOOK_MC=1일 때만 기록한다(기본 꺼짐). rd-015 기준 데이터의 log 항목에는 mc가 없고
-# rd-016 기준 데이터에는 있어서, 훅 한 벌로 두 데이터를 모두 재생성하려고 조건화했다.
+# 자식 REPL의 PYTHONSTARTUP 훅. `get_completions` 호출을 기록하고 동작은 바꾸지 않는다.
+# RD-015·RD-016 기준 데이터를 만드는 pty 캡처가 쓴다(도구 표는 pty/tools/README.md "도구와 입출력").
+#
+# 입력(환경변수):
+# - `COMPLOG`: 기록 파일 경로. 필수다.
+# - `PTY_HOOK_MC`: `1`이면 `mc` 필드를 기록한다. 기본은 꺼짐이다.
+#
+# 출력: `COMPLOG`에 호출마다 JSON 한 줄 `{stem, buf, pos, res}`를 덧붙인다. 켜면 `mc`가 더해진다.
+# 켜는 쪽은 common.fresh()다.
+#
+# - 가로채는 대상: `_pyrepl.readline.ReadlineAlikeReader.get_completions`.
+# - `res`: 최종 후보.
+# - `mc`: `get_module_completions()`를 다시 불러 얻은 ModuleCompleter 원시 결과(None / [] / 후보 목록).
+#   - `res`만으로는 None 폴백(공백 후보·rlcompleter 결과)과 [] 무동작을 구분할 수 없다.
+#   - rd-015 기준 데이터의 log 항목에는 `mc`가 없고 rd-016 기준에는 있다.
+#   - 훅 한 벌로 두 데이터를 모두 재생성하려고 `PTY_HOOK_MC`로 조건화했다.
 def _install():
     import json, os
     import _pyrepl.readline as rl
@@ -23,5 +34,6 @@ def _install():
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         return res
     cls.get_completions = get_completions
+# 훅 함수 이름을 REPL 네임스페이스에 남기지 않는다.
 _install()
 del _install

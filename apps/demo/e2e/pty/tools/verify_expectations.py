@@ -1,7 +1,12 @@
-"""'기대값(사전 조사, 미저장)'을 측정 결과에 대조해 expectations_check.json을 만든다(맞추지 않고 다르면 다른 대로 기록).
-또한 pty 훅의 mc(ModuleCompleter 원시 결과)와 측정 B 네이티브 직접 호출 결과가 A 37줄에서 같은지 교차 확인한다.
-사용: python3 verify_expectations.py --dir <작업 폴더>   (res_import.json, res_import_extra.json, native_vs_pyodide.json(.meta.json)이 먼저 있어야 한다)
-출력 expectations_check.json은 같은 폴더에 쓴다. 서술 산출물이라 기준 대조 대상이 아니다.
+"""사전 조사 기대값(미저장)을 측정 결과에 대조해 `expectations_check.json`을 만든다(RD-016 보조 진단).
+
+사용: python3 verify_expectations.py --dir <작업 폴더>
+- 입력(작업 폴더에 먼저 있어야 한다):
+  `res_import.json`·`res_import_extra.json`·`native_vs_pyodide.json`·`native_vs_pyodide.meta.json`.
+- 출력: 같은 폴더의 `expectations_check.json`. 불일치 항목을 stdout에도 낸다.
+- 기대값에 결과를 맞추지 않는다. 다르면 다른 대로 기록한다.
+- 교차 확인도 한다. pty 훅의 `mc`와 측정 B 네이티브 직접 호출 결과가 A와 추가 케이스(41줄)에서 같은지 본다.
+- 서술·보조 산출물이라 기준 대조 대상이 아니다. 실행되어 산출물이 나오는 것까지만 본다(pty/tools/README.md "도구와 입출력").
 """
 import argparse
 import json
@@ -13,17 +18,20 @@ here = os.path.abspath(ap.parse_args().dir)
 L = lambda n: json.load(open(os.path.join(here, n)))
 A, AX, B, BM = L("res_import.json"), L("res_import_extra.json"), L("native_vs_pyodide.json"), L("native_vs_pyodide.meta.json")
 
+# 항목마다 {item, expected, actual, match, note} 한 행을 쌓는다.
 rows = []
 def check(item, expected, actual, note=""):
+    """기대값과 실측값을 비교해 `rows`에 한 행을 더한다. `note`는 불일치를 설명하는 부연이다."""
     rows.append({"item": item, "expected": expected, "actual": actual, "match": expected == actual, "note": note})
 
+# 접근자. B는 줄 텍스트 키, A·AX는 입력 텍스트 키다.
 nat = lambda line: B[line]["native"]
 pyo = lambda line: B[line]["pyodide"]
 pty_mc = lambda text: {**A, **AX}[text]["steps"][0]["log"][0]["mc"]
 pty_stem = lambda text: A[text]["steps"][0]["log"][0]["stem"]
 pty_screen = lambda text, tab=0: A[text]["steps"][tab]["screen"]
 def inserted_cols(text):
-    """Tab 1회로 커서가 오른쪽으로 움직인 칸 수(삽입된 글자 수)."""
+    """A 케이스 `text`에서 Tab 1회로 커서가 오른쪽으로 움직인 칸 수(삽입된 글자 수)를 돌려준다."""
     return A[text]["steps"][0]["cursor"][1] - A[text]["typed_cursor"][1]
 
 # --- 후보(네이티브 직접 호출, 측정 B)
@@ -79,6 +87,7 @@ check(f"pty 훅 mc == 네이티브 직접 호출(A {len(A)}줄 + 추가 {len(AX)
 check("ModuleCompleter() 대 make_default_module_completer() 결과 차이 줄 수(B 네이티브·pyodide)", 0,
       len(BM["result_pkgnone_differs_native"]) + len(BM["result_pkgnone_differs_pyodide"]))
 
+# 결과 저장과 요약 출력.
 json.dump(rows, open(os.path.join(here, "expectations_check.json"), "w"), ensure_ascii=False, indent=1)
 ok = sum(r["match"] for r in rows)
 print(f"기대값 항목 {len(rows)}개: 일치 {ok}, 불일치 {len(rows) - ok}")

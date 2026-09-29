@@ -1,7 +1,12 @@
-"""측정 C 입력 줄 목록(lines_C.json)을 만든다. 게이트 = 커서 앞 텍스트(+pending)에 /\\b(import|from)\\b/가 있는가.
-분류 태그(tag)는 사람이 붙인 의도이고, 실제 판정은 build_gate_corpus.py가 실측으로 한다.
+"""측정 C 입력 줄 목록 `lines_C.json`을 만든다(RD-016).
+
 사용: python3 make_lines_C.py --dir <출력 폴더>
+- 입력: 없다. 코퍼스는 이 파일의 `build()`에 들어 있다.
+- 출력: `<출력 폴더>/lines_C.json`. 줄 수를 stdout에 낸다.
 - 순수 데이터 조립이라 어느 파이썬으로 돌려도 같다(pty·pyte 불필요).
+- 게이트: 커서 앞 텍스트(+pending)에 `/\\b(import|from)\\b/`가 있는가.
+- `tag`는 사람이 붙인 의도다. 실제 판정은 build_gate_corpus.py가 실측으로 한다.
+- 파이프라인 위치는 pty/tools/README.md "의존 관계(rd-016)"다.
 """
 import argparse
 import json
@@ -9,12 +14,21 @@ import os
 
 
 def build():
+    """코퍼스 줄 목록을 만든다. 항목은 `{line, tag, note, id}`(`id`는 `C01`부터)다.
+
+    태그 셋:
+    - `gate-false 예상`: 게이트가 거짓이어야 한다. 네이티브가 전부 None이어야 게이트가 건전하다.
+    - `gate-true 오탐 예상`: 게이트가 참이지만 None이어야 한다. 오탐은 왕복만 늘고 동작은 같다.
+    - `gate-true 참 양성 대조`: 게이트가 참이고 후보가 나온다. 대조군이다.
+
+    같은 줄이 두 번 나오면 AssertionError다.
+    """
     rows = []
 
     def add(line, tag, note=""):
         rows.append({"line": line, "tag": tag, "note": note})
 
-    # --- 게이트가 거짓일 것으로 예상하는 줄(네이티브가 전부 None이어야 게이트가 건전하다)
+    # --- 게이트가 거짓일 것으로 예상하는 줄
     for line, note in [
         ("x = 1", ""), ("os.pa", ""), ("print(", ""), ("__import__('os')", ""), ("important.x", ""),
         ("imports.pa", ""), ("reimport", ""), ("", "빈 줄"), ("   ", "공백만"), ("\t", "탭만"),
@@ -32,7 +46,7 @@ def build():
     ]:
         add(line, "gate-false 예상", note)
 
-    # --- 게이트가 참이지만 None일 것으로 예상하는 줄(오탐: 왕복만 늘고 동작은 같다)
+    # --- 게이트가 참이지만 None일 것으로 예상하는 줄
     for line, note in [
         ('x = "import os"', "문자열 안"), ("# from", "주석"), ("# import os", "주석"), ('"from a"', "문자열"),
         ("print('import')", "문자열"), ("x = 'from os import path'", "문자열"), ("foo.import", "속성 자리 import"),
@@ -42,7 +56,7 @@ def build():
     ]:
         add(line, "gate-true 오탐 예상", note)
 
-    # --- 게이트가 참이고 후보가 나오는 줄(참 양성, 대조군)
+    # --- 게이트가 참이고 후보가 나오는 줄
     for line, note in [
         ("import os.pa", ""), ("from os import pa", ""), ("x = 1; import o", ""), ("x = 1\nimport o", ""),
         ("raise ValueError from o", "from 키워드 quirk"), ("import os  # c\n", "주석 뒤 빈 줄 quirk"),
@@ -50,6 +64,7 @@ def build():
     ]:
         add(line, "gate-true 참 양성 대조", note)
 
+    # 줄 중복을 막고 순번 id를 붙인다.
     seen = set()
     for i, r in enumerate(rows):
         assert r["line"] not in seen, f"중복: {r['line']!r}"
@@ -59,6 +74,7 @@ def build():
 
 
 def main():
+    """`lines_C.json`을 `--dir`에 쓴다(폴더가 없으면 만든다)."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dir", required=True, help="출력 폴더(lines_C.json)")
     args = ap.parse_args()

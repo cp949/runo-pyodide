@@ -23,7 +23,8 @@ node --import $H1 --import $H2 $N/press-loss.mjs --scenario multi --k 300 --page
 # 폴링 비용 (약 3분, 단독 실행 — 다른 부하가 있으면 비율이 흔들린다)
 node --import $H1 --import $H2 $N/poll-overhead.mjs --rounds 10
 
-# 셋을 순서대로(레포 루트에서, 상대경로는 스크립트 자신의 위치 기준)
+# 눌림 소실 두 시나리오(single·multi)를 순서대로(폴링 비용은 이 스크립트에 없다. 위 명령으로 따로 돌린다)
+# 레포 루트에서 실행한다. 상대경로는 스크립트 자신의 위치 기준이다.
 ./apps/demo/e2e/node/rd-007/run-main.sh
 ```
 

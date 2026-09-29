@@ -1,17 +1,22 @@
-"""cases_import.json의 그룹을 CPython 3.14 pty(훅 포함)로 돌려 res_<그룹>.json을 만든다(rd-016 측정 A).
+"""`cases_import.json`의 그룹을 CPython 3.14 pty(훅 포함)로 돌려 `res_<그룹>.json`을 만든다(RD-016 측정 A).
 
-사용(하니스 venv의 python으로 실행, 대상 인터프리터는 --python / PTY_PYTHON / PATH의 python3.14):
+사용(하니스 venv의 python으로 실행한다. 대상 인터프리터는 `--python` > `PTY_PYTHON` > `PATH`의 `python3.14`):
   <venv>/bin/python runcases_import.py import import_extra --dir <출력 폴더> [--python P]
-  <venv>/bin/python runcases_import.py import --lo 0 --hi 5 --dir <출력 폴더>   (부분 실행: res_import_0.json)
-  <venv>/bin/python runcases_import.py import --out <파일>                     (단일 그룹의 출력 파일을 직접 지정)
+  <venv>/bin/python runcases_import.py import --lo 0 --hi 5 --dir <출력 폴더>  (부분 실행: res_import_0.json)
+  <venv>/bin/python runcases_import.py import --out <파일>                    (단일 그룹의 출력 파일 지정)
 
-- 그룹을 여러 개 주면 한 프로세스에서 순서대로 돈다(그룹마다 케이스별 새 pty 세션). rd-016 기준 파일은
-  `import` -> res_import.json, `import_extra` -> res_import_extra.json.
-- 케이스마다 새 pty 세션(setup 5줄 실행 뒤 Ctrl+L)을 띄운다.
-- 개행이 있는 입력은 bracketed paste로 넣고, 없으면 글자를 한 번에 보낸다.
-- Tab을 case["tabs"]회 보내며 매 Tab 뒤의 화면·커서와 그 Tab이 만든 훅 기록({stem,buf,pos,res,mc})을 저장한다.
-- 훅의 mc 필드(ModuleCompleter 원시 결과)는 기본으로 켠다(rd-016 기준에 있다). 끄려면 --no-mc.
-- 입력 기본값은 저장소 기준 데이터의 apps/demo/e2e/pty/rd-016/cases_import.json이다(읽기 전용).
+- 입력: 케이스 정의 JSON. 기본값은 저장소 기준 데이터 `apps/demo/e2e/pty/rd-016/cases_import.json`(읽기 전용)이다.
+- 출력: 그룹마다 `res_<그룹>.json`. rd-016 기준 파일은 아래와 같다.
+  - `import` -> `res_import.json`
+  - `import_extra` -> `res_import_extra.json`
+- 인자 규칙·`--dir` 제약은 pty/tools/README.md "인자 규칙", 재생성 명령은 pty/REGEN.md "rd-016 명령"이다.
+
+동작:
+- 그룹을 여러 개 주면 한 프로세스에서 순서대로 돈다.
+- 케이스마다 새 pty 세션을 띄운다. setup 5줄을 실행한 뒤 Ctrl+L을 보낸다.
+- 입력에 개행이 있으면 bracketed paste로 넣는다. 없으면 글자를 한 번에 보낸다.
+- Tab을 `case["tabs"]`회 보낸다. 매 Tab 뒤의 화면·커서와 그 Tab이 만든 훅 기록 `{stem, buf, pos, res, mc}`를 저장한다.
+- 훅의 `mc` 필드(ModuleCompleter 원시 결과)는 기본으로 켠다. rd-016 기준에 있기 때문이다. 끄려면 `--no-mc`다.
 """
 import argparse
 import json
@@ -26,16 +31,25 @@ DEFAULT_CASES = os.path.normpath(os.path.join(HERE, "..", "rd-016", "cases_impor
 
 
 def run_group(cfg, group, lo, hi, with_mc):
+    """그룹 `group`의 케이스 `[lo:hi]`를 pty로 돌려 결과 dict를 돌려준다.
+
+    - 키: 입력 텍스트. 값: `{id, group, tabs, note, typed, typed_cursor, steps}`.
+    - `steps`: Tab마다 `{tab, screen, cursor, log}`. `log`는 그 Tab이 만든 훅 기록만 담는다.
+    - 부수 효과: 케이스마다 진행 상황을 stdout에 낸다.
+    """
     out = {}
     for case in cfg[group][lo:hi]:
         text = case["text"]
         s = fresh(cfg["setup"], with_mc=with_mc)
+        # 입력 넣기
         if "\n" in text:
             s.send(PASTE_BEGIN + text.encode() + PASTE_END, 0.4)
         else:
             s.type(text)
+        # 입력 직후 화면
         typed = s.lines()
         typed_cursor = (s.screen.cursor.y, s.screen.cursor.x)
+        # Tab마다 화면·커서와 새로 쌓인 훅 기록을 저장
         steps = []
         seen = 0
         for i in range(case["tabs"]):
@@ -51,6 +65,7 @@ def run_group(cfg, group, lo, hi, with_mc):
         s.close()
         out[text] = {"id": case["id"], "group": case["group"], "tabs": case["tabs"], "note": case["note"],
                      "typed": typed, "typed_cursor": list(typed_cursor), "steps": steps}
+        # 진행 출력: 첫 Tab의 훅 기록 요약
         e = steps[0]["log"][0] if steps[0]["log"] else None
         if e:
             r = e["res"]
@@ -64,6 +79,12 @@ def run_group(cfg, group, lo, hi, with_mc):
 
 
 def main(argv=None):
+    """인자를 검증하고 그룹을 순서대로 돌려 결과 JSON을 쓴다. 종료 코드 0을 돌려준다.
+
+    - 인자 오류는 `ap.error`(종료 코드 2)다. 인터프리터 게이트 실패도 종료 코드 2다.
+    - `--out`·`--lo`·`--hi`는 그룹이 하나일 때만 받는다.
+    - 출력 경로: `--out`, 없으면 `<--dir>/res_<그룹>.json`. 부분 실행이면 `res_<그룹>_<lo>.json`이다.
+    """
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("groups", nargs="+", help="cases_import.json의 그룹 이름(import, import_extra)")
     ap.add_argument("--cases", default=DEFAULT_CASES, help=f"케이스 정의 JSON(기본: {DEFAULT_CASES})")

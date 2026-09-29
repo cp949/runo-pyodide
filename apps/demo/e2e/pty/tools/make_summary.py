@@ -1,7 +1,14 @@
-"""측정 결과 JSON에서 SUMMARY-import.md를 생성한다(표는 전부 JSON에서 만든다. 서술 절만 이 파일에 고정 문장으로 들어 있다).
+"""측정 결과 JSON에서 `SUMMARY-import.md`를 만든다(RD-016 서술 산출물).
+
 사용: python3 make_summary.py --dir <작업 폴더>
-작업 폴더의 측정 결과 JSON(res_import*, native_vs_pyodide*, gate_corpus*, expectations_check, pyodide_zip_patch_check)을 읽어 SUMMARY-import.md를 같은 폴더에 쓴다.
-서술 산출물이라 기준 대조 대상이 아니다.
+- 입력(작업 폴더에 있어야 한다):
+  - `res_import.json`·`res_import_extra.json`.
+  - `native_vs_pyodide.json`·`native_vs_pyodide.meta.json`.
+  - `gate_corpus.json`·`gate_corpus.meta.json`.
+  - `expectations_check.json`·`pyodide_zip_patch_check.json`.
+- 출력: 같은 폴더의 `SUMMARY-import.md`. 줄 수를 stdout에 낸다.
+- 표는 전부 JSON에서 만든다. 서술 절만 이 파일의 고정 문장이다.
+- 서술 산출물이라 기준 대조 대상이 아니다(pty/tools/README.md "도구와 입출력", pty/REGEN.md "허용 차이").
 """
 import argparse
 import json
@@ -11,6 +18,7 @@ ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDe
 ap.add_argument("--dir", required=True, help="작업 폴더")
 here = os.path.abspath(ap.parse_args().dir)
 L = lambda n: json.load(open(os.path.join(here, n)))
+# 입력: A 측정(pty), B(네이티브 대 pyodide), C(게이트), 기대값 대조, zip stdlib 진단
 A, AX = L("res_import.json"), L("res_import_extra.json")
 B, BM = L("native_vs_pyodide.json"), L("native_vs_pyodide.meta.json")
 C, CM = L("gate_corpus.json"), L("gate_corpus.meta.json")
@@ -19,15 +27,17 @@ ZP = L("pyodide_zip_patch_check.json")
 
 
 def cell(s):
+    """마크다운 표 셀용으로 `|`와 개행을 이스케이프한 문자열."""
     return str(s).replace("|", "\\|").replace("\n", "\\n")
 
 
 def code(s):
+    """셀 값을 이스케이프해 인라인 코드로 감싼다."""
     return "`" + cell(s) + "`"
 
 
 def lst(x, n=4):
-    """None / [] / 목록을 표 셀용 문자열로."""
+    """None / [] / 목록을 표 셀용 문자열로 바꾼다. 목록은 앞 `n`개와 전체 개수를 보인다."""
     if x is None:
         return "None"
     if x == []:
@@ -37,16 +47,23 @@ def lst(x, n=4):
 
 
 def kind(x):
+    """결과를 종류 문자열로 줄인다: `None`, `[]`, `list(N)`."""
     return "None" if x is None else ("[]" if x == [] else f"list({len(x)})")
 
 
 def table(headers, rows):
+    """마크다운 표 문자열을 만든다. 백틱으로 시작하는 셀은 이스케이프하지 않는다."""
     out = ["| " + " | ".join(headers) + " |", "|" + "|".join("---" for _ in headers) + "|"]
     out += ["| " + " | ".join(cell(c) if not str(c).startswith("`") else str(c) for c in r) + " |" for r in rows]
     return "\n".join(out)
 
 
 def a_rows(data):
+    """측정 A 결과 `data`를 케이스당 한 행(ID·입력·스템·MC·res·삽입·화면)으로 만든다.
+
+    삽입은 첫 Tab 뒤 커서 이동 칸 수다. 커서가 다른 줄로 옮겨지면 `줄 이동`이다.
+    Tab이 둘 이상이면 둘째 Tab 화면의 메뉴 줄 수를 화면 칸에 덧붙인다.
+    """
     rows = []
     for text, r in data.items():
         st1 = r["steps"][0]
@@ -68,6 +85,7 @@ def a_rows(data):
 
 
 def b_diff_rows():
+    """측정 B에서 네이티브와 pyodide가 다른 줄만 행으로 만든다. 전용 항목은 앞 5개까지 보인다."""
     rows = []
     for line, r in B.items():
         if r["same"]:
@@ -79,6 +97,7 @@ def b_diff_rows():
 
 
 def c_rows():
+    """측정 C의 줄마다 행(ID·입력·게이트(JS)·네이티브·pyodide·분류)을 만든다."""
     rows = []
     for line, r in C.items():
         rows.append([r["id"], code(repr(line)), "참" if r["gate_js"] else "거짓", kind_from(r["native_kind"], r["native_head"]),
@@ -87,19 +106,23 @@ def c_rows():
 
 
 def kind_from(k, head):
+    """종류 문자열 `k`에 후보 앞 2개(`head`)를 덧붙인다. `head`가 없거나 `[]`이면 `k`만 돌려준다."""
     return k if head is None or k == "[]" else f"{k} {head[:2]}"
 
 
 def e_rows():
+    """기대값 대조 결과를 행(항목·기대·실측·결과·비고)으로 만든다. 불일치는 굵게 표시한다."""
     def show(x):
         s = json.dumps(x, ensure_ascii=False)
         return s if len(s) <= 60 else s[:57] + "…"
     return [[r["item"], code(show(r["expected"])), code(show(r["actual"])), "일치" if r["match"] else "**불일치**", r["note"]] for r in E]
 
 
+# 서술 절에 들어갈 수치. 본문은 이 값과 위 표를 f-string으로 끼운다.
 n_match = sum(r["match"] for r in E)
 c = BM["counts"]
 bo = BM["counts_by_origin"]
+# 문서 본문. 아래 f-string 안의 문장은 고정 서술이다(측정 일자·관찰 포함). 값을 바꾸려면 이 파일을 고친다.
 md = f"""# RD-016a 3.14 실측 재현 (import/from 줄 Tab 완성)
 
 - 측정 일자: 2026-09-21. 기준: CPython {BM['native']['python'].split()[0]}(네이티브 pty·직접 호출) 대 pyodide {BM['pyodide']['version']}(Python {BM['pyodide']['python'].split()[0]}, Node).
