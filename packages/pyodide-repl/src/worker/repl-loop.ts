@@ -1,6 +1,6 @@
 /**
- * REPL 한 세션의 제어 흐름(00-architecture.md 3.2).
- * - 통신·프로토콜 구현은 import하지 않는다. `readLine`·`setAtPrompt`·`discardPendingInterrupt`만 주입받는다.
+ * REPL 한 세션의 제어 흐름(docs/design/00-architecture.md 3.2).
+ * - 통신·프로토콜 구현은 import하지 않는다. `readLine`·`setAtPrompt`·`discardPendingInterrupt`를 주입받는다.
  * - 그래서 RPC 종료·브라우저 worker·node 시험이 같은 프롬프트 갱신 규칙을 쓴다.
  * - 여러 줄 분할(붙여넣기·Shift+Enter·히스토리 재호출)은 `submission-runner.ts`의 `run()`이 처리한다.
  *   이 루프는 결과의 `prompt`·`pending`만 그대로 옮긴다.
@@ -15,12 +15,13 @@ import {
 } from "../repl-protocol";
 import { PS1, type SubmissionResult } from "./submission-runner";
 
+/** `runReplLoop`이 주입받는 의존성. 통신·Python 실행은 호출자가 채운다. */
 export interface ReplLoopDeps {
   /**
    * RPC `readLine(prompt, pending, true, outcome?)`.
    * - 요청 채널이 사라지면 reject되어 루프가 끝난다.
    * - `outcome`은 바로 앞 `{ source }` 응답을 실행한 결말이다. 그 실행이 없었던 요청에는 인자를 싣지 않는다(두 인자만 부른다).
-   * - 응답은 줄(제출)·`null`(입력 취소)·`{ source }`(루프 명령)다.
+   * - 응답은 줄(제출)·`null`(입력 취소)·`{ source }`(루프 명령)·`{ eof: true }`(EOF)다.
    */
   readLine(
     prompt: string,
@@ -33,29 +34,36 @@ export interface ReplLoopDeps {
    * `readLine`이 reject로 끝나면 되돌리지 않는다. 루프 종료 뒤 타이머도 꺼진다.
    */
   setAtPrompt(value: boolean): void;
+
   /**
    * `readLine` 응답 직후·`run` 전에 부른다(`null`에도).
-   * 읽는 동안이나 Enter 직후 쓴 SIGINT는 대상 코드가 없다. 다음 문장의 컴파일·실행을 끊는다(TRAP-04).
-   * `boot.ts`가 `discardPendingInterrupt(buffer)`를 넣는다.
+   * 읽는 동안이나 Enter 직후 쓴 SIGINT는 대상 코드가 없다. 남기면 다음 문장의 컴파일·실행을 끊는다(TRAP-04).
+   * `repl-driver.ts`가 core `discardPendingInterrupt(interruptBuffer)`를 넣는다.
    */
   discardPendingInterrupt(): void;
+
+  /** 제출한 줄(또는 취소 `null`)을 콘솔에서 실행하고 다음 프롬프트를 돌려준다. */
   run(line: string | null): Promise<SubmissionResult>;
+
   /**
    * `{ source }` 응답의 코드를 REPL 콘솔에서 실행하고 결말을 돌려준다(RD-022a).
    * 사용자 코드의 오류·`SystemExit`·중단은 결말이다.
    * 던지면 worker 내부 오류다. `onError`로 알리고 `InternalError` 결말을 싣는다.
    */
   runSource(source: string): Promise<ReadLineOutcome>;
+
   /**
    * `exit()`·`quit()`·`SystemExit` 뒤 한 번만 부른다.
    * `{ source }`로 실행한 코드의 `SystemExit`는 세션을 끝내지 않는다. 부르지 않는다.
    * `>>>`의 빈 줄 Ctrl+D(EOF, `{ eof: true }` 응답)도 같은 결말이다(RD-048).
    */
   onTerminated(): void;
+
   /** 사용자 실행 밖에서 난 오류를 boot가 화면에 알리고 콘솔 상태를 정리한다. */
   onError(error: unknown): void;
 }
 
+/** RPC가 끝나서 난 오류인가. 이 오류는 정상 종료 경로라 로그를 남기지 않는다. */
 function isRpcDisposed(error: unknown): boolean {
   return error instanceof Error && error.message === "rpc disposed";
 }

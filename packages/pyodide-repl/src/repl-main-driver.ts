@@ -13,13 +13,14 @@
  * - 게이트 재료(`isIdle` = `phase !== "idle"`)
  * - 종료 시 읽기 정리
  *
- * 읽기 상태는 phase 하나로 합친다(`docs/design/08-session.md` 8.1).
+ * 읽기 상태는 phase 하나로 합친다(docs/design/08-session.md 8.1).
  * `opening`/`open`/`closing` 구분:
  * - 벤더 읽기가 열려 있는가(그려졌는가).
  * - 벤더 promise가 끝났는가(응답이 바깥 promise로 올라가기 전).
- * - 근거: 벤더 promise의 `.then`이 바깥 promise 처리보다 먼저 돈다(`08-session.md` 8.1 `closing` 항목, P-a).
+ * - 근거: 벤더 promise의 `.then`이 바깥 promise 처리보다 먼저 돈다(08-session.md 8.1 `closing` 항목).
  *
- * 세션마다 새로 만든다(`00-architecture.md` 4.2, `08-session.md` 8.1).
+ * 주석의 `Pn`은 규칙 ID다. 같은 ID가 `test/repl-main-driver.test.ts` 시험 제목에 있다.
+ * 세션마다 새로 만든다(00-architecture.md 4.2, 08-session.md 8.1).
  */
 import { ReadCancelledError, ReadTakenError } from "@cp949/runo-xterm-readline";
 import { STDIN_EOF } from "@cp949/runo-pyodide-core";
@@ -53,20 +54,29 @@ import type { SourceCompletion } from "./worker/complete-source";
  */
 export type SourcePrompt = "wait" | "busy" | "open";
 
-/** REPL 읽기 phase(`docs/design/08-session.md` 8.1). 옛 읽기 진행 플래그·취소 방어 플래그·bridge의 읽기 단계 필드를 합친다. */
+/**
+ * REPL 읽기 phase(docs/design/08-session.md 8.1).
+ * 옛 읽기 진행 플래그·취소 방어 플래그·bridge의 읽기 단계 필드를 하나로 합친다.
+ */
 type ReadPhase = "idle" | "opening" | "open" | "closing" | "cancel-settling";
 
+/** `createReplMainDriver()` 옵션. */
 export interface ReplMainDriverOptions {
-  /** 핸들 소유. 세션을 넘어 산다(history 유지). auto-indent·block-history·tab-reader 정책이 쓰는 멤버만 노출한다(RD-027). */
+  /** 핸들이 소유한다. 세션을 넘어 산다(history 유지). auto-indent·block-history·tab-reader 정책이 쓰는 멤버만 노출한다(RD-027). */
   readline: SurfaceReadline;
+
   /** 이 세션의 화면 입출력(`surface.openIo()`). `terminate` 훅이 `close()`한다. */
   io: SurfaceIo;
+
   /** 위젯 수명(surface 소유). 프롬프트 행 읽기·take·접두 떼기·읽기 끝내기에 쓴다(RD-027). */
   promptRow: PromptRow;
-  /** 핸들 소유. `readLine`·`readInput` 도착과 Tab 취소가 부른다. */
+
+  /** 핸들이 소유한다. `readLine`·`readInput` 도착과 Tab 취소가 부른다. */
   interruptSender: InterruptSender;
+
   /** 초기화 프레임 `driver` 필드로 실린다. */
   topLevelAwait: boolean;
+
   /**
    * worker의 `complete`를 부른다(core 세션의 `call`).
    * 실제 Tab을 누를 때(세션이 이미 시작된 뒤)만 실행된다.
@@ -76,39 +86,51 @@ export interface ReplMainDriverOptions {
     source: string,
     pending: string | undefined,
   ) => Promise<SourceCompletion>;
+
   /** 핸들이 소유한 `runSource` 슬롯과 만나는 창구. 세션을 넘어 사는 슬롯을 이 세션의 읽기 흐름에 잇는다(RD-022a). */
   source: SourceLink;
+
   /** 있으면(옵션 켬, RD-049) 세션당 한 번 불러 `createLineEditor`로 넘긴다. */
   completionPopover?: () => CompletionPopover;
 }
 
+/** `createReplMainDriver()`가 돌려주는 값. */
 export interface ReplMainDriver {
   /** core 세션에 넘기는 driver. */
   driver: MainDriver;
+
   /** core 출력 계약 `{ stream, text }` → sink. stdout은 `write`, stderr는 `writeErrorRaw`(원문). */
   output(chunk: OutputChunk): void;
+
   /** 세션의 sink로 `^C`를 에코한다(tty 로컬 에코 흉내, 꼬리 추적에 반영). */
   echoCtrlC(): void;
-  /** 지금 `runSource`를 받아들일 수 있는가(`wait`·`open`·`busy`). 부작용 없음. `runSource()` 판정과 `busy` 게터가 함께 쓴다. */
+
+  /** 지금 `runSource`를 받아들일 수 있는가(`wait`·`open`·`busy`). 부작용이 없다. `runSource()` 판정과 `busy` 게터가 함께 쓴다. */
   sourcePrompt(): SourcePrompt;
-  /** 열린 읽기를 가져가 `{ source }`로 응답하도록 준비한다(확정 10·11). 받아들일 수 없으면 아무것도 하지 않고 `false`. */
+
+  /** 열린 읽기를 가져가 `{ source }`로 응답하도록 준비한다. 받아들일 수 없으면 아무것도 하지 않고 `false`. */
   sendSource(code: string): boolean;
 }
 
+/**
+ * 세션 하나의 REPL main driver를 만든다.
+ * `readLine`·`readInput` 핸들러와 종료 훅이 읽기 phase를 공유한다. 상태는 이 클로저 안에만 있다.
+ */
 export function createReplMainDriver(
   options: ReplMainDriverOptions,
 ): ReplMainDriver {
   const { readline, io, promptRow, interruptSender, topLevelAwait, complete } =
     options;
   const link = options.source;
-  // `io.terminal`은 세션이 끝난(`io.close()`) 뒤 write 콜백을 전달하지 않는 뷰다(TRP-004). `sinks`는 세션마다 새것이다.
+  // `io.terminal`은 세션이 끝난(`io.close()`) 뒤 write 콜백을 전달하지 않는 뷰다(TRP-004).
+  // `sinks`는 세션마다 새것이다.
   const { sinks } = io;
-  // 세션 소유: autoIndent의 lastUsedIndentation·blockHistory의 기준점·tabReader의 세대.
+  // 세션 소유 상태: autoIndent의 lastUsedIndentation·blockHistory의 기준점·tabReader의 세대.
   // - 이 세션 동안 유지된다.
-  // - reset()이 새 세션(새 객체)을 만들면 초기화된다(08-session.md 8.1, `terminal/line-editor.ts`).
+  // - `reset()`이 새 세션(새 객체)을 만들면 초기화된다(08-session.md 8.1, `terminal/line-editor.ts`).
   // `complete`는 core 세션의 `call`을 클로저로 참조한다.
-  // - 이 클로저는 실제 Tab을 누를 때(세션이 이미 시작된 뒤)만 실행된다.
-  // - 그래서 선언 순서는 문제가 되지 않는다(TS는 중첩 함수 안의 참조에 TDZ를 적용하지 않는다).
+  // - 이 클로저는 Tab을 누를 때(세션이 이미 시작된 뒤)만 실행된다.
+  // - 그래서 선언 순서는 문제가 되지 않는다.
   const lineEditor = createLineEditor(readline, {
     complete,
     interruptCompletion: () => interruptSender.send(),
@@ -119,7 +141,7 @@ export function createReplMainDriver(
   // worker 루프는 응답을 받은 뒤에만 다시 요청한다. 그래서 겹치는 요청은 오류로 거절한다.
   // `opening`·`open`·`closing` 셋 다 "벤더 읽기가 열려 있다"는 뜻이다. 겹침 판정(P2)은 이 셋을 함께 본다.
   let phase: ReadPhase = "idle";
-  /** 벤더 REPL 읽기가 열려 있다(P2 겹침 거절·P17 종료 폐기 조건). */
+  // 벤더 REPL 읽기가 열려 있는가. P2 겹침 거절과 P17 종료 폐기의 조건이다.
   const readOpen = () =>
     phase === "opening" || phase === "open" || phase === "closing";
   // 첫 `readLine` 요청이 도착했다(그 전에는 `sourcePrompt()`가 `wait`).
@@ -131,7 +153,7 @@ export function createReplMainDriver(
   // 진행 중인 stdin(`input()`) 읽기 수. core `inputReadsPending`(`pyodide-core/src/session/core-session.ts`)의 사본이다.
   // - core는 이 값을 driver에 내주지 않는다.
   // - 그래서 `inputRequested`/`inputResumed` 훅으로 여기서 따로 센다.
-  // core interface로 내지 않는 이유(arch-review 04 후보 4 기각):
+  // core interface로 내지 않는 이유:
   // - driver가 core보다 먼저 만들어져 늦은 참조가 필요하다.
   // - `promptState()` 판정이 한 곳에서 읽히지 않게 된다.
   // core 카운터의 의미가 바뀌면 다시 본다.
@@ -143,7 +165,7 @@ export function createReplMainDriver(
   // 결말을 실은 요청의 읽기가 그려지면(P6b) 슬롯을 정착시킨다(P3에서 세운다).
   let settleOnDraw = false;
 
-  /** `sourcePrompt()`·`send()`가 함께 쓰는 판정(부작용 없음, P7). */
+  // `sourcePrompt()`·`sendSource()`가 함께 쓰는 판정(P7). 부작용이 없다.
   const promptState = (): SourcePrompt => {
     if (!sawRequest) return "wait";
     if (
@@ -157,12 +179,10 @@ export function createReplMainDriver(
     return "open";
   };
 
-  /**
-   * `readLine` 요청이 도착했다(겹침 거절을 통과한 요청, P3).
-   * - 결말이 실려 왔으면: 슬롯에 알리고, 복원한 읽기가 그려지면 정착하도록 예약한다.
-   * - 대기 슬롯을 실행하는 요청이면: 읽기를 열지 않고 돌려줄 응답 `{ source }`를 준다.
-   * - 그 밖에는 `undefined`(평소 읽기).
-   */
+  // `readLine` 요청이 도착했다(겹침 거절을 통과한 요청, P3).
+  // - 결말이 실려 왔으면: 슬롯에 알리고, 복원한 읽기가 그려지면 정착하도록 예약한다.
+  // - 대기 슬롯을 실행하는 요청이면: 읽기를 열지 않고 돌려줄 응답 `{ source }`를 준다.
+  // - 그 밖에는 `undefined`(평소 읽기).
   const claimRequest = (
     pending: string | undefined,
     outcome: ReadLineOutcome | undefined,
@@ -177,13 +197,13 @@ export function createReplMainDriver(
     if (pending !== undefined) return undefined;
     const source = link.claim();
     if (source === undefined) return undefined;
-    // 화면에는 아무것도 그리지 않았다. 미종결 꼬리가 있으면 새 줄에서 출력을 시작한다(14.5.4 행 머리 규칙).
+    // 화면에는 아무것도 그리지 않았다. 미종결 꼬리가 있으면 새 줄에서 출력을 시작한다(docs/design/14-runner.md 14.5.4).
     restore = undefined;
     promptRow.breakLine();
     return { source };
   };
 
-  /** 읽기 rejection이 `sendSource()` 때문이면(P12) 그 코드를 담은 응답을 준다. 아니면 `undefined`. */
+  // 읽기 rejection이 `sendSource()` 때문이면(P12) 그 코드를 담은 응답을 준다. 아니면 `undefined`.
   const takeIfTaken = (error: unknown): ReadLineSourceReply | undefined => {
     if (!(error instanceof ReadTakenError) || takenCode === undefined) {
       return undefined;
@@ -193,8 +213,8 @@ export function createReplMainDriver(
     return { source };
   };
 
-  // 프롬프트를 기다리는 동안 worker의 배경 콜백이 `input()`을 부르면 stdin 읽기가 REPL 읽기를 교체한다. REPL 읽기는 고아가 된다.
-  // read-guard의 처리(04-stdin-input.md 3.2):
+  // 프롬프트를 기다리는 동안 worker의 배경 콜백이 `input()`을 부르면 stdin 읽기가 REPL 읽기를 교체한다.
+  // 그러면 REPL 읽기는 고아가 된다. read-guard의 처리(04-stdin-input.md 3.2):
   // - stdin 읽기를 활성 REPL 읽기가 끝난 뒤로 미룬다.
   // - 미룬 읽기의 접두 떼기·D6 그리기도 promptRow로 직접 낸다.
   const guard = createReadGuard(promptRow);
@@ -209,10 +229,10 @@ export function createReplMainDriver(
       // - `pending`은 자동 들여쓰기 프리필의 재료다(RD-013).
       // - `outcome`은 바로 앞 `{ source }` 응답으로 실행한 코드의 결말이다(RD-022a).
       // 응답 종류:
-      // - 줄
-      // - `null`
+      // - 줄: Enter로 제출한 줄.
+      // - `null`: 취소.
       // - `{ source }`: `runSource`가 읽기를 가져간 경우, 또는 대기하던 코드를 첫 프롬프트에서 실행하는 경우.
-      // - `{ eof: true }`: `>>>`의 빈 줄 Ctrl+D. `pending === undefined`인 요청에만 `eof: true`로 연다(RD-048).
+      // - `{ eof: true }`: `>>>`의 빈 줄 Ctrl+D. `pending === undefined`인 요청만 EOF를 켠다(RD-048).
       readLine: (
         prompt: string,
         pending: string | undefined,
@@ -234,20 +254,20 @@ export function createReplMainDriver(
         return guard
           .readLine(prompt, {
             cancelable,
-            // `>>>`(pending 없음)만 EOF를 켠다 — 블록 연속줄(`...`)의 빈 줄 Ctrl+D는 EOF가 아니다(RD-048).
+            // `>>>`(pending 없음)만 EOF를 켠다. 블록 연속줄(`...`)의 빈 줄 Ctrl+D는 EOF가 아니다(RD-048).
             eof: pending === undefined ? true : undefined,
-            // flush 뒤, `readline.read()` 직전에 평가한다(P5) — restore 소비·Tab 세대가 이 시점에 묶여 있다.
+            // flush 뒤, `readline.read()` 직전에 평가한다(P5). restore 소비·Tab 세대가 이 시점에 묶여 있다.
             readOptions: () => {
               const options = lineEditor.begin(pending, restore);
               restore = undefined;
               return options;
             },
             // 벤더가 읽기를 열었다(P6). `seq`로 늦게 도는 콜백(다음 읽기가 이미 시작된 뒤)을 가른다.
-            // 그려짐을 벤더 사건으로 받지 않고 write FIFO로 재는 이유·재검토 조건: `08-session.md` 8.1 `open` 항목(후보 6 기각).
+            // 그려짐을 벤더 사건으로 받지 않고 write FIFO로 재는 이유·재검토 조건은 08-session.md 8.1 `open` 항목.
             onOpen: (read) => {
               const seq = readSeq;
               const closeIfOpen = () => {
-                // 벤더 promise 종료(P6a). 바깥 promise(guard.readLine이 돌려주는 것) 처리보다 먼저 돈다(`08-session.md` 8.1 `closing` 항목, P-a).
+                // 벤더 promise 종료(P6a). 바깥 promise(`guard.readLine`이 돌려주는 것) 처리보다 먼저 돈다(08-session.md 8.1 `closing` 항목).
                 // 이 사이 창에서 `sourcePrompt()`가 `busy`를 내도록 phase를 여기서 먼저 내린다.
                 if (
                   seq === readSeq &&
@@ -269,7 +289,7 @@ export function createReplMainDriver(
                 if (settleOnDraw) {
                   settleOnDraw = false;
                   // 그리기 write는 벤더 콜백 안에서 나와 이 콜백보다 뒤에 큐에 섰다.
-                  // 한 번 더 기다려 그것들이 처리된 뒤에 정착한다(확정 9).
+                  // 한 번 더 기다려 그것들이 처리된 뒤에 정착한다.
                   io.terminal.write("", () => link.settle());
                 }
               });
@@ -278,14 +298,14 @@ export function createReplMainDriver(
           .then(
             (line) => {
               if (line === STDIN_EOF) {
-                // P19(H4): EOF는 취소와 같은 방어 phase를 재사용한다. 새 phase를 만들지 않는다(checklist H4).
+                // EOF(RD-048)는 취소와 같은 방어 phase를 재사용한다. 새 phase를 만들지 않는다.
                 // `sessionTerminated` 도착 전까지 벤더에 활성 읽기가 없다. Ctrl+C를 보낼 곳이 없다
-                // (08-session.md 8.1 cancel-settling과 같은 이유).
+                // (08-session.md 8.1 `cancel-settling`과 같은 이유).
                 phase = "cancel-settling";
                 lineEditor.end({ kind: "eof" });
                 return { eof: true };
               }
-              // 바깥 promise 처리(P9·P10). phase를 먼저 정한 뒤 편집기를 부른다(P-c: 관측 차이 없음).
+              // 바깥 promise 처리(P9·P10). phase를 먼저 정한 뒤 편집기를 부른다. 순서는 관측되지 않는다.
               phase = line === null ? "cancel-settling" : "idle";
               // 이번 세대의 읽기가 끝났다(Enter·취소 둘 다).
               // - 왕복 중 취소됐으면 여기서 인터럽트가 나간다.
@@ -299,9 +319,9 @@ export function createReplMainDriver(
             (error: unknown) => {
               // P11·P12·P13 모두 phase는 `idle`이다.
               phase = "idle";
-              // reset()의 cancelRead()로 끝난 옛 읽기는 응답 없이 조용히 끝낸다(확정 10, P11).
+              // `reset()`의 `cancelRead()`로 끝난 옛 읽기는 응답 없이 조용히 끝낸다(P11).
               // 이 세션의 worker는 이미 종료 중이라 응답을 기다리지 않는다.
-              // 영영 풀리지 않는 promise를 돌려 rpc가 응답을 보내지 않게 한다.
+              // 영영 풀리지 않는 promise를 돌려 RPC가 응답을 보내지 않게 한다.
               if (error instanceof ReadCancelledError)
                 return new Promise<ReadLineReply>(() => {});
               // `sendSource()`가 가져간 읽기(P12): 줄 대신 코드를 응답한다.
@@ -317,15 +337,12 @@ export function createReplMainDriver(
           );
       },
     },
-    /**
-     * core 게이트 `pythonRunning = alive && inputReadsPending === 0 && !isIdle()`의 재료(P16).
-     * 눌림이 닿을 대상 코드가 없는 구간:
-     * - 프롬프트 입력을 기다리는 동안(`opening`·`open`·`closing`)
-     * - 취소 응답 뒤 다음 요청 전(`cancel-settling`)
-     *
-     * `readLine` 응답 뒤~다음 요청 전(배경 콜백이 CPU를 잡는 구간)은 유휴가 아니다(편차 2).
-     * 단, 그 응답이 취소였으면 `cancel-settling`이 막는다.
-     */
+    // core 게이트 `pythonRunning = alive && inputReadsPending === 0 && !isIdle()`의 재료(P16).
+    // 눌림이 닿을 대상 코드가 없는 구간이 유휴다:
+    // - 프롬프트 입력을 기다리는 동안(`opening`·`open`·`closing`).
+    // - 취소 응답 뒤 다음 요청 전(`cancel-settling`).
+    // `readLine` 응답 뒤~다음 요청 전(배경 콜백이 CPU를 잡는 구간)은 유휴가 아니다(편차 2, docs/design/10-parity-deviations.md).
+    // 단, 그 응답이 취소였으면 `cancel-settling`이 막는다.
     isIdle: () => phase !== "idle",
     readInput: (cancelable, sessionEnded) =>
       guard.readInput(cancelable, sessionEnded), // P18
@@ -351,9 +368,9 @@ export function createReplMainDriver(
       // core가 `ended`를 먼저 세우고 이 훅을 부른다. 같은 지점에서 게이트를 닫는다(P17).
       io.close();
       // REPL 읽기가 열려 있으면(`opening`·`open`·`closing`) 입력을 기다리던 블록이다. 버린다.
-      // 실행 중·`exit()`로 끝난 블록은 phase가 `idle`이라 남는다(확정 5).
+      // 실행 중·`exit()`로 끝난 블록은 phase가 `idle`이라 남는다(P17).
       // tabReader는 readOpen과 무관하게 항상 동기로 끝난다.
-      // 이유(`line-editor.ts` E9): 대기 중인 `complete` 요청의 뒤이은 reject가 취소된 세션 상태를 건드리지 못하게 막는다.
+      // 이유: 대기 중인 `complete` 요청의 뒤이은 reject가 취소된 세션 상태를 건드리지 못하게 막는다(`terminal/line-editor.ts`).
       lineEditor.dispose(readOpen());
       promptRow.endRead({ screen: false });
     },

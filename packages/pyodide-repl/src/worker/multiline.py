@@ -29,8 +29,8 @@ def _dedent(source):
 
 
 def _parse(source, flags):
-    # TLA가 켜진 플래그로는 ast.parse가 임의 플래그를 받지 않으므로 PyCF_ONLY_AST로 컴파일해 AST를 얻는다
-    # (그래야 top-level await가 파싱 단계에서 SyntaxError가 되지 않는다).
+    # `ast.parse`는 임의 플래그를 받지 않는다. TLA가 켜진 플래그로는 PyCF_ONLY_AST로 컴파일해 AST를 얻는다.
+    # 그래야 top-level await가 파싱 단계에서 SyntaxError가 되지 않는다.
     if flags & TOP_LEVEL_AWAIT_FLAG:
         return compile(source, "<console>", "exec", flags | ast.PyCF_ONLY_AST, True)
     return ast.parse(source, "<console>")
@@ -43,7 +43,7 @@ def split_paste(source, flags):
             # 같은 경고가 실제 실행(push) 시점에 다시 나오므로 분할 중에는 숨긴다.
             warnings.simplefilter("ignore")
             tree = _parse(source, flags)
-            # 파싱만으로는 잡히지 않는 오류(함수 밖 return 등, RD-011 확정 12)를 여기서 확인한다.
+            # 파싱만으로는 잡히지 않는 오류(함수 밖 return 등)를 여기서 확인한다(RD-011).
             compile(tree, "<console>", "exec", flags, True)
     except (SyntaxError, ValueError, OverflowError) as error:
         # 파싱·컴파일 단계 오류가 하나라도 있으면 아무 문장도 실행하지 않는다(CPython 3.14 REPL과 동일).

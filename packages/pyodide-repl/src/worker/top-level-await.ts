@@ -12,13 +12,13 @@ export const TOP_LEVEL_AWAIT_FLAG = 0x2000;
 /** 생성 직후 `PyodideConsole`의 플래그: TLA(0x2000) | ALLOW_INCOMPLETE_INPUT(0x4000) | DONT_IMPLY_DEDENT(0x200). */
 export const DEFAULT_CONSOLE_FLAGS = 0x6200;
 
-// `CompilerFlagsHolder`(pyodide private 경로 `_compile.compiler.flags`)는 core 콘솔 뼈대 타입이 소유한다.
+// `CompilerFlagsHolder`(pyodide 비공개 경로 `_compile.compiler.flags`)는 core 콘솔 뼈대 타입이 소유한다.
 export type { CompilerFlagsHolder };
 
 /**
  * pyodide 비공개 경로 `_compile.compiler.flags`가 숫자로 있는가(RD-021 `compiler-flags` 탐지).
  * PyProxy에서 없는 속성 접근은 던지지 않고 `undefined`다. 접근 자체가 던져도 없는 것으로 본다.
- * 없으면 REPL은 TLA 토글·EOF 문구 정규화를 건너뛴다. `compilerFlags()`를 `TOP_LEVEL_AWAIT_FLAG`로 대체한다(확정 7).
+ * 없으면 REPL은 TLA 토글·EOF 문구 정규화를 건너뛴다. `compilerFlags()`는 `TOP_LEVEL_AWAIT_FLAG`로 대체한다.
  */
 export function hasCompilerFlags(pyconsole: unknown): boolean {
   try {

@@ -1,17 +1,20 @@
-// 블록(`... `) 입력의 줄들을 history 항목 하나로 묶는 세션 소유 모듈(06-editing.md 6.4,
-// RD-014 그릴링 확정 2). `startSession`이 `createAutoIndent` 옆에 만들어 세션과 함께 산다.
-//
-// 기록 방식은 진행형 교체다.
-// - 블록 첫 줄이 append되기 직전의 history 스냅샷을 기준점으로 잡는다.
-// - 이어지는 줄을 제출할 때마다 기준점으로 되돌린다.
-// - 그 뒤 `(pendingBlock + "\n" + 방금 줄).trimEnd()`를 다시 기록한다.
-//
-// "블록이 끝난 뒤 1회만 기록"하는 방식은 채택하지 않았다.
-// `exit()`로 끝나 다음 pending이 오지 않는 블록을 놓치기 때문이다(항목이 영영 안 생김).
-//
-// 종료용 공백 줄(괄호를 닫지 않고 블록을 끝내는 빈 Enter)은 벤더 `skipBlankHistory`가 걸러
-// `historyEntry`를 부르지 않는다.
-// 그 경우 진행형 항목은 직전 줄까지 기록된 상태 그대로 남는다(항목 불변, 별도 처리 불필요).
+/**
+ * 블록(`... `) 입력의 줄들을 history 항목 하나로 묶는 세션 소유 모듈(docs/design/06-editing.md 6.4, RD-014).
+ * `createLineEditor`가 `createAutoIndent` 옆에 만들어 세션과 함께 산다.
+ *
+ * 기록 방식은 진행형 교체다.
+ * - 블록 첫 줄이 append되기 직전의 history 스냅샷을 기준점으로 잡는다.
+ * - 이어지는 줄을 제출할 때마다 기준점으로 되돌린다.
+ * - 그 뒤 `(pendingBlock + "\n" + 방금 줄).trimEnd()`를 다시 기록한다.
+ *
+ * "블록이 끝난 뒤 1회만 기록"하는 방식은 채택하지 않았다.
+ * `exit()`로 끝나 다음 pending이 오지 않는 블록을 놓치기 때문이다. 항목이 영영 안 생긴다.
+ *
+ * 종료용 공백 줄(괄호를 닫지 않고 블록을 끝내는 빈 Enter):
+ * - 벤더 `skipBlankHistory`가 걸러 `historyEntry`를 부르지 않는다.
+ * - 진행형 항목은 직전 줄까지 기록된 상태 그대로 남는다.
+ * - 항목이 변하지 않으므로 별도 처리가 필요 없다.
+ */
 import {
   InputType,
   type Input,
@@ -19,16 +22,19 @@ import {
 } from "@cp949/runo-xterm-readline";
 import type { ReplReadOptions } from "./line-editor";
 
+/** 블록 history 정책. 세션마다 하나다. */
 export interface BlockHistory {
-  /** REPL 읽기 하나의 옵션. pending이 있으면 블록 이어짐(기준점 고정), 없으면 블록 끝(기준점 해제). */
+  /** REPL 읽기 하나의 옵션. `pending`이 있으면 블록 이어짐(기준점 고정), 없으면 블록 끝(기준점 해제). */
   readOptions(
     pending: string | undefined,
   ): Pick<ReplReadOptions, "historyEntry" | "onKey">;
-  /** 열려 있는 블록을 첫 줄까지 버리고 기준점으로 되돌린다(취소·리셋). 블록이 없으면 무동작. */
+
+  /** 열려 있는 블록을 첫 줄까지 버리고 기준점으로 되돌린다(취소·세션 종료). 블록이 없으면 무동작. */
   discard(): void;
 }
 
 /**
+ * 블록 history 정책을 만든다.
  * `readline`은 history 스냅샷·복원(`getHistory`)과 ↑ 삼킴 판정(`getLine`)에만 쓴다.
  * private 멤버는 건드리지 않는다(ADR-0003).
  */
@@ -40,13 +46,13 @@ export function createBlockHistory(
   // 열려 있는 블록의 기준점. null이면 블록 밖(`>>> `).
   let blockBase: string[] | null = null;
   // 마지막 `readOptions` 호출의 pending. `""`는 "블록 없음"과 "빈 블록 첫 줄"을 구분하지 않는다.
-  // 둘 다 continuation이 아니라는 점에서 같다(`createAutoIndent`와 같은 관례).
+  // 둘 다 이어지는 줄이 아니라는 점에서 같다(`createAutoIndent`와 같은 관례).
   let pendingBlock = "";
 
   // `... `의 프리필 없는 줄(들여쓰기 0으로 돌아온 줄, Ctrl+U로 지운 줄)에서만 ↑를 삼킨다.
   // 여러 줄 버퍼(Shift+Enter·붙여넣기로만 생긴다) 안에서는 줄 이동이므로 삼키지 않는다.
-  // 동치 근거: 프리필이 남은 한 줄 버퍼에서는 벤더 ↑가 이미 무동작이다(`state.ts`의 `previousHistory` 가드).
-  // 삼켜도 화면이 같다.
+  // 프리필이 남은 한 줄 버퍼에서는 벤더 ↑가 이미 무동작이다(`state.ts`의 `previousHistory` 가드).
+  // 그래서 삼켜도 화면이 같다.
   const onKey = (input: Input): boolean =>
     input.inputType === InputType.ArrowUp &&
     pendingBlock !== "" &&

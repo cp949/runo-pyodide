@@ -23,8 +23,8 @@ import {
 } from "./top-level-await";
 import HELPERS_SOURCE from "./console-helpers.py?raw";
 
-// 콘솔 뼈대 타입은 core가 소유한다(`ConsoleSinks`·`PyodideConsoleProxy`·`ConsoleFutureProxy`·`SyntaxCheck`). 이 모듈을 import하던
-// 곳이 바뀌지 않도록 다시 내보낸다.
+// 콘솔 뼈대 타입은 core가 소유한다(`ConsoleSinks`·`PyodideConsoleProxy`·`ConsoleFutureProxy`·`SyntaxCheck`).
+// 이 모듈을 import하던 곳이 바뀌지 않도록 다시 내보낸다.
 export type {
   ConsoleFutureProxy,
   ConsoleSinks,
@@ -32,11 +32,13 @@ export type {
   SyntaxCheck,
 } from "@cp949/runo-pyodide-core/worker";
 
+/** `createConsole()` 옵션. */
 export interface ConsoleOptions {
   /** 초기화 프레임의 `topLevelAwait`. 콘솔 생성 직후 한 번만 적용한다. */
   topLevelAwait: boolean;
 }
 
+/** `runLine()` 결과. 실행 예외는 던지지 않고 `error`로 돌려준다. */
 export type RunLineResult =
   | { kind: "incomplete" }
   /** 표준 문구로 정규화한 문법 오류(끝 개행 포함). 개행 제거는 호출부(러너)가 한다. */
@@ -46,24 +48,32 @@ export type RunLineResult =
   /** 실행 예외 또는 `repr` 예외의 트레이스백(끝 개행 포함, 내부 프레임 없음). */
   | { kind: "error"; formattedError: string };
 
+/** REPL 콘솔 핸들. 세션마다 하나다. */
 export interface ReplConsole {
   /** `pyodide.console.BANNER`. 끝 개행 없음. `writeOutput`으로 낸다(sink가 개행을 붙인다, TRAP-29). */
   readonly banner: string;
+
+  /** core가 만든 `PyodideConsole` proxy */
   readonly pyconsole: PyodideConsoleProxy;
+
   /**
    * 한 줄을 push하고 결과를 기다린다. `ConsoleFuture`는 Python `await_fut`로만 await한다.
    * `options.echo`(기본 `true`)가 거짓이면 값 `repr()`·`builtins._` 갱신을 건너뛴다(분할 재생 중 에코하지 않는 문장).
    */
   runLine(source: string, options?: { echo?: boolean }): Promise<RunLineResult>;
+
   /** 블록 입력 중이면 콘솔 buffer의 줄들을 `\n`으로 이은 텍스트, 아니면 undefined. */
   pending(): string | undefined;
+
   /** 미완성 블록을 버린다(`buffer.clear()`). 블록이 없어도 안전하다. */
   clearPending(): void;
+
   /**
    * `pyconsole._compile.compiler.flags`에서 `INCOMPLETE_INPUT_FLAGS`를 뺀 값. `split_paste`의 2차 `compile`에 넘긴다.
    * 그 경로가 없으면(`compiler-flags` 저하) `TOP_LEVEL_AWAIT_FLAG`(0x2000)로 대체한다.
    */
   compilerFlags(): number;
+
   /**
    * pyodide 비공개 지점 두 곳의 저하 식별자(RD-021). driver `probe`가 부른다.
    * - `compiler-flags`: 생성 때 판정한 값.
@@ -77,6 +87,7 @@ export interface ReplConsole {
 /** `formatted_error`의 마지막 줄이 이것이면 재컴파일로 정규화한다. */
 export const INCOMPLETE_INPUT_MARKER =
   "_IncompleteInputError: incomplete input";
+
 /** `formatted_error`의 마지막 줄이 `INCOMPLETE_INPUT_MARKER`인가. 정규화와 `probe`의 문구 탐지가 같은 판정을 쓴다. */
 function endsWithIncompleteMarker(formattedError: string): boolean {
   const lines = formattedError.replace(/\n$/, "").split("\n");
@@ -86,14 +97,14 @@ function endsWithIncompleteMarker(formattedError: string): boolean {
 /** codeop이 최종 컴파일에서 끄는 두 비트: ALLOW_INCOMPLETE_INPUT(0x4000) | DONT_IMPLY_DEDENT(0x200). */
 export const INCOMPLETE_INPUT_FLAGS = 0x4200;
 
-/** 프롬프트 문자열. `sys.ps1/ps2`로 설정한다(CPython REPL과 같은 값). */
+// 프롬프트 문자열. `sys.ps1/ps2`로 설정한다(CPython REPL과 같은 값).
 const PS1 = ">>> ";
 const PS2 = "... ";
 
 /**
  * `sys.ps1/ps2`를 `pyimport("sys")` proxy에 JS에서 대입해 설정한다.
  * `runPython("import sys")`는 `pyodide.globals`(= `__main__`)에 `sys`를 남긴다.
- * 새 REPL의 `globals()`에 없어야 할 이름이 생긴다(편차 22 해소).
+ * 그러면 새 REPL의 `globals()`에 없어야 할 이름이 생긴다(편차 22).
  */
 function setPrompts(pyodide: PyodideInterface): void {
   const sysModule = pyodide.pyimport("sys") as PyProxy & {
@@ -118,8 +129,13 @@ type AwaitFutResult = [
 ];
 
 /**
- * 순서: 전역 stdout/stderr Writer 등록(core `installStdioWriters`) → `sys.ps1/ps2` → `PyodideConsole(pyodide.globals)` + 콜백
- * (core `createCoreConsole`) → TLA 비트 → `await_fut` namespace. 동기 함수다. 세션마다 한 번 부른다.
+ * REPL 콘솔을 만든다. 동기 함수다. 세션마다 한 번 부른다.
+ * 순서:
+ * 1. 전역 stdout/stderr Writer 등록(core `installStdioWriters`).
+ * 2. `sys.ps1/ps2`.
+ * 3. `PyodideConsole(pyodide.globals)` + 콜백(core `createCoreConsole`).
+ * 4. TLA 비트.
+ * 5. `await_fut` namespace.
  */
 export function createConsole(
   pyodide: PyodideInterface,
@@ -132,11 +148,12 @@ export function createConsole(
   const consoleModule = pyodide.pyimport("pyodide.console") as PyProxy & {
     BANNER: string;
   };
-  // `_compile.compiler.flags`가 없으면 TLA 토글을 건너뛴다. pyodide 기본이 TLA 켬이라 `topLevelAwait: false`는 무시된다(확정 7).
+  // `_compile.compiler.flags`가 없으면 TLA 토글을 건너뛴다. pyodide 기본이 TLA 켬이라 `topLevelAwait: false`는 무시된다.
   // 판정은 `setTopLevelAwait`보다 앞이어야 한다. 뒤에서 하면 없는 경로에 쓰거나 던진다.
   const flagsAvailable = hasCompilerFlags(pyconsole);
   if (flagsAvailable) setTopLevelAwait(pyconsole, options.topLevelAwait);
-  // 별도 namespace(빈 dict)에서 정의해 사용자 globals를 오염시키지 않는다. 함수는 세션 동안 쓰므로 proxy를 유지한다.
+  // 별도 namespace(빈 dict)에서 정의해 사용자 globals를 오염시키지 않는다.
+  // 함수는 세션 동안 쓰므로 proxy를 유지한다.
   const namespace = pyodide.toPy({}) as PyProxy & {
     get(name: string): unknown;
   };
@@ -159,6 +176,7 @@ export function createConsole(
     "incomplete_input_message",
   ) as () => string | undefined;
 
+  // 블록 입력 중이면 콘솔 buffer의 줄들을 `\n`으로 이은 텍스트, 아니면 undefined.
   function pending(): string | undefined {
     const buffer = pyconsole.buffer;
     try {
@@ -168,12 +186,10 @@ export function createConsole(
     }
   }
 
-  /**
-   * pyodide는 EOF에서 끊긴 문법 오류를 `_IncompleteInputError: incomplete input`으로 표시한다.
-   * 3.14 REPL은 `SyntaxError: invalid syntax`다. 그 경우만 재컴파일한 문구로 바꾼다.
-   * 재컴파일이 오류 없이 끝나거나 실패하면 원문이다.
-   * `pending`은 push 전에 읽은 buffer다. push가 끝나면 buffer는 비워진다.
-   */
+  // pyodide는 EOF에서 끊긴 문법 오류를 `_IncompleteInputError: incomplete input`으로 표시한다.
+  // 3.14 REPL은 `SyntaxError: invalid syntax`다. 그 경우만 재컴파일한 문구로 바꾼다.
+  // 재컴파일이 오류 없이 끝나거나 실패하면 원문이다.
+  // `pendingBefore`는 push 전에 읽은 buffer다. push가 끝나면 buffer는 비워진다.
   function normalizeSyntaxError(
     raw: string,
     pendingBefore: string | undefined,

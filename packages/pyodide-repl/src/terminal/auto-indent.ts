@@ -1,7 +1,8 @@
-// 자동 들여쓰기 순수 로직. CPython 3.14 `_pyrepl/readline.py`의 `maybe_accept`가 개행 뒤에 채우는
-// 들여쓰기 규칙을 옮겼다(docs/design/06-editing.md 6.3).
-// `createAutoIndent`가 이 순수 함수를 세션 소유 상태(`lastUsedIndentation`)와 묶어 벤더 `ReadOptions`로 바꾼다.
-
+/**
+ * 자동 들여쓰기 순수 로직. CPython 3.14 `_pyrepl/readline.py`의 `maybe_accept`가 개행 뒤에 채우는
+ * 들여쓰기 규칙을 옮겼다(docs/design/06-editing.md 6.3).
+ * `createAutoIndent`가 이 순수 함수를 세션 소유 상태(`lastUsedIndentation`)와 묶어 벤더 `ReadOptions`로 바꾼다.
+ */
 import {
   InputType,
   type Input,
@@ -9,20 +10,24 @@ import {
 } from "@cp949/runo-xterm-readline";
 import type { ReplReadOptions } from "./line-editor";
 
+/** `nextIndentation`의 결과. */
 export interface NextIndentation {
-  // 개행 바로 뒤에 넣을 공백(직전 줄에서 이어받은 들여쓰기 + `:` 뒤 추가분).
+  /** 개행 바로 뒤에 넣을 공백. 직전 줄에서 이어받은 들여쓰기 + `:` 뒤 추가분이다. */
   indentation: string;
-  // 세션 동안 유지되는 "마지막으로 본 첫 들여쓰기"(`_pyrepl`의 `last_used_indentation`).
+
+  /** 세션 동안 유지되는 "마지막으로 본 첫 들여쓰기"(`_pyrepl`의 `last_used_indentation`) */
   lastUsedIndentation: string | null;
 }
 
+/** 들여쓰기 단위를 본 적이 없을 때 쓰는 기본 단위(스페이스 4칸). */
 export const DEFAULT_UNIT = "    ";
 
+/** 들여쓰기 글자(스페이스·탭)인가. */
 function isIndentChar(char: string | undefined): boolean {
   return char === " " || char === "\t";
 }
 
-// `_get_first_indentation`: 버퍼에서 처음 나온 (공백만이 아닌) 들여쓴 줄의 들여쓰기.
+/** `_get_first_indentation`: 버퍼에서 처음 나온 (공백만이 아닌) 들여쓴 줄의 들여쓰기. */
 function firstIndentation(buffer: string): string | null {
   let indentedLineStart: number | null = null;
   for (let i = 0; i < buffer.length; i++) {
@@ -43,8 +48,10 @@ function firstIndentation(buffer: string): string | null {
   return null;
 }
 
-// `_get_previous_line_indent`: 커서가 있는 줄의 시작 위치와 들여쓰기 글자 수.
-// 커서 앞이 공백뿐인 줄은 들여쓰기 없음(null).
+/**
+ * `_get_previous_line_indent`: 커서가 있는 줄의 시작 위치와 들여쓰기 글자 수.
+ * 커서 앞이 공백뿐인 줄은 들여쓰기 없음(null).
+ */
 function previousLineIndent(
   buffer: string,
   pos: number,
@@ -59,9 +66,11 @@ function previousLineIndent(
   };
 }
 
-// `_should_auto_indent`: pos 앞의 마지막 의미 있는 글자가 `:`인지 판정한다.
-// 공백·개행은 건너뛴다. 줄 끝 `#` 주석은 무시한다.
-// 문자열 안의 `#`도 주석으로 오인한다(3.14와 같다).
+/**
+ * `_should_auto_indent`: pos 앞의 마지막 의미 있는 글자가 `:`인지 판정한다.
+ * 공백·개행은 건너뛴다. 줄 끝 `#` 주석은 무시한다.
+ * 문자열 안의 `#`도 주석으로 오인한다(3.14와 같다).
+ */
 function shouldAutoIndent(buffer: string, pos: number): boolean {
   let lastChar: string | null = null;
   while (pos > 0) {
@@ -78,18 +87,20 @@ function shouldAutoIndent(buffer: string, pos: number): boolean {
   return lastChar === ":";
 }
 
-// 들여쓰기 단위의 폭. 스페이스 단위면 그 길이. 탭이거나 본 적이 없으면 4칸.
+/** 들여쓰기 단위의 폭. 스페이스 단위면 그 길이이고, 탭이거나 본 적이 없으면 4칸이다. */
 export function indentUnitWidth(lastUsedIndentation: string | null): number {
   return lastUsedIndentation !== null && /^ +$/.test(lastUsedIndentation)
     ? lastUsedIndentation.length
     : DEFAULT_UNIT.length;
 }
 
-// `backspace_dedent`: Backspace 한 번에 지울 글자 수(1이면 평소처럼 한 글자).
-// 커서 앞이 스페이스뿐이고 연속 줄일 때만 직전 단위 배수까지 지운다.
-// continuation: 버퍼의 첫 줄이 블록의 이어지는 줄이면(`... ` 입력줄) true.
-// 3.14는 이전 줄들의 더 얕은 들여쓰기 수준까지 지운다. 여기서는 단위 배수로 단순화했다.
-// 들여쓰기가 단위 배수이면 결과가 같다(편차 12, `docs/design/10-parity-deviations.md`).
+/**
+ * `backspace_dedent`: Backspace 한 번에 지울 글자 수. 1이면 평소처럼 한 글자다.
+ * - 커서 앞이 스페이스뿐이고 연속 줄일 때만 직전 단위 배수까지 지운다.
+ * - `continuation`: 버퍼의 첫 줄이 블록의 이어지는 줄이면(`... ` 입력줄) `true`.
+ * - 3.14는 이전 줄들의 더 얕은 들여쓰기 수준까지 지운다. 여기서는 단위 배수로 단순화했다.
+ * - 들여쓰기가 단위 배수이면 결과가 같다(편차 12, docs/design/10-parity-deviations.md).
+ */
 export function backspaceCount(
   buffer: string,
   pos: number,
@@ -103,7 +114,10 @@ export function backspaceCount(
   return prefix.length % unitWidth || unitWidth;
 }
 
-// buffer는 편집 버퍼 전체, pos는 Enter를 누른 커서 위치다.
+/**
+ * 개행 뒤에 넣을 들여쓰기를 계산한다.
+ * `buffer`는 편집 버퍼 전체이고 `pos`는 Enter를 누른 커서 위치다.
+ */
 export function nextIndentation(
   buffer: string,
   pos: number,
@@ -120,8 +134,9 @@ export function nextIndentation(
   return { indentation: kept + extra, lastUsedIndentation: unit };
 }
 
+/** 자동 들여쓰기 정책. 세션마다 하나다. */
 export interface AutoIndent {
-  /** REPL 읽기 하나의 옵션. `pending`이 없으면 prefill 없음(`onKey`는 항상 있다). */
+  /** REPL 읽기 하나의 옵션. `pending`이 없으면 prefill이 없다(`onKey`는 항상 있다). */
   readOptions(pending: string | undefined): ReplReadOptions;
 }
 
@@ -139,7 +154,7 @@ export function createAutoIndent(
 ): AutoIndent {
   let lastUsedIndentation: string | null = null;
   // 마지막 `readOptions` 호출의 `pending`. `""`는 "블록 없음"과 "빈 블록 첫 줄"을 구분하지 않는다.
-  // 둘 다 continuation이 아니라는 점에서 같다.
+  // 둘 다 이어지는 줄이 아니라는 점에서 같다.
   let pendingBlock = "";
 
   const onKey = (input: Input): boolean => {

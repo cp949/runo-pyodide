@@ -1,8 +1,9 @@
 /**
  * REPL worker driver(RD-020).
  * - core worker 커널(`runWorker`, `@cp949/runo-pyodide-core/worker`)이 공통 부팅을 맡는다.
- *   RPC → loadPyodide → 콘솔 → 런타임 연결(`attachRuntime`, `docs/design/03-ctrl-c.md` 2.6) → `ready` → 감시 타이머.
- * - 이 driver는 REPL 전용 부분을 낸다. 초기화 프레임 `driver` 필드 `{ topLevelAwait }`의 검증도 포함한다.
+ *   순서: RPC → loadPyodide → 콘솔 → 런타임 연결(`attachRuntime`, docs/design/03-ctrl-c.md 2.6) → `ready` → 감시 타이머.
+ * - 이 driver는 REPL 전용 부분을 낸다.
+ *   - 초기화 프레임 `driver` 필드 `{ topLevelAwait }` 검증
  *   - `complete` RPC 핸들러
  *   - 콘솔 확장(`sys.ps1/ps2`·헬퍼·TLA·완성기)
  *   - pyodide 비공개 지점 탐지(`probe`)
@@ -33,9 +34,13 @@ function emptyCompletion() {
   return { completions: [], start: 0 };
 }
 
+/**
+ * worker 세션 하나의 REPL driver 부분을 만든다.
+ * core 커널이 `createConsole`·`probe`·`run`을 순서대로 부른다.
+ */
 function createReplSession(options: ReplDriverOptions): WorkerDriverSession {
-  // complete 핸들러는 createRpc 생성 시에만 등록할 수 있다(core `protocol/rpc.ts`, 나중 등록 API 없음).
-  // 그래서 completer/atPrompt를 클로저로 읽는다.
+  // `complete` 핸들러는 `createRpc` 생성 시에만 등록할 수 있다(core `protocol/rpc.ts`). 나중 등록 API가 없다.
+  // 그래서 completer·atPrompt를 클로저로 읽는다.
   // 콘솔이 아직 없는 동안(로드 중)과 프롬프트 대기 중이 아닌 동안(실행 중)은 빈 응답으로 답한다.
   let completer: CompleteSource | null = null;
   let atPrompt = false;
@@ -67,7 +72,8 @@ function createReplSession(options: ReplDriverOptions): WorkerDriverSession {
         },
         { splitPaste },
       );
-      // `{ source }` 응답(RD-022a `runSource`) 실행기. 세션마다 한 번 올리고 루프가 끝나면(정상 종료·RPC 종료) 놓는다.
+      // `{ source }` 응답(RD-022a `runSource`) 실행기.
+      // 세션마다 한 번 올리고 루프가 끝나면(정상 종료·RPC 종료) 놓는다.
       const sourceRunner = createSourceRunner(pyodide, repl);
       try {
         await runReplLoop({

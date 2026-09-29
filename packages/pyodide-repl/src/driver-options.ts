@@ -1,10 +1,13 @@
 /**
- * REPL driver 옵션(초기화 프레임 `driver` 필드의 내용, 01-protocols.md 4절). main 쪽 driver가 싣고 worker 쪽 driver가
- * 검증한다. core는 이 모양을 모른다(`InitFrame.driver: unknown`). 두 쪽이 같은 타입·파서를 쓰도록 main·worker 어느 쪽도
- * 아닌 이 모듈에 둔다(core 의존 없음).
+ * REPL driver 옵션. 초기화 프레임 `driver` 필드의 내용이다(docs/design/01-protocols.md 4절).
+ * - main 쪽 driver가 싣는다.
+ * - worker 쪽 driver가 검증한다.
+ * - core는 이 모양을 모른다(`InitFrame.driver: unknown`).
+ *
+ * 두 쪽이 같은 타입·파서를 쓰도록 main·worker 어느 쪽도 아닌 이 모듈에 둔다. core에 의존하지 않는다.
  */
 export interface ReplDriverOptions {
-  /** 콘솔 생성 직후 한 번만 적용한다(02-console-core.md 5.4). 바꾸려면 새 세션(`reset({ topLevelAwait })`). */
+  /** 콘솔 생성 직후 한 번만 적용한다(02-console-core.md 5.4). 바꾸려면 새 세션이 필요하다(`reset({ topLevelAwait })`). */
   topLevelAwait: boolean;
 }
 
