@@ -560,19 +560,13 @@ export class Readline implements ITerminalAddon {
 
   /**
    * 터미널에 텍스트를 쓴다.
-   * 줄 앞과 `\r`이 아닌 글자 뒤의 `\n`을 `\r\n`으로 바꾼다.
-   * 연속한 `\n`은 첫 번째만 바뀐다(현재 동작).
+   * `\r`이 앞서지 않은 `\n`을 모두 `\r\n`으로 바꾼다.
    * `term`이 없으면 쓰지 않는다.
    *
    * @param text 터미널에 쓸 텍스트.
    */
   public write(text: string) {
-    if (text === "\n") {
-      text = "\r\n";
-    } else {
-      text = text.replace(/^\n/, "\r\n");
-      text = text.replace(/([^\r])\n/g, "$1\r\n");
-    }
+    text = text.replace(/\r?\n/g, "\r\n");
     const outputLength = text.length;
     this.watermark += outputLength;
     if (this.watermark > this.highWatermark) {
