@@ -31,3 +31,8 @@ e2e 스크립트의 시간 판정(고정 대기·ms 상한)은 `docs/design/09-t
 `docs/design/00-architecture.md`, `01-protocols.md`, 해당 기능 절을 읽는다. 결정 기록은
 `docs/adr/`, 용어는 `CONTEXT-MAP.md`. 이전 구현(`/work/cp949/pyodide-samples/apps/repl`)은
 읽기 전용 참고이며 coincident 동기 브리지는 쓰지 않는다(ADR-0001).
+
+### 주석·문서 작성
+
+소스·시험·e2e 주석과 `docs/` 문서를 쓰거나 고치기 전에 읽는다. 한 문장에 한 사실, 목록 우선,
+`DELTA-NN`·`_works/` 참조 금지. See `docs/agents/writing-style.md`.
