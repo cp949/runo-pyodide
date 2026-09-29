@@ -10,20 +10,21 @@
 
 ## 14.1 구성과 패키지 배치
 
-| 층                 | 위치                                                                    | 역할                                                                                                                                                                                         |
-| ------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| worker 실행 driver | core `./worker`의 `runDriver`(`worker/run-driver.ts` + `run-driver.py`) | RPC `runCode(source)`를 받아 새 globals에서 실행하고 결말(`RunOutcome`)을 돌려준다                                                                                                           |
-| main 실행 핸들     | core `.`의 `createRunner`(`session/runner.ts`)                          | worker 생성·재생성, interrupt buffer·송신기, core 세션, 상태 9종(14.3.1), `run`·`stop`·`interrupt`·`reset`·`dispose`, `InputProvider` 호출                                                   |
-| xterm 실행창       | terminal `.`의 `createTerminalRunner`(`src/terminal-runner.ts`)         | `createRunner`를 호출자 소유 `Terminal`에 붙인다: sink 출력, `input()` 한 줄 읽기, Ctrl+C, 선택 복사                                                                                         |
-| 데모               | `apps/demo`의 `?view=runner`(`RunnerView.tsx`, `runner.worker.ts`)      | plain 요소로 실행창 조작·결과를 노출한다(14.6). RD-024부터 `RunnerView`는 `createTerminalRunner`를 직접 부르지 않고 `<PythonRunner>`(`@cp949/runo-pyodide-repl-react`, `15-react.md`)를 쓴다 |
+| 층                 | 위치                                                                    | 역할                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| worker 실행 driver | core `./worker`의 `runDriver`(`worker/run-driver.ts` + `run-driver.py`) | RPC `runCode(source)`를 받아 새 globals에서 실행하고 결말(`RunOutcome`)을 돌려준다                                                         |
+| main 실행 핸들     | core `.`의 `createRunner`(`session/runner.ts`)                          | worker 생성·재생성, interrupt buffer·송신기, core 세션, 상태 9종(14.3.1), `run`·`stop`·`interrupt`·`reset`·`dispose`, `InputProvider` 호출 |
+| xterm 실행창       | terminal `.`의 `createTerminalRunner`(`src/terminal-runner.ts`)         | `createRunner`를 호출자 소유 `Terminal`에 붙인다: sink 출력, `input()` 한 줄 읽기, Ctrl+C, 선택 복사                                       |
+| 데모               | `apps/demo`의 `?view=runner`(`RunnerView.tsx`, `runner.worker.ts`)      | plain 요소로 실행창 조작·결과를 노출한다(14.6). `RunnerView`는 `<PythonRunner>`(`@cp949/runo-pyodide-repl-react`, `15-react.md`)를 쓴다    |
 
 `createRunner`는 xterm·React를 모른다. canvas 같은 소비자는 `onOutput`·`InputProvider`만 채워 쓴다. 앱의 worker 파일과 main 사용은 다음과 같다(`worker.format`은 REPL과 같은 이유로 `'es'`, `00-architecture.md` 4.1).
 
 ```ts
 // runner.worker.ts
-// core/worker는 top-level await가 있는 모듈의 import보다 앞선 정적 import로 둔다(모듈이 평가될 때 init 프레임 수신기가 걸린다).
-// dom-bridge를 쓰면 dom-bridge `./worker`가 이 파일의 첫 정적 import이고 core/worker는 그 다음이다(`16-dom-bridge.md` 16.3).
-// 이 순서를 지키면 runWorker 호출 시점(파일 안의 await 뒤 등)은 자유다(늦게 불러도 버퍼에서 부팅한다, `01-protocols.md` 4절).
+// core/worker는 top-level await가 있는 모듈의 import보다 앞선 정적 import로 둔다.
+// 모듈이 평가될 때 init 프레임 수신기가 걸리기 때문이다.
+// dom-bridge를 쓰면 dom-bridge `./worker`가 첫 정적 import이고 core/worker는 그 다음이다(`16-dom-bridge.md` 16.3).
+// 이 순서를 지키면 runWorker 호출 시점은 자유다. 늦게 불러도 버퍼에서 부팅한다(`01-protocols.md` 4절).
 import { runDriver, runWorker } from "@cp949/runo-pyodide-core/worker";
 runWorker({ driver: runDriver });
 
@@ -48,18 +49,28 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
 
 - driver Python(`run-driver.py`)은 두 함수로 나뉜다.
   - `run_code(console, source, filename, top_level_await)`는 runner 전용 준비(새 `sys.stdin`·새 globals, 14.2.2)를 한 뒤 공용 함수 `exec_in_console(console, source, top_level_await, filename=None)`을 부른다.
-  - `exec_in_console`이 컴파일·실행·결말 분류·stderr 쓰기를 한다. `CodeRunner(source, mode="exec", return_mode="none", dedent=False, dont_inherit=True, filename=filename, flags=flags).compile()`을 만들고 `await console.runcode(source, runner)`로 실행한다.
-  - `filename`이 `None`(기본)이면 `console.filename`이다. `run_code`만 자기 인자를 넘긴다(runner에서는 둘이 같다).
-  - `exec_in_console`은 `console.globals`와 열린 `sys.stdin`을 건드리지 않는다(`SystemExit` 뒤 닫힌 stdin 되살림만 한다, 14.2.2). REPL `runSource`(`02-console-core.md` 5.6)가 이 함수를 그대로 쓴다.
+  - `exec_in_console`이 컴파일·실행·결말 분류·stderr 쓰기를 한다.
+  - `CodeRunner(source, mode="exec", return_mode="none", dedent=False, dont_inherit=True, filename=filename, flags=flags).compile()`을 만든다.
+  - 실행은 `await console.runcode(source, runner)`다.
+  - `filename`이 `None`(기본)이면 `console.filename`이다. `run_code`만 자기 인자를 넘긴다. runner에서는 둘이 같다.
+  - `exec_in_console`은 `console.globals`와 열린 `sys.stdin`을 건드리지 않는다. `SystemExit` 뒤 닫힌 stdin 되살림만 한다(14.2.2).
+  - REPL `runSource`(`02-console-core.md` 5.6)가 이 함수를 그대로 쓴다.
   - 분류 규칙(`_is_interrupt`·`_error_type`·`_exit_status`)은 이 한 곳이다.
-  - TS 쪽은 core `./worker`가 `loadExecInConsole(pyodide)`(버리는 이름공간에 Python 소스를 올리고 함수를 돌려준다)·`toRunOutcome(raw)`·타입 `ExecInConsolePy`·`RawOutcome`을 export한다(`runDriver`와 REPL이 함께 쓴다).
-  - 옵션 세 개는 스크립트 실행 의미를 맞춘다. `CodeRunner` 기본값 `dedent=True`는 들여쓴 첫 줄을 조용히 통과시킨다. `return_mode="last_expr"`는 마지막 식을 값으로 바꾼다(`docs/traps/TRP-041`).
-- REPL의 `push()`·`ConsoleFuture`·`runsource` 경로를 거치지 않는다. 이유: `PyodideConsole`의 `_CommandCompiler`는 미완성 입력에 `None`("입력 계속")을 돌려준다. `_compile`은 항상 `PyCF_ALLOW_TOP_LEVEL_AWAIT`를 켠다(pyodide 314.0.7 `console.py`). 스크립트 한 덩어리는 둘 다 맞지 않는다.
-- `console.runcode`는 core `sigint-handler.py`가 인스턴스 속성으로 바꿔 둔 래퍼다(`active` task 기록, 정지한 `await`를 깨우는 `interrupt_idle`이 의존).
-  - `console.formattraceback`도 core가 바꾼 버전이다(우리 프레임 절단, 깨운 중단 `IdleInterrupt` → `"KeyboardInterrupt\n"`).
+  - TS 쪽은 core `./worker`가 다음을 export한다. `runDriver`와 REPL이 함께 쓴다.
+    - `loadExecInConsole(pyodide)`: 버리는 이름공간에 Python 소스를 올리고 함수를 돌려준다.
+    - `toRunOutcome(raw)`.
+    - 타입 `ExecInConsolePy`·`RawOutcome`.
+  - `CodeRunner` 옵션은 스크립트 실행 의미를 맞춘다(`docs/traps/TRP-041`).
+    - 기본값 `dedent=True`는 들여쓴 첫 줄을 조용히 통과시킨다.
+    - `return_mode="last_expr"`는 마지막 식을 값으로 바꾼다.
+- REPL의 `push()`·`ConsoleFuture`·`runsource` 경로를 거치지 않는다. 스크립트 한 덩어리에 둘 다 맞지 않기 때문이다.
+  - `PyodideConsole`의 `_CommandCompiler`는 미완성 입력에 `None`("입력 계속")을 돌려준다.
+  - `_compile`은 항상 `PyCF_ALLOW_TOP_LEVEL_AWAIT`를 켠다(pyodide 314.0.7 `console.py`).
+- `console.runcode`는 core `sigint-handler.py`가 인스턴스 속성으로 바꿔 둔 래퍼다. `active` task를 기록한다. 정지한 `await`를 깨우는 `interrupt_idle`이 이 기록에 의존한다.
+  - `console.formattraceback`도 core가 바꾼 버전이다. 우리 프레임을 자르고, 깨운 중단 `IdleInterrupt`를 `"KeyboardInterrupt\n"`으로 바꾼다.
   - 실행 driver는 인스턴스의 메서드를 그대로 불러 두 확장을 상속한다.
-  - SIGINT 계층·`sigint-handler.py`는 이 RD에서 바뀌지 않았다.
-  - 실제 pyodide 시험(가설 8항목)이 `while` 루프·`time.sleep`·TLA `await`·`asyncio.run`·`input()` 취소를 확인한다.
+  - SIGINT 계층·`sigint-handler.py`는 이 driver를 위해 바꾸지 않았다.
+  - 실제 pyodide 시험이 `while` 루프·`time.sleep`·TLA `await`·`asyncio.run`·`input()` 취소를 확인한다(14.6).
 - 예외는 `console.formattraceback(exc)`, 문법 오류는 `console.formatsyntaxerror(exc)`로 포맷한다. 결과를 `traceback`과 stderr에 함께 쓴다.
   - `filename`이 `<…>` 꺾쇠 형태가 아니면 `CodeRunner`가 소스를 `linecache`에 등록한다(`_set_linecache`). 그래서 `File "main.py", line N` 밑에 소스 줄이 나온다.
   - 3.13+ 트레이스백은 그 줄 밑에 `~^~` 형태의 캐럿 줄을 붙인다.
@@ -80,19 +91,22 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
   - `__loader__`는 넣지 않는다.
   - `pyodide.globals`는 그대로다. 이전 run의 변수는 `NameError`가 되고 `pyodide.globals`에는 새지 않는다.
   - `sys.modules`(과 나머지 인터프리터 상태)는 유지된다(`10-parity-deviations.md` 편차 51).
-- `filename`은 runner 단위 옵션이다(생성 시 고정, 기본 `"main.py"`, `DEFAULT_RUN_FILENAME`). 같은 값을 세 곳에 쓴다: 콘솔 `filename`(`createCoreConsole(pyodide, sinks, { filename })`), `CodeRunner`의 소스 파일명, 트레이스백 표시.
+- `filename`은 runner 단위 옵션이다. 생성 시 고정하고 기본은 `"main.py"`(`DEFAULT_RUN_FILENAME`)다. 같은 값을 세 곳에 쓴다.
+  - 콘솔 `filename`: `createCoreConsole(pyodide, sinks, { filename })`.
+  - `CodeRunner`의 소스 파일명.
+  - 트레이스백 표시.
   - SIGINT 규칙 ①은 실행 프레임 사슬에 `co_filename == console.filename`인 프레임이 있을 때만 `KeyboardInterrupt`를 올린다(`03-ctrl-c.md` 2.4).
   - 둘이 어긋나면 취소가 버려진다. `input()` 읽기가 재시도 루프가 된다(`docs/traps/TRP-020`, 시험은 변이로 확인).
 - run 시작마다 `sys.stdin`을 새 `TextIOWrapper`(fd 0, `<stdin>`, 라인 버퍼)로 교체한다. 다음 두 가지를 함께 막는다.
   - 이전 run이 `sys.stdin.read(3)`으로 줄 일부만 읽어 남긴 버퍼가 다음 `input()`으로 새는 것(`docs/traps/TRP-010`).
   - `exit()`·`quit()`이 stdin을 닫아 다음 `input()`이 `ValueError: I/O operation on closed file.`이 되는 것.
-- `exec_in_console`은 `SystemExit` 결말에서 `sys.stdin`이 닫혀 있거나 없을 때만(`closed` 또는 `None`) 같은 모양으로 다시 연다(`exit()`·`quit()`이 닫는다, TRP-054).
-  - `exit` 아닌 결말에서 사용자가 닫은 stdin은 건드리지 않는다. `exit` 결말이어도 열린 stdin은 건드리지 않는다.
-  - `closed`를 읽을 수 없는 객체(예: `sys.stdin = object()`)는 닫히지 않은 것으로 보고 그대로 둔다(판정 실패가 `exit` 결말을 예외로 뒤집지 않게).
+- `exec_in_console`은 `SystemExit` 결말에서 `sys.stdin`이 닫혀 있거나 없을 때만(`closed` 또는 `None`) 같은 모양으로 다시 연다. `exit()`·`quit()`이 stdin을 닫는다(TRP-054).
+  - 열린 stdin은 건드리지 않는다. `exit` 아닌 결말에서 사용자가 닫은 stdin도 건드리지 않는다.
+  - `closed`를 읽을 수 없는 객체(예: `sys.stdin = object()`)는 닫히지 않은 것으로 본다. 판정 실패가 `exit` 결말을 예외로 뒤집지 않게 한다.
   - 두 경로는 `_open_stdin()` 하나로 연다.
   - REPL `runSource`는 이 되살림으로 세션을 잇는다.
-  - runner는 `exit()` 직후 남은 배경 task의 `input()`이 읽힌다(다음 run은 위 교체).
-  - 시험: `run-driver-exec-in-console.test.ts` `[S1]`~`[S5]`.
+  - runner는 `exit()` 직후 남은 배경 task의 `input()`이 읽힌다. 다음 run은 위 교체로 새 stdin을 받는다.
+  - 시험: `run-driver-exec-in-console.test.ts`.
 
 ### 14.2.3 옵션과 TLA
 
@@ -100,19 +114,28 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
   - 값은 객체여야 한다. 두 필드는 생략할 수 있다(`filename` 기본 `"main.py"`, `topLevelAwait` 기본 `false`).
   - `filename`이 빈 문자열·문자열 아님, `topLevelAwait`가 boolean 아님이면 필드 이름을 담아 던진다.
   - 알 수 없는 필드는 무시한다.
-- 옵션이 틀린 worker는 `loadFailed`도 `ready`도 알리지 않고 부팅이 거부된다(`bootWorker`가 `parseOptions`를 RPC 생성 앞에 둔다). 그래서 main `createRunner`가 worker를 만들기 전에 같은 파서로 먼저 검증하고 동기로 던진다(`docs/traps/TRP-042`).
-- `topLevelAwait: true`이면 컴파일 플래그 `ast.PyCF_ALLOW_TOP_LEVEL_AWAIT`를 `CodeRunner`에 직접 넘긴다. 기본(`false`)이면 최상위 `await`는 `SyntaxError: 'await' outside function`이다(CPython 스크립트와 같다). REPL의 콘솔 TLA 비트(`02-console-core.md` 5.4)는 쓰지 않는다.
+- 옵션이 틀린 worker는 `loadFailed`도 `ready`도 알리지 않고 부팅이 거부된다. `bootWorker`가 `parseOptions`를 RPC 생성 앞에 두기 때문이다.
+  - 그래서 main `createRunner`가 worker를 만들기 전에 같은 파서로 먼저 검증하고 동기로 던진다(`docs/traps/TRP-042`).
+- `topLevelAwait: true`이면 컴파일 플래그 `ast.PyCF_ALLOW_TOP_LEVEL_AWAIT`를 `CodeRunner`에 직접 넘긴다.
+  - 기본(`false`)이면 최상위 `await`는 `SyntaxError: 'await' outside function`이다(CPython 스크립트와 같다).
+  - REPL의 콘솔 TLA 비트(`02-console-core.md` 5.4)는 쓰지 않는다.
 
 ### 14.2.4 종료 코드와 문법 오류
 
-- `SystemExit` 코드는 CPython 규칙이다: `None` → 0, `int` → 그 값, 그 밖(문자열 등) → 1이고 `str(코드)`를 stderr에 쓴다(`str()`이 던지면 클래스 이름으로 대신). `exit()`·`quit()`도 같다. 처리된 뒤 상태는 `ready`다(세션은 끝나지 않는다).
+- `SystemExit` 코드는 CPython 규칙이다. `exit()`·`quit()`도 같다.
+  - `None` → 0.
+  - `int` → 그 값.
+  - 그 밖(문자열 등) → 1. `str(코드)`를 stderr에 쓴다. `str()`이 던지면 클래스 이름으로 대신한다.
+  - 처리된 뒤 상태는 `ready`다. 세션은 끝나지 않는다.
 - **좁은 예외**: 정수 코드가 int32(`-2**31` ~ `2**31 - 1`) 밖이면 `& 0xFF`로 줄인다.
   - 이유 1: pyodide가 `|x| ≥ 2**53 - 1`인 `int`를 JS `BigInt`로 바꿔 `code: number`를 깬다(`docs/traps/TRP-043`).
   - 이유 2: OS가 종료 코드로 보는 값이 하위 8비트다(`SystemExit(2**70 + 7)` → 7).
   - 범위 안은 그대로다.
   - 원값이 필요하면 `code` 타입을 바꿔야 한다.
-- 문법 오류(구문 분석·컴파일 단계, `exec("if x:")` 같은 실행 중 오류 포함)는 `errorType: "SyntaxError"`로 통일한다. `IndentationError`·`TabError`의 구체 이름은 `traceback`에 남는다.
-- `SyntaxError`가 아닌 컴파일 단계 오류(`ValueError`·`OverflowError`·`RecursionError`·`MemoryError`)는 클래스 이름을 그대로 낸다. `traceback`은 예외 줄만이다(프레임이 전부 우리 것).
+- 문법 오류는 `errorType: "SyntaxError"`로 통일한다.
+  - 대상: 구문 분석·컴파일 단계, `exec("if x:")` 같은 실행 중 오류.
+  - `IndentationError`·`TabError`의 구체 이름은 `traceback`에 남는다.
+- `SyntaxError`가 아닌 컴파일 단계 오류(`ValueError`·`OverflowError`·`RecursionError`·`MemoryError`)는 클래스 이름을 그대로 낸다. `traceback`은 예외 줄만이다. 프레임이 전부 우리 것이기 때문이다.
 - 매우 깊게 중첩된 식은 `RecursionError` 대신 pyodide 치명 오류로 worker를 죽일 수 있다. 이때 main은 `crashed`로 처리한다(14.3.6).
 
 ### 14.2.5 자동 패키지 로드
@@ -125,17 +148,27 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
 
 ### 14.2.6 worker 세션
 
-- `createRunSession(options)`이 세션을 만든다. `run(ctx)`는 끝나지 않는 Promise다: 제어 흐름이 없고 요청(`runCode`)마다 일하며, 종료는 main이 worker를 끝낼 때다. `runDriver`는 `sessionTerminated`를 보내지 않는다.
-- `atPrompt()` = `!running`. 실행 중이 아니면 감시 타이머가 대상 코드 없는 SIGINT를 폐기한다(`03-ctrl-c.md` 2.5). `run()`이 끝난 뒤 남은 asyncio task·JS 타이머가 도는 동안도 참이다(편차 50).
+- `createRunSession(options)`이 세션을 만든다.
+  - `run(ctx)`는 끝나지 않는 Promise다. 제어 흐름이 없고 요청(`runCode`)마다 일한다.
+  - 종료는 main이 worker를 끝낼 때다. `runDriver`는 `sessionTerminated`를 보내지 않는다.
+- `atPrompt()` = `!running`. 실행 중이 아니면 감시 타이머가 대상 코드 없는 SIGINT를 폐기한다(`03-ctrl-c.md` 2.5).
+  - `run()`이 끝난 뒤 남은 asyncio task·JS 타이머가 도는 동안도 참이다(편차 50).
 - 진입 폐기는 두지 않는다.
   - REPL 루프는 `readLine` 응답 직후 낡은 눌림을 명시적으로 비운다(TRAP-04, `03-ctrl-c.md` 2.6 끝). `runCode`에는 그 단계가 없다.
-  - 앞 run 끝에 도착한 눌림이 틱(20ms) 폐기보다 먼저 온 다음 `runCode`에 남을 수 있다. 이 눌림은 `<console>` 프레임 전의 driver Python(`run_code`의 globals·stdin 준비, `CodeRunner` 컴파일)에서 폴링된다. 핸들러 규칙 ④(시작 코드는 ack 뒤 버림)가 버린다.
-  - 시험: `run-driver-pyodide.test.ts` "틱 폐기 전에 다음 실행이 들어와도 남은 눌림은 그 실행을 끊지 않는다".
+  - 앞 run 끝에 도착한 눌림이 틱(20ms) 폐기보다 먼저 온 다음 `runCode`에 남을 수 있다.
+  - 이 눌림은 `<console>` 프레임 전의 driver Python에서 폴링된다. `run_code`의 globals·stdin 준비와 `CodeRunner` 컴파일이 그 구간이다.
+  - 핸들러 규칙 ④(시작 코드는 ack 뒤 버림)가 이 눌림을 버린다.
   - 이 보호는 driver Python 머리가 pyodide 폴링 간격보다 길다는 사실에 기댄다.
-  - core가 "대상 코드 창"(진입 폐기 + `atPrompt` 내림)을 소유하는 안(arch-review 04 후보 7)은 기각했다. 이유: 결함이 없고, 명시 구현이 REPL 한 곳뿐이며, 폐기가 core 콜백 뒤로 숨는다.
+  - 시험: `run-driver-pyodide.test.ts` "틱 폐기 전에 다음 실행이 들어와도 남은 눌림은 그 실행을 끊지 않는다".
+  - core가 "대상 코드 창"(진입 폐기 + `atPrompt` 내림)을 소유하는 안은 기각했다.
+    - 결함이 없다.
+    - 명시 구현이 REPL 한 곳뿐이다.
+    - 폐기가 core 콜백 뒤로 숨는다.
   - 재검토 조건: 위 시험 실패, 세 번째 driver 추가, `run-driver.py` 준비·컴파일 단계를 줄이거나 JS로 옮길 때.
-- `runCode`는 실행 중 재진입을 `Error("runCode 재진입 거부 …")`로 거부한다(main의 `busy` 검사가 놓친 경우의 방어).
-- `probe`는 두지 않는다. driver가 쓰는 pyodide 지점은 공개 API(`pyodide.code.CodeRunner`, `Console.runcode`·`formattraceback`·`formatsyntaxerror`·`globals`)이고 비공개 지점(깨우기·프레임 절단)은 core가 이미 탐지·보고한다(`13-version-upgrade.md` 13.6).
+- `runCode`는 실행 중 재진입을 `Error("runCode 재진입 거부 …")`로 거부한다. main의 `busy` 검사가 놓친 경우의 방어다.
+- `probe`는 두지 않는다.
+  - driver가 쓰는 pyodide 지점은 공개 API다: `pyodide.code.CodeRunner`, `Console.runcode`·`formattraceback`·`formatsyntaxerror`·`globals`.
+  - 비공개 지점(깨우기·프레임 절단)은 core가 이미 탐지·보고한다(`13-version-upgrade.md` 13.6).
 
 ## 14.3 `createRunner`(core main)
 
@@ -177,21 +210,27 @@ const result = await runner.run('print("hi")'); // { kind: "ok" }
 
 #### `detectRuntimeSupport()`: `not-isolated`·`unsupported` 판정 규칙(이 규칙의 유일한 정의 절)
 
-core `.`가 내보내는 `detectRuntimeSupport(): "supported" | "unsupported" | "not-isolated"`(`packages/pyodide-core/src/runtime-support.ts`)가 이 두 상태를 정한다. `createRunner`·`createRepl`·`createTerminalRunner`·dom-bridge `isDomBridgeSupported()`가 모두 이 함수 하나로 판정한다. 다른 곳에서 `crossOriginIsolated`나 wasm 기능을 직접 재판정하지 않는다.
+core `.`가 내보내는 `detectRuntimeSupport(): "supported" | "unsupported" | "not-isolated"`(`packages/pyodide-core/src/runtime-support.ts`)가 이 두 상태를 정한다.
 
-1. `typeof WebAssembly !== "object"` 또는 `!WebAssembly.validate(WASM_RUNTIME_PROBE)`(reference types + legacy Wasm 예외 처리를 한 번에 보는 29바이트 최소 모듈) → `unsupported`.
+- `createRunner`·`createRepl`·`createTerminalRunner`·dom-bridge `isDomBridgeSupported()`가 모두 이 함수 하나로 판정한다.
+- 다른 곳에서 `crossOriginIsolated`나 wasm 기능을 직접 재판정하지 않는다.
+
+1. `typeof WebAssembly !== "object"` 또는 `!WebAssembly.validate(WASM_RUNTIME_PROBE)` → `unsupported`.
+   - `WASM_RUNTIME_PROBE`는 reference types와 legacy Wasm 예외 처리를 한 번에 보는 29바이트 최소 모듈이다.
    - **wasm 판정이 격리 판정보다 먼저다.**
    - 빌드 floor Chrome 84는 `crossOriginIsolated` 속성 자체가 없다(87+에 생긴다). 순서를 바꾸면 "헤더를 고치라"는 틀린 안내가 된다.
    - Chrome 92~95는 격리돼도 wasm이 컴파일되지 않는 구간이다. 먼저 걸러야 한다.
-   - 93만 실측 확인했다. 92·94·95는 pyodide 314가 요구하는 wasm 기능별 최초 지원 버전 표에서 정적으로 추정한 범위다: reftypes 96·legacy EH 95·`Object.hasOwn` 93·COI/SAB 게이팅 92.
+   - 93만 실측 확인했다.
+   - 92·94·95는 pyodide 314가 요구하는 wasm 기능별 최초 지원 버전 표에서 정적으로 추정한 범위다. reftypes 96, legacy EH 95, `Object.hasOwn` 93, COI/SAB 게이팅 92.
 2. `globalThis.crossOriginIsolated !== true` → `not-isolated`.
 3. 그 밖 → `supported`.
 
-- wasm 판정 결과(엔진 능력, 프로세스 수명 동안 불변)만 모듈 스코프에서 캐시한다.
+- wasm 판정 결과만 모듈 스코프에서 캐시한다. 엔진 능력이라 프로세스 수명 동안 불변이다.
 - `crossOriginIsolated`는 매번 새로 읽는다.
   - 속성 접근이라 캐시할 비용이 없다.
-  - 캐시하면 이 저장소 전역의 시험 패턴이 모듈 스코프 캐시에 막힌다. 그 패턴은 `vi.stubGlobal("crossOriginIsolated", ...)`로 시험마다 격리 여부를 바꾸는 것이다(2026-09-28 실측).
-- 예외를 던지지 않는다(내부에서 잡아 `unsupported`로 본다).
+  - 캐시하면 이 저장소 전역의 시험 패턴이 모듈 스코프 캐시에 막힌다.
+  - 그 패턴은 `vi.stubGlobal("crossOriginIsolated", ...)`로 시험마다 격리 여부를 바꾸는 것이다.
+- 예외를 던지지 않는다. 내부에서 잡아 `unsupported`로 본다.
 
 `ReplHandle.crossOriginIsolated`(`02-console-core.md` 5절)는 이 판정과 별개로 `globalThis.crossOriginIsolated`를 그대로 읽는다. 의미가 "격리 여부"이지 "실행 가능 여부"가 아니기 때문이다.
 
@@ -216,8 +255,8 @@ core `.`가 내보내는 `detectRuntimeSupport(): "supported" | "unsupported" | 
 
 ### 14.3.3 `stop()`과 `interrupt()`
 
-- `interrupt(): InterruptResult`(Ctrl+C용, `InterruptResult = "sent" | "input-cancelled" | "ignored"`, `packages/pyodide-core/src/index.ts`에서 `RunnerStatus`·`StopResult` 옆에 export).
-- 평가 순서대로 I1~I4다. 연타 보호 재전송도 I3이면 `"sent"`다. `send()`는 항상 새 요청으로 교체한다(`protocol/interrupt-sender.ts`).
+- `interrupt(): InterruptResult`는 Ctrl+C용이다. `InterruptResult = "sent" | "input-cancelled" | "ignored"`이고 core `.`가 `RunnerStatus`·`StopResult`와 함께 export한다.
+- 표의 I1~I4를 평가 순서대로 본다. 연타 보호 재전송도 I3이면 `"sent"`다. `send()`는 항상 새 요청으로 교체한다(`protocol/interrupt-sender.ts`).
 
 | ID  | 조건(평가 순서대로)                                    | 동작                                                                                                       | 반환                |
 | --- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------- |
@@ -226,7 +265,7 @@ core `.`가 내보내는 `detectRuntimeSupport(): "supported" | "unsupported" | 
 | I3  | `active?.phase === "sent" && session?.pythonRunning()` | `interruptSender.send()`(REPL과 같은 송신기·연타 보호·5ms 점검·재전송, `03-ctrl-c.md` 2.3, terminate 없음) | `"sent"`            |
 | I4  | 그 밖                                                  | 없음                                                                                                       | `"ignored"`         |
 
-게이트는 core 세션 `pythonRunning = alive && inputReadsPending === 0 && !driver.isIdle()`이고 runner의 `isIdle()`은 `active?.phase !== "sent"`다.
+게이트는 core 세션 `pythonRunning = alive && inputReadsPending === 0 && !driver.isIdle()`이다. runner의 `isIdle()`은 `active?.phase !== "sent"`다.
 
 - `stop(): Promise<"idle" | "stopped" | "restarted">`:
 
@@ -276,18 +315,17 @@ core `.`가 내보내는 `detectRuntimeSupport(): "supported" | "unsupported" | 
 
 `createRunner`는 worker(세션)를 만들 때마다 interrupt buffer와 송신기를 새로 만든다.
 
-- 옛 worker는 `terminate()` 뒤에도 Chromium에서 스크립트가 끝나지 않는 상태(Python 루프)이면 최대 약 2초 살아 있다(실측: Playwright `close` 이벤트가 `terminate()`로부터 약 2.0초).
-- 그동안 옛 worker의 SIGINT 폴링이 같은 buffer의 눌림을 소비·ack하고 `KeyboardInterrupt`를 삼키면 새 worker의 첫 눌림(Ctrl+C·`stop()`)이 유실된다(폴백 프로브 N=8 중 수정 전 6회 유실, 수정 후 0회).
+- 옛 worker는 `terminate()` 뒤에도 Chromium에서 스크립트가 끝나지 않는 상태(Python 루프)이면 최대 약 2초 살아 있다. Playwright `close` 이벤트가 `terminate()`로부터 약 2.0초 뒤에 온다(실측).
+- 그동안 옛 worker의 SIGINT 폴링이 같은 buffer의 눌림을 소비·ack하고 `KeyboardInterrupt`를 삼키면 새 worker의 첫 눌림(Ctrl+C·`stop()`)이 유실된다.
 - node의 `worker.terminate()`는 즉시다. node 시험만으로는 재현되지 않는다(`docs/traps/TRP-049`).
-- 메일박스는 이미 세션마다 새로 만들었다(`00-architecture.md` 3.4).
+- 메일박스는 세션마다 새로 만든다(`00-architecture.md` 3.4).
 
-REPL(`createRepl`)도 같다: `startSession`(`session.ts`)이 세션마다 buffer·송신기를 만들고 `ReplSession.interrupt()`가 그 송신기로 보낸다(`08-session.md` 8.1 4번).
+REPL(`createRepl`)도 같다. `startSession`(`session.ts`)이 세션마다 buffer·송신기를 만들고 `ReplSession.interrupt()`가 그 송신기로 보낸다(`08-session.md` 8.1 5번).
 
-- 이전에는 REPL이 buffer를 핸들 수명으로 한 번 만들어 리셋 사이에 재사용했다.
-- 브라우저 `session-reset-check.mjs`의 `ccafter`(실행 중 리셋 직후 첫 Ctrl+C, N=8)에서 유실 1/8이 관찰됐다(수정 후 0/8).
-- `Atomics.store(SIGNAL, 0)`으로 옛 SIGINT를 지우는 단계는 없어졌다.
+- 브라우저 `session-reset-check.mjs`의 `ccafter`(실행 중 리셋 직후 첫 Ctrl+C)가 이 규칙을 확인한다.
+- `Atomics.store(SIGNAL, 0)`으로 옛 SIGINT를 지우는 단계는 없다.
 - 소유 주체는 runner가 `createRunner`, REPL이 `startSession`이다.
-- buffer·송신기 생성 두 줄이 두 곳에 남아 있다. 공통 도우미 추출은 하지 않았다.
+- buffer·송신기 생성 코드가 두 곳에 있다. 공통 도우미 추출은 하지 않았다.
 
 ### 14.3.6 알려진 경계
 
@@ -335,20 +373,22 @@ type InputProvider = (
 
 ### 14.5.1 구성
 
-- 화면 조립은 terminal `./internal`의 surface(`createTerminalSurface(terminal, { copyOnSelect, onCopy, readline })`, `src/surface.ts`)가 소유한다(REPL과 같은 module).
+- 화면 조립은 terminal `./internal`의 surface(`createTerminalSurface(terminal, { copyOnSelect, onCopy, readline })`, `src/surface.ts`)가 소유한다. REPL과 같은 module이다.
   - surface가 선택 복사(`createSelectionCopy`)를 `Readline`보다 먼저 만든다.
   - `Readline`의 `onKeyEvent`를 선택 복사에 묶은 뒤 `terminal.loadAddon`한다.
   - 실행창은 정책만 넘긴다: `readline: { persist: false, typeAhead: false }`. `typeAhead: false`는 벤더 옵션이다(`06-editing.md` 6.1).
-- 세션 입출력은 `surface.openIo()`가 준다: `{ terminal, sinks, close }`(RD-027 뒤 `sinks`는 쓰기 4종만, `inputReader` 필드는 삭제됐다).
+- 세션 입출력은 `surface.openIo()`가 준다: `{ terminal, sinks, close }`(RD-027). `sinks`는 쓰기 4종만이다.
   - 실행창은 runner당 한 번 연다.
-  - `dispose()`의 `disposed = true` 다음 줄(`core.dispose()` 앞)에서 `io.close()`를 부른다.
+  - `dispose()`가 `disposed = true` 직후, `core.dispose()` 앞에서 `io.close()`를 부른다.
   - `io.terminal`은 `close()` 뒤에 write 콜백을 전달하지 않는 터미널 뷰다(TRP-004, 14.5.5).
-- 출력: `onOutput`의 stdout은 `sinks.write`(개행 강제 없음), stderr는 `sinks.writeErrorRaw`(조각마다 빨강)로 그린다.
-  - 로드 실패는 빨강 한 줄 `pyodide 로드 실패: <message>`(REPL과 같은 문구).
-  - 비격리는 노란 안내(14.5.6).
-- 기본 입력 provider는 `surface.promptRow`(RD-027, 구 `stdin-reader`의 `createInputReader`)의 `read("", { cancelable, signal, history: false })`다.
+- 출력: `onOutput`의 stdout은 `sinks.write`(개행 강제 없음)로 그린다.
+  - stderr는 `sinks.writeErrorRaw`(조각마다 빨강)로 그린다.
+  - 로드 실패는 빨강 한 줄 `pyodide 로드 실패: <message>`다(REPL과 같은 문구).
+  - 비격리는 노란 안내다(14.5.6).
+- 기본 입력 provider는 `surface.promptRow`(RD-027)의 `read("", { cancelable, signal, history: false, eof: true })`다.
   - 직전 출력의 꼬리를 프롬프트로 그 자리에 다시 그려 한 줄을 읽는다(`04-stdin-input.md` 3.3). "현재 io"의 꼬리를 쓰고 core가 넘긴 `prompt`는 무시한다.
   - 프롬프트는 REPL `>>> `가 아니라 직전 출력의 꼬리다(`input("이름: ")`이면 `이름: `).
+  - `eof: true`이면 빈 입력줄의 Ctrl+D가 EOF다(RD-048, `06-editing.md` 6.9).
 
 ### 14.5.2 키 정책
 
@@ -357,16 +397,15 @@ type InputProvider = (
   - 쌓았다가 다음 읽기에서 재생하지 않는다(REPL의 type-ahead `06-editing.md` 6.7과 반대, 편차 52).
 - 차단 기준은 "`input()` 대기 중인가"가 아니라 벤더의 `activeRead === undefined`다.
   - `input()` 프롬프트를 그리는 `read()`도 write 콜백이 오기 전(수 ms)에는 활성 읽기가 아니다. 그 사이 친 키도 버려진다.
-  - 브라우저 자동화는 프롬프트가 화면에 그려진 뒤(입력줄이 보인 뒤)에 입력한다(`apps/demo/e2e/checks/runner-check.mjs`의 `waitPrompt`).
-  - REPL 하니스의 `typeWhenReading()`·`clear()`는 실행창에서 쓸 수 없다. 첫 글자가 버려져 에코 대기가 시간 초과한다. `clear()`는 프롬프트 재그리기를 기다린다.
-- 붙여넣기·IME 덩어리 안의 Ctrl+C(다중 토큰)는 읽기가 없으면 핸들러 없이 버려진다. 단독 `\x03`(Ctrl+C)·단독 Ctrl+L만 읽기 밖에서도 즉시 처리한다(`isImmediateKey`).
+  - 브라우저 자동화는 프롬프트가 화면에 그려진 뒤(입력줄이 보인 뒤)에 입력한다(`apps/demo/e2e/lib.mjs`의 `waitPrompt`).
+  - REPL 하니스의 `typeWhenReading()`·`clear()`는 실행창에서 쓸 수 없다.
+    - `typeWhenReading()`은 첫 글자가 버려져 에코 대기가 시간 초과한다.
+    - `clear()`는 프롬프트 재그리기를 기다린다.
+- 붙여넣기·IME 덩어리 안의 Ctrl+C(다중 토큰)는 읽기가 없으면 핸들러 없이 버려진다. 단독 `\x03`(Ctrl+C)·단독 Ctrl+L만 읽기 밖에서도 즉시 처리한다(벤더 `isImmediateKey`).
 - history는 남기지 않는다.
-  - 기본 provider가 `promptRow.read("", { cancelable: true, signal, history: false })`로 부른다.
-  - `promptRow`가 벤더 `read()`에 `ReadOptions.history: false`를 넘겨 Enter 제출을 history에 넣지 않는다(`06-editing.md` 6.1).
-  - `persist: false`는 localStorage 저장만 끈다. 이것만으로는 막지 못한다(`docs/traps/TRP-046`).
-  - 2026-09-26 전에는 벤더에 건너뛰는 옵션이 없었다. 읽기 앞 `getHistory().entries.slice()`를 잡고 읽기 뒤(정상·취소·예외) `history.restore(snapshot)`로 되돌렸다.
-  - 차이: 옛 `restore`는 취소로 끝난 읽기에서도 탐색 커서를 처음으로 되돌렸다. 새 경로는 Enter에서만 되돌린다.
-  - 관찰 가능한 차이는 없다(코드 읽기 근거). 실행창 history는 항상 비어 있다(`persist: false`, 유일한 append 경로였던 Enter가 생략되고 `readline`을 밖에 내보내지 않는다). ↑가 커서를 옮기지 못한다.
+  - 기본 provider가 `promptRow.read`에 `history: false`를 넘긴다. `promptRow`는 이를 벤더 `ReadOptions.history: false`로 넘겨 Enter 제출을 history에 넣지 않는다(`06-editing.md` 6.1).
+  - `persist: false`는 localStorage 저장만 끈다. 이것만으로는 메모리 history를 막지 못한다(`docs/traps/TRP-046`).
+  - 결과: 실행창 history는 항상 비어 있다. ↑가 커서를 옮기지 못한다.
 
 ### 14.5.3 Ctrl+C
 
@@ -380,22 +419,21 @@ type InputProvider = (
 
 `setCtrlCHandler`는 벤더에 활성 읽기가 없을 때만 불린다(읽기 중 Ctrl+C는 위 행처럼 벤더가 직접 처리한다). 불렸을 때의 화면 동작은 core `interrupt()`의 반환값(결과) 기준이다. 호출 시점의 `status`를 따로 읽지 않는다(규칙: `interrupt()` 정의는 14.3.3, 판정 ID는 C1~C3).
 
-읽기가 열린 채 `signal`이 abort되면(`stop()`·`reset()`·크래시·`interrupt()`) 기본 provider가 `promptRow.endRead(disposed ? { screen: false } : { screen: true })`(RD-027·RD-028, 구 `readline.cancelRead({ settle: !disposed })`)로 열린 읽기를 끝낸다(history는 건드리지 않는다).
+읽기가 열린 채 `signal`이 abort되면(`stop()`·`reset()`·크래시·`interrupt()`) 기본 provider가 `promptRow.endRead(disposed ? { screen: false } : { screen: true })`(RD-027·RD-028)로 열린 읽기를 끝낸다. history는 건드리지 않는다.
 
 - settle이 화면을 정리한다(`06-editing.md` 6.1 상태표).
   - 배경 출력 재그리기 콜백 전이라 아직 그리지 않은 접두가 있으면 접두를 자기 행으로 남긴다(`05-output.md` 4.4).
   - 그려진 읽기면 커서를 감긴 입력의 끝으로 옮겨 다시 그린 뒤 `\r\n`을 쓴다.
 - settle이 실패하면 벤더 `hasPendingRead()`(취소 앞에서 읽은 값)로 나눈다.
-  - 그리기 전 읽기가 있었으면 무조건 `promptRow`의 "개행 쓰기"를 낸다(현재 io가 있으면 `sinks.write("\r\n")`, 없으면 `readline.write("\r\n")`).
+  - 그리기 전 읽기가 있었으면 무조건 `promptRow`의 "개행 쓰기"를 낸다. 현재 io가 있으면 `sinks.write("\r\n")`, 없으면 `readline.write("\r\n")`이다.
   - 없었으면 현재 io 꼬리에 보이는 글자가 있을 때만 낸다.
-  - 이 규칙은 RD-028에서 왔다. REPL reset(`08-session.md` 8.1 1번)·`repl-main-driver.ts`의 `runSource` 대기 슬롯 실행(`breakLine()`, RD-029로 `terminal/source-bridge.ts` 흡수)과 같은 재료로 통일했다. 옛 `"always"` 인자는 없앴다.
+  - 이 규칙은 REPL reset(`08-session.md` 8.1 1번)·`runSource`의 대기 슬롯 실행(`repl-main-driver.ts`, `breakLine()`)과 같은 재료를 쓴다(RD-028).
   - 판정은 `tail() !== ""`가 아니라 core `leavesVisibleText(tail())`다. 색을 안 닫고 개행으로 끝난 출력은 꼬리에 열린 SGR만 남는다. 문자열은 비지 않지만 화면에는 보이는 글자가 없다.
-  - abort 경로에서 settle이 실패하는 경우는 거의 항상 "그리기 전 읽기 있음"이다(그 읽기 자체가 취소 대상). 이 바이트는 옛 `"always"`와 실무상 같다.
-  - 실행창 abort의 빈 행(이슈 01 가설)은 결함이 아니다. 그려진 읽기를 settle한 결과(F1)와 같은 행 수를 만드는 것뿐이다.
+  - abort 경로에서 settle이 실패하는 경우는 거의 항상 "그리기 전 읽기 있음"이다. 그 읽기 자체가 취소 대상이기 때문이다.
+  - 실행창 abort 뒤 빈 행은 결함이 아니다. 그려진 읽기를 settle한 결과와 같은 행 수다.
 - `screen: false`(`dispose()` 중)에는 settle하지 않고 화면에 쓰지 않는다. 이유:
-  - 이어질 `KeyboardInterrupt` 트레이스백이 입력줄에 붙거나 감긴 입력 위에 겹치지 않는다(커서가 입력 중간 행에 있어도 입력 아래 행에서 시작한다).
+  - 이어질 `KeyboardInterrupt` 트레이스백이 입력줄에 붙거나 감긴 입력 위에 겹치지 않는다. 커서가 입력 중간 행에 있어도 입력 아래 행에서 시작한다.
   - 다음 Enter가 죽은 읽기로 들어가지 않는다.
-- RD-026까지는 provider가 `undrawnAbovePrefix()`를 취소 앞에서 벤더 `write`로 남기고 취소 뒤 `\r\n`을 직접 썼다. 커서가 감긴 입력 중간이면 트레이스백이 입력 둘째 행에 겹쳤다.
 - provider가 사유를 구분하지 못한다. `reset()`·크래시 뒤에도 줄바꿈이 남는다. 다음 `run()`은 커서가 행 머리라 줄바꿈을 더하지 않는다.
 
 ### 14.5.4 `run()` 시작 화면 규칙
@@ -405,9 +443,9 @@ type InputProvider = (
 - `clearOnRun: true`이면 `promptRow.clear()`(RD-027)가 화면과 스크롤백을 지우고(`\x1b[H\x1b[2J\x1b[3J`) 꼬리를 비운다.
 - 아니면(기본) `promptRow.breakLine()`(RD-027·RD-028)가 현재 io 꼬리에 보이는 글자가 있을 때만 `\r\n` 한 번을 쓰고 그 꼬리를 비운다.
   - 보이는 글자 판정은 `leavesVisibleText`다. SGR만 남은 꼬리는 "없음"이다.
-  - 보이는 글자가 없으면 무동작이다. 조건 없는 `resetTail()`은 없앴다(RD-010 세션 리셋과 같은 재료, `08-session.md` 8.1 1번).
-  - 커서(`cursorX`)는 더 이상 보지 않는다. xterm의 비동기 파싱 때문에 같은 태스크에서는 낡을 수 있다(F3).
-  - 실제 xterm이 이미 파싱을 마친 대부분의 상황에서는 바이트가 커서 기준과 같다(B2).
+  - 보이는 글자가 없으면 무동작이다. RD-010 세션 리셋과 같은 재료다(`08-session.md` 8.1 1번).
+  - 커서(`cursorX`)는 보지 않는다. xterm의 비동기 파싱 때문에 같은 태스크에서는 낡을 수 있다.
+  - xterm이 이미 파싱을 마친 대부분의 상황에서는 바이트가 커서 기준과 같다.
   - 이전 run이 `print("a", end="")`로 끝났어도 새 실행은 새 줄에서 시작한다.
 - 거부될 `run()`은 화면을 건드리지 않는다. 실행 중인 프로그램의 출력 한가운데서 화면이 지워지면 안 된다.
   - core가 `run()`을 받아들인 순간을 `onRunAccepted`로 알린다(14.3). 실행창은 그 콜백에서만 화면을 준비한다.
@@ -445,19 +483,23 @@ type InputProvider = (
   - plain 요소: `textarea`(`data-testid="code"`), 버튼 `run`·`stop`·`reset`·`clear`, `status`, 마지막 결과 `result`(JSON 텍스트, 거부는 `{"rejected":"<reason>"}`), 선택 복사 결과 `copy-result`, `terminal`.
   - 새 실행을 시작하면 이전 결과를 지운다.
   - 페이지당 xterm은 1개다(`lib.mjs` 셀렉터 `.xterm-rows > div`·`[data-testid="status"]`가 그대로 통한다).
-  - `createTerminalRunner`는 effect 안에서 만들고 cleanup에서 `dispose()`한다(StrictMode 이중 마운트에서 worker가 남지 않는다).
-  - RD-024부터 이 수명은 `<PythonRunner>` 컴포넌트가 맡는다. `RunnerView`는 handle(`run`·`stop`·`reset`·`clear`·`focus`)만 부른다.
-- 브라우저: `pnpm --filter demo e2e:runner-check`(normal 고정, 초기 3 + R01~R13 = 16셀), 비격리는 `pnpm --filter demo exec node e2e/checks/runner-check.mjs not-isolated http://localhost:4174`(N01~N05, 5셀).
-  - 기대 개수와 판정은 `apps/demo/e2e/BASELINE.md`.
+  - `createTerminalRunner`는 effect 안에서 만들고 cleanup에서 `dispose()`한다. StrictMode 이중 마운트에서 worker가 남지 않는다.
+  - 이 수명은 `<PythonRunner>` 컴포넌트가 맡는다. `RunnerView`는 handle(`run`·`stop`·`reset`·`clear`·`focus`)만 부른다.
+- 브라우저: `pnpm --filter demo e2e:runner-check`(normal 고정).
+  - 비격리는 `pnpm --filter demo exec node e2e/checks/runner-check.mjs not-isolated http://localhost:4174`다.
+  - 셀 구성·기대 개수·판정은 `apps/demo/e2e/BASELINE.md`가 원천이다.
   - 실행창 화면에서 결과 칸(React 상태)은 xterm 화면 행보다 먼저 갱신될 수 있다. `result`는 마지막 값만 갖는다(`docs/traps/TRP-048`·`TRP-050`).
-- node 시험:
-  - core `worker/run-driver-pyodide.test.ts`(실제 pyodide, 가설 8항목 + 분류·stdin·재진입).
-  - core `run-driver-classify.test.ts`(실제 pyodide + 가짜 콘솔, 분기 전수).
-  - core `run-driver.test.ts`(가짜 pyodide, 옵션·세션·export).
-  - core `session/runner.test.ts`(가짜 worker·가짜 타이머).
-  - core `session/runner-pyodide.test.ts`(실제 pyodide worker 스레드, `input()` 왕복·`stop()`·폴백·`reset()`·옛 worker 지연 종료 시뮬레이션).
-  - terminal `terminal-runner.test.ts`·`terminal-runner-screen.test.ts`: 둘 다 jsdom + 실제 core `createRunner` + 공용 가짜 worker `@cp949/runo-pyodide-core/test-utils`, 공용 setup은 `./test/runner-setup`. 전자는 화면(sink)·입력(`Readline`)·Ctrl+C·선택 복사, 후자는 14.5.4 화면 준비 규칙 14건.
-  - 벤더 `type-ahead.test.ts`(`typeAhead` 옵션).
+- node 시험(core는 `packages/pyodide-core/test/`, terminal은 `packages/pyodide-terminal/test/`):
+  - core `worker/run-driver-pyodide.test.ts`: 실제 pyodide. `CodeRunner` 경로가 SIGINT 계층을 그대로 쓰는지, 분류, stdin, 재진입.
+  - core `worker/run-driver-classify.test.ts`: 실제 pyodide + 가짜 콘솔. 결말 분류 분기.
+  - core `worker/run-driver-exec-in-console.test.ts`: `exec_in_console`과 stdin 되살림.
+  - core `worker/run-driver.test.ts`: 가짜 pyodide. 옵션·세션·export.
+  - core `session/runner.test.ts`: 가짜 worker·가짜 타이머.
+  - core `session/runner-pyodide.test.ts`: 실제 pyodide worker 스레드. `input()` 왕복, `stop()`, 폴백, `reset()`, 옛 worker 지연 종료 시뮬레이션.
+  - terminal `terminal-runner.test.ts`·`terminal-runner-screen.test.ts`: jsdom + 실제 core `createRunner` + 공용 가짜 worker(`@cp949/runo-pyodide-core/test-utils`). 공용 setup은 `test/runner-setup.ts`.
+    - 전자는 화면(sink)·입력(`Readline`)·Ctrl+C·선택 복사를 본다.
+    - 후자는 14.5.4 화면 준비 규칙을 본다.
+  - 벤더 `packages/xterm-readline/test/type-ahead.test.ts`: `typeAhead` 옵션.
 - 경계: terminal `package-boundary.test.ts`, `pnpm check-dist`(terminal 포함), `pnpm smoke:pack`(terminal tarball, `09-testing.md` 9.8).
 
 ## 14.7 등록한 편차와 인접 규칙

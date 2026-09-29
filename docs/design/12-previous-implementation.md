@@ -19,9 +19,9 @@
   - 두 화면이 다르면 "편차"로 문서에 남긴다.
   - 재현할 수 없거나 시나리오에 닿지 않는 차이는 "범위 밖"으로 확정한다.
 - Tab 완성처럼 후보 집합 비교가 필요한 항목은 따로 측정했다.
-  - pty 케이스(예: 37케이스 + 추가 4).
-  - 네이티브 대 Pyodide 대조(95케이스).
-  - 게이트 코퍼스(53줄).
+  - pty 케이스 대조.
+  - 네이티브 대 Pyodide 대조.
+  - 게이트 코퍼스 대조.
 - 이전 구현은 Worker↔Main 사이에 coincident 동기 브리지를 썼다. 새 구현은 쓰지 않는다.
 
 참고: `/work/cp949/pyodide-samples/apps/repl/README.md`, `/work/cp949/pyodide-samples/apps/repl/DESIGN.md`, `/work/cp949/pyodide-samples/README.md`
@@ -48,7 +48,7 @@
 **사용자 시나리오**: 화면 상단 Chip 두 개(`crossOriginIsolated`, `worker sync`)가 모두 `true`로 표시된다.
 **규칙·결정**
 
-- COOP/COEP 헤더가 없으면 동기 모드가 비동기로 폴백하고 stdin 브리지가 깨진다 — 헤더는 필수 전제.
+- COOP/COEP 헤더가 없으면 동기 모드가 비동기로 폴백하고 stdin 브리지가 깨진다. 헤더는 필수 전제다.
 - 이 단계에서 `sync === true`(SharedArrayBuffer/Atomics 사용 가능)를 가장 먼저 확인한다.
 
 **완료 기준**
@@ -68,7 +68,7 @@
 **사용자 시나리오**: 백스페이스·←/→로 줄을 고치고 ↑/↓로 이전 줄을 불러온다. Enter를 누르면 그 한 줄이 프로그램으로 전달된다.
 **규칙·결정**
 
-- `xterm-readline`(MIT)을 npm 의존성으로 설치해 그대로 쓴다. 소스 포팅 금지(포크 검토는 보류, 3절).
+- `xterm-readline`(MIT)을 npm 의존성으로 설치해 그대로 쓴다. 소스 포팅 금지(포크 검토는 보류, 3.2).
 - `History`의 `localStorage` 자동 저장/복원은 no-op으로 덮어써 비활성화(히스토리 영구 저장은 범위 밖).
 - 필요한 API: `read(prompt): Promise<string>`, `println`/`print`, `setCtrlCHandler`.
 
@@ -106,7 +106,10 @@
 **사용자 시나리오**: `input("x: ")`를 실행하고 `abc`를 치면 화면에 `x: abc` **한 줄**로 보인다(고치기 전에는 `x: ` 다음 줄에 `>>> abc`가 떴다).
 **규칙·결정**
 
-- 입력 줄의 프롬프트 = **직전 출력의 개행 없는 꼬리**(tail). 3.14.4 pty 실측과 같다: `input("x: ")` → `x: abc`, `input()`·`sys.stdin.readline()` → 프롬프트 없이 `abc`, flush한 `print("t", end="")` 뒤 → `tabc`.
+- 입력 줄의 프롬프트 = **직전 출력의 개행 없는 꼬리**(tail). 3.14.4 pty 실측과 같다.
+  - `input("x: ")` → `x: abc`.
+  - `input()`·`sys.stdin.readline()` → 프롬프트 없이 `abc`.
+  - flush한 `print("t", end="")` 뒤 → `tabc`.
 - worker는 프롬프트 문자열을 넘기지 않는다. worker는 `readInput(cancelable)`만 부르고, main이 출력 sink가 추적한 꼬리(열린 SGR 보존)로 입력 줄을 그 자리에 다시 그린다.
 - 꼬리가 터미널 폭을 넘으면 읽기 전에 첫 행까지 커서를 올려 앞 행 중복을 막는다.
 - 색이 있는 프롬프트는 색을 유지하고 입력한 글자는 기본색이다.
@@ -115,7 +118,7 @@
 
 - `x: abc` 한 줄, 프롬프트 없는 `input()`, `tabc`·`tp: abc` 이어붙임, 130자·200자·전각·정확히 폭과 같은 프롬프트에서 앞 행 중복 없음.
 - 실행 중 Ctrl+C의 `^C`를 `except`로 잡은 뒤 읽으면 `t^Cx: abc`.
-- 브라우저 52개 시나리오 통과.
+- 브라우저 시나리오 통과.
 
 **이전 구현 상태**: 완료 (한계: 꼬리 안의 `\b`·OSC로 열 어긋남, Chromium만 확인)
 
@@ -125,14 +128,15 @@
 **규칙·결정**
 
 - REPL 읽기도 RD-006a의 꼬리 방식으로 `프롬프트 = 꼬리 + ">>> "`(또는 `"... "`)를 그 자리에 다시 그린다.
-- 3.14는 프롬프트 직전에 stdout을 flush하므로 flush 없는 `print(end="")`도 `t>>> `다.
+- 3.14는 프롬프트 직전에 stdout을 flush한다. 그래서 flush 없는 `print(end="")`도 `t>>> `다.
 - `cursorX !== 0`이면 개행을 넣던 가드는 제거한다(`cursorX`는 xterm이 비동기로 파싱한 값이라 낡을 수 있다).
 
 **완료 기준**
 
 - `t>>> `, 빈 Enter 뒤 열 0의 `>>> `, 블록 실행 뒤 `012>>> `, stderr 꼬리 뒤 `e>>> `(`e`만 빨강), 닫히지 않은 색 뒤 기본색, `\r30%` → `\r100%` 뒤 `100%>>> `.
 - 100·130·200자·전각·정확히 80자 꼬리에서 앞 행 중복 없음(정확히 80자는 `>>> `가 다음 행 열 0).
-- 세션 리셋 뒤 프롬프트가 이전 꼬리를 물려받지 않는다. 브라우저 74개 시나리오 통과(이후 모든 RD의 회귀 기준선으로 쓰인다).
+- 세션 리셋 뒤 프롬프트가 이전 꼬리를 물려받지 않는다.
+- 브라우저 시나리오 통과. 이 묶음은 이후 모든 RD의 회귀 기준선이다.
 
 **이전 구현 상태**: 완료
 
@@ -191,9 +195,9 @@
 - 원인은 이중 개행이다: 호출부가 끝 개행을 붙여 넘기는데 main sink가 `println`이라 또 붙였다.
 - 계약 통일: `writeOutput`/`writeError`에는 **끝 개행 없는 텍스트**를 넘긴다. 오류 문자열은 끝 개행을 **정확히 1개만** 떼어 메시지 자체의 개행은 보존한다.
 - 적용 경로: 식 값 에코, 트레이스백, SyntaxError, 붙여넣기 파싱 오류, 시작 배너.
-- 테스트 fake가 `println`의 개행 추가를 모사하지 않아 이 버그를 못 잡았다 — fake는 실제 sink 동작을 모사해야 한다.
+- 테스트 fake가 `println`의 개행 추가를 모사하지 않아 이 버그를 못 잡았다. fake는 실제 sink 동작을 모사해야 한다.
 
-**완료 기준**: 위 다섯 경로 뒤에 빈 줄이 없다(3.14 pty 실측과 같다). 예외 메시지 자체의 끝 개행은 유지. 브라우저 16개 시나리오 행 diff.
+**완료 기준**: 위 다섯 경로 뒤에 빈 줄이 없다(3.14 pty 실측과 같다). 예외 메시지 자체의 끝 개행은 유지. 브라우저 시나리오 행 diff로 확인한다.
 **이전 구현 상태**: 완료
 
 ### RD-011b stderr 조각의 개행
@@ -207,8 +211,8 @@
 - sink 4종(`writeOutput`/`writeError`/`write`/`writeErrorRaw`)을 한 모듈로 분리해 실제 sink + Readline으로 시험한다.
 - 3.14.4 pty 기준표: `print("err", file=sys.stderr)` → `err\r\n`, `warnings.warn("w")` → `<python-input-N>:1: UserWarning: w\r\n`, `sys.stderr.write("a\nb\n")` → `a\r\nb\r\n4\r\n`.
 
-**완료 기준**: 위 세 호출 뒤 빈 줄 없음, `\r` 진행률 조각 그대로, stdout/stderr 교차 출력 순서 보존, stderr만 빨강. 브라우저 23개 시나리오.
-**이전 구현 상태**: 완료 (편차: 개행 없는 조각을 즉시 출력 — 4절)
+**완료 기준**: 위 세 호출 뒤 빈 줄 없음, `\r` 진행률 조각 그대로, stdout/stderr 교차 출력 순서 보존, stderr만 빨강. 브라우저 시나리오 통과.
+**이전 구현 상태**: 완료 (편차: 개행 없는 조각을 즉시 출력, `10-parity-deviations.md` 편차 6)
 
 ### RD-012 실행 중 Ctrl+C
 
@@ -230,13 +234,14 @@
 **사용자 시나리오**: `while True: time.sleep(0.1)` 실행 중 Ctrl+C 한 번 → 200ms 안에 `^C` + `Traceback…KeyboardInterrupt`가 나오고 `>>> `가 돌아온다. top-level await의 `await` 대기는 트레이스백 없이 `KeyboardInterrupt` 한 줄이다.
 **규칙·결정**
 
-- 원인: pyodide가 `time.sleep`을 `run_sync(asyncio.sleep(t))`로 바꿔 대기 중 사용자 스택이 정지하고, SIGINT 폴링 지점이 사라진다.
+- 원인: pyodide가 `time.sleep`을 `run_sync(asyncio.sleep(t))`로 바꾼다. 대기 중 사용자 스택이 정지하고 SIGINT 폴링 지점이 사라진다.
 - 채택: worker JS **감시 타이머** + Python SIGINT 핸들러 보완 + `run_sync`·`runcode` 래퍼. 사용자 코드가 실행 중이면 사용자 스택이 없어도 정지한 실행을 깨운다.
 - 부수: WebLoop의 `_keyboard_interrupt_handler`·`_system_exit_handler`를 no-op으로 만들어 재보고 `pageerror`(시행당 1~2건)를 없앴다.
 
 **완료 기준**
 
-- 신규 10조합(`time.sleep` 루프 0.1·0.01·1초, 단발 5초, `asyncio.run`, `run_until_complete`, `run_sync`, top-level await 단발·루프, TLA 켜짐의 sleep 루프) 각 N=20 → 220/220, 프롬프트 복귀 최대 27.7ms, `pageerror` 0.
+- 신규 조합(`time.sleep` 루프 0.1·0.01·1초, 단발 5초, `asyncio.run`, `run_until_complete`, `run_sync`, top-level await 단발·루프, TLA 켜짐의 sleep 루프) 전부 중단되고 프롬프트가 돌아온다. `pageerror` 0.
+- 프롬프트 복귀는 수십 ms 안이다(실측 최대 27.7ms).
 - `KeyboardInterrupt`를 잡고 도는 프로그램이 눌림 3회를 모두 잡는다. 회귀 3종 기준선 유지.
 
 **이전 구현 상태**: 완료
@@ -250,7 +255,7 @@
 - 출력 형식(3.14 pty 실측): 프롬프트에서는 `^C`를 찍지 않고 `KeyboardInterrupt` 한 줄만 내며 빈 줄도 없다.
 - `>>> ` 입력줄에서도 같다. 취소해도 자동 들여쓰기 단위는 유지한다.
 
-**완료 기준**: 본문이 쌓인 블록·Shift+Enter 버퍼·세션 리셋 뒤에도 같은 동작, 다음 입력에 취소된 글자가 섞이지 않음. 브라우저 24개 시나리오 중 22 통과(E1·E2는 기준선 실패로 고정).
+**완료 기준**: 본문이 쌓인 블록·Shift+Enter 버퍼·세션 리셋 뒤에도 같은 동작, 다음 입력에 취소된 글자가 섞이지 않음. 브라우저 시나리오 E1·E2는 기준선 실패로 고정.
 **이전 구현 상태**: 완료
 
 ### RD-012c `input()` 중 Ctrl+C
@@ -263,19 +268,19 @@
 - 예외는 호출 지점의 진짜 `KeyboardInterrupt`라 `try/except KeyboardInterrupt`가 잡고 `except Exception`은 못 잡는다.
 - 취소한 입력은 history에 남지 않는다.
 
-**완료 기준**: 위 형식, 함수 안 취소는 그 프레임 표시, `sys.stdin.readline()`도 같음, Ctrl+C 연타(0ms 2회·5회, 키 반복 20회)에도 REPL 생존. 브라우저 24개 중 20 통과(A1·C2·H1·J1 고정 실패).
+**완료 기준**: 위 형식, 함수 안 취소는 그 프레임 표시, `sys.stdin.readline()`도 같음, Ctrl+C 연타(0ms 2회·5회, 키 반복 20회)에도 REPL 생존. 브라우저 시나리오 A1·C2·H1·J1은 고정 실패.
 **이전 구현 상태**: 완료
 
 ### RD-012d 실행 중 Ctrl+C 연타·키 반복
 
-**사용자 시나리오**: `while True: pass` 중 Ctrl+C를 누르고 있어도(키 반복 30회) 트레이스백이 나오고 프롬프트가 돌아온다(고치기 전 5/5에서 멈춤 또는 worker 크래시).
+**사용자 시나리오**: `while True: pass` 중 Ctrl+C를 누르고 있어도(키 반복 30회) 트레이스백이 나오고 프롬프트가 돌아온다(고치기 전에는 멈추거나 worker가 크래시했다).
 **규칙·결정**
 
 - 원인: 첫 SIGINT가 사용자 코드를 끊은 뒤 트레이스백 생성 코드(`traceback.py`, `linecache.py`)나 다음 문장 컴파일에 뒤이은 SIGINT가 떨어진다.
 - 채택 규칙(Python SIGINT 핸들러): **스택에 사용자 프레임(`<console>`)이 있을 때만** `KeyboardInterrupt`를 올리고, 없으면 그 SIGINT를 버린다.
 - 매 실행 직전 `interruptBuffer[0] = 0`으로 비운다. `run()` 전체를 `try`로 감싸 새는 `KeyboardInterrupt`를 취소와 같이 처리한다. 트레이스백에서 핸들러 프레임 줄을 뺀다.
 
-**완료 기준**: 콜드 (a) 0ms 30회, (b) 1·5·20·50ms 30회, (c) 키 반복, (d) 0ms 2·5회, 웜 (a), TLA 켜짐 (a) 각 20/20 → 200/200(수정 전 61/200), 대상 `pageerror` 0건.
+**완료 기준**: 콜드 (a) 0ms 30회, (b) 1·5·20·50ms 30회, (c) 키 반복, (d) 0ms 2·5회, 웜 (a), TLA 켜짐 (a) 모든 시행에서 트레이스백과 프롬프트 복귀. 대상 `pageerror` 0건.
 **이전 구현 상태**: 완료
 
 ### RD-012e Ctrl+C 한 번의 소실 완화
@@ -283,14 +288,14 @@
 **사용자 시나리오**: `while True: pass` 중 Ctrl+C 한 번이 약 3%에서 조용히 사라져 루프가 계속 돌던 것이 사라진다.
 **규칙·결정**
 
-- 원인은 pyodide 폴링(`_Py_CheckEmscriptenSignals_Helper`)이 `r = buf[0]; buf[0] = 0; return r`로 읽기와 비우기를 나눠 그 사이 값이 지워지는 것. pyodide는 고치지 않는다.
+- 원인: pyodide 폴링(`_Py_CheckEmscriptenSignals_Helper`)이 `r = buf[0]; buf[0] = 0; return r`로 읽기와 비우기를 나눈다. 그 사이에 값이 지워진다. pyodide는 고치지 않는다.
 - 공유 버퍼 **4칸**: `[0]` SIGINT, `[1]` ack, `[2]` 요청 번호.
 - 핸들러·감시 타이머·폐기가 ack를 올리고, main 송신기가 **5ms마다** 점검해 소실된 눌림을 **같은 요청 번호**로 다시 쓴다(**최대 10회**).
-- 핸들러는 이미 처리한 번호의 두 번째 도착을 무시한다 → `KeyboardInterrupt`를 잡고 계속 도는 프로그램이 눌림 한 번에 한 번만 중단된다.
+- 핸들러는 이미 처리한 번호의 두 번째 도착을 무시한다. `KeyboardInterrupt`를 잡고 계속 도는 프로그램이 눌림 한 번에 한 번만 중단된다.
 - 기각된 대안: 폴링 경로에 접근자 설치(소실 0이지만 폴링당 약 117ns, 3M 루프 1.095~1.118배, `str(i)`류 2.9배).
 
-**완료 기준**: 단일 눌림 소실 0(Node N=3000에서 141·31건 → 0, Chromium N=200에서 5건 → 0), 누락·이중 0, 재전송 복구 지연 Node 최대 15.2ms / Chromium 17.5~20.1ms, 성능 ×1.012·×0.992, 부팅 중 Ctrl+C 30/30 정상.
-**이전 구현 상태**: 완료 (한계: 사용자 코드가 스스로 일으킨 SIGINT 무시 등 — 4절)
+**완료 기준**: 단일 눌림 소실 0, 누락·이중 0, 재전송 복구 지연 약 20ms 이하(실측 Node 최대 15.2ms, Chromium 최대 20.1ms), 루프 성능 저하 없음(실측 ×1.012·×0.992), 부팅 중 Ctrl+C 정상.
+**이전 구현 상태**: 완료 (한계: 사용자 코드가 스스로 일으킨 SIGINT 무시 등, `10-parity-deviations.md` 편차 24)
 
 ### RD-012f `time.sleep`을 20ms 블로킹 조각으로 교체
 
@@ -302,22 +307,22 @@
 - 무효 인자(`-1`·`'a'`·NaN·inf)는 원본에 넘겨 CPython과 같은 예외를 내고 `0`·`True`는 오류 없음.
 - `checkInterrupt()`를 지난 `KeyboardInterrupt`가 남기는 추가 트레이스백은 **폴링 동안만** `sys.excepthook`을 비워 없앤다.
 
-**완료 기준**: Node(JSPI 없음·있음, N=30) `sleep(5)` 단발과 `0.1`·`0.02`·`0.015`·`0.01` 루프 30/30 중단, 눌림→출력 최대 12.4~25.8ms, `stderr`가 표준 트레이스백과 정확히 일치. 브라우저 12조합 N=20 → 240/240, 복귀 중앙값 13.1~26.5ms·최대 32.3ms.
+**완료 기준**: Node(JSPI 없음·있음)와 브라우저에서 `sleep(5)` 단발과 `0.1`·`0.02`·`0.015`·`0.01` 루프가 전부 중단된다. `stderr`가 표준 트레이스백과 정확히 일치한다. 눌림→출력·복귀 지연은 수십 ms 안이다(실측 최대 32.3ms).
 **이전 구현 상태**: 완료
 
 ### RD-012g 동기 XHR 대기 중 Ctrl+C
 
-**상태**: 보류(범위 밖 확정). 3절 참고.
+**상태**: 보류(범위 밖 확정). `10-parity-deviations.md` 2절 참고.
 
 ### RD-012h Python이 돌지 않는 구간의 Ctrl+C 잔류
 
 **사용자 시나리오**: 부팅 중(worker가 버퍼를 연결한 뒤 핸들러 설치 전) Ctrl+C를 눌러도 시작 코드가 죽지 않는다.
 **규칙·결정**
 
-- (b) **핸들러를 버퍼 연결보다 먼저 설치**한다(연결 전에는 폴링이 없다). worker는 둘을 묶은 함수 하나만 부른다. — 완료.
-- (a) `readLine` 진입 갭(17~33ms)의 송신기 되살아남, `exit()`·로드 실패 뒤 송신기 잔류 → "Python 정지" 플래그 후보. 미검증, RD-021 뒤 재평가(RD-021의 프롬프트 유휴 SIGINT 폐기로 잔류 (1)은 해소).
+- (b) **핸들러를 버퍼 연결보다 먼저 설치**한다. 연결 전에는 폴링이 없다. worker는 둘을 묶은 함수 하나만 부른다. 완료.
+- (a) `readLine` 진입 갭(17~33ms)의 송신기 되살아남, `exit()`·로드 실패 뒤 송신기 잔류. "Python 정지" 플래그가 후보다. 미검증이고 RD-021 뒤 재평가 대상이다. RD-021의 프롬프트 유휴 SIGINT 폐기로 잔류 (1)은 해소됐다.
 
-**완료 기준**: (b)는 실제 pyodide 시험 4개 + 브라우저 `boot-press` N=30 30/30. (a)는 미정.
+**완료 기준**: (b)는 실제 pyodide 시험 + 브라우저 `boot-press` 전부 정상. (a)는 미정.
 **이전 구현 상태**: 일부 ((b) 완료, (a) 대기)
 
 ### RD-012i `asyncio.run` 코루틴 안 KeyboardInterrupt의 중복 트레이스백
@@ -334,7 +339,7 @@
 
 ### RD-012j `time.sleep` 대기 중 워커 CPU 점유
 
-**상태**: 보류. 3절 참고.
+**상태**: 보류. 3.2 참고.
 
 ### RD-013 선택 영역 복사
 
@@ -347,7 +352,7 @@
 **사용자 시나리오**: 상단 `세션 리셋` 버튼을 누르면 변수·import가 전부 사라지고(화면 스크롤 기록은 유지) 새 세션이 시작된다. `exit()`/`quit()`/`raise SystemExit()`를 실행하면 "Python session terminated." 안내가 뜨고 리셋 버튼으로 새 세션을 연다.
 **규칙·결정**
 
-- "화면 지우기"(Ctrl+L, main 쪽 순수 UI 동작 — Python 상태를 건드리지 않음)와 별개 기능이다.
+- "화면 지우기"와 별개 기능이다. Ctrl+L은 main 쪽 순수 UI 동작이고 Python 상태를 건드리지 않는다.
 - RD-009의 크래시-재시작 메커니즘을 재사용한다.
 - `SystemExit`은 평범한 예외로 잡혀 REPL이 죽지 않는다(실측). `on_fatal` 훅은 불필요.
 - 세션 리셋 때 입력을 기다리던 블록은 버리고 이미 제출된 블록은 남긴다.
@@ -361,7 +366,7 @@
 **규칙·결정**
 
 - `setStdout`의 `batched` 모드를 버리고 raw 모드로 전환한다.
-- 정책: stdout 버퍼링은 모사하지 않는다(웹은 즉시 출력, 3.14는 flush 없는 `print(end="")`를 입력 뒤에 낸다) — 4절 편차.
+- 정책: stdout 버퍼링은 모사하지 않는다. 웹은 즉시 출력하고 3.14는 flush 없는 `print(end="")`를 입력 뒤에 낸다(`10-parity-deviations.md` 편차 5).
 
 **완료 기준**: 위 세 가지.
 **이전 구현 상태**: 완료
@@ -377,9 +382,9 @@
 - 스템이 빈 곳은 `4 - (열 % 4)`칸 공백을 main에서 바로 넣는다(worker 왕복 없음).
 - worker 후처리: 이름 후보 전체 정렬, 예외 삼킴, 경고 억제, `_pyodide*`·`___*` 제외(`INTERNAL_PREFIXES = ('_pyodide', '___')`).
 - 왕복 중 입력이 바뀌면 완성을 버린다. Enter·Ctrl+C가 먼저면 그 결과를 돌려준다.
-- (이전 구현 한정) 첫 시도는 main→worker 호출이 worker의 동기 대기에 막혀 보류됐고, `readLine` 반환값에 센티널(`\x00TAB\x00` + JSON)을 실어 우회했다. 이 프로토콜은 RD-021에서 전용 RPC의 `complete` 요청으로 대체됐다.
+- (이전 구현 한정) main→worker 호출이 worker의 동기 대기에 막혀, `readLine` 반환값에 센티널(`\x00TAB\x00` + JSON)을 실어 우회했다. 이 프로토콜은 RD-021에서 전용 RPC의 `complete` 요청으로 대체됐다.
 
-**완료 기준**: 브라우저 58개 시나리오 통과(후보 1개 삽입, 접두사 채움, 두 번째 Tab 목록이 3.14 pty 화면과 같은 행, 후보 없음, 빈 스템 공백, 커서 중간, 여러 줄 버퍼·`... ` 줄, 경합 Tab→Enter·Tab→Ctrl+C 각 20회 정지 0, `input()` 무동작, 후처리, 세션 리셋·`exit()` 뒤). 왕복 지연 중앙값 25.5ms·최대 32.4ms.
+**완료 기준**: 브라우저 시나리오 통과(후보 1개 삽입, 접두사 채움, 두 번째 Tab 목록이 3.14 pty 화면과 같은 행, 후보 없음, 빈 스템 공백, 커서 중간, 여러 줄 버퍼·`... ` 줄, 경합 Tab→Enter·Tab→Ctrl+C 정지 0, `input()` 무동작, 후처리, 세션 리셋·`exit()` 뒤). 왕복 지연은 약 25ms다(실측).
 **이전 구현 상태**: 완료
 
 ### RD-016a `import`/`from` 줄의 모듈 완성
@@ -388,7 +393,8 @@
 **규칙·결정**
 
 - 3.14 `readline.py`와 같은 판정 순서: `ModuleCompleter` → 판정이 `None`이고 스템이 비면 `4-(열%4)`칸 공백 → 그 외 `console.complete`(`import os; os.pa`는 속성 완성).
-- `ModuleCompleter`가 이름 완성보다 먼저 판정하므로 `from os import pa`가 `['path']`다. 빈 리스트는 무동작이며 이름 완성으로 폴백하지 않는다.
+- `ModuleCompleter`가 이름 완성보다 먼저 판정한다. 그래서 `from os import pa`가 `['path']`다.
+- 빈 리스트는 무동작이다. 이름 완성으로 폴백하지 않는다.
 - 콤마·`as` 뒤는 마지막 이름만 스템. `;`·여러 줄·`... ` 블록·`yield from`도 모듈 완성. `... ` 블록은 이전 줄(`pending`)을 입력 앞에 붙인다.
 - 호출마다 `ModuleCompleter` **새 인스턴스**를 만든다(재사용하면 `loadPackage`·micropip 뒤 패키지를 놓친다).
 - main 사전 게이트는 커서 앞 텍스트(+pending)에 대한 **부분 문자열** `/import|from/`이다.
@@ -396,12 +402,12 @@
   - 대가: `important = ` 같은 줄의 worker 왕복 1회(약 23ms) 추가.
 - pyodide stdlib가 zip이라 원본이 잃는 `collections.abc` 등은 `_is_stdlib_module` 판정만 오버라이드한 서브클래스로 되살린다.
 
-**완료 기준**: 브라우저 129개 시나리오 통과, 3.14 pty 케이스 A01~A36 중 32개 + X01과 대조, 왕복 지연 중앙값 24.0ms. 빈 줄·`x = `의 Tab 8연타가 왕복 0회로 **32칸**. 3.14 삽입 quirk 동등(`import os.pa  # c` → `import os.pa  # cs.path`).
+**완료 기준**: 브라우저 시나리오 통과. 3.14 pty 케이스(A01~A36 중 대조 가능한 것 + X01)와 대조한다. 빈 줄·`x = `의 Tab 8연타가 왕복 0회로 **32칸**. 3.14 삽입 quirk 동등(`import os.pa  # c` → `import os.pa  # cs.path`).
 **이전 구현 상태**: 완료
 
 ### RD-016b `input()` 안 Tab
 
-**상태**: 보류. 3절 참고.
+**상태**: 보류. 3.2 참고.
 
 ### RD-016c 완성 중 Ctrl+C
 
@@ -411,17 +417,20 @@
 
 ### RD-016d 후보 선택 UI(popover)
 
-**상태**: 보류. 3절 참고.
+**상태**: 보류. 3.2 참고.
 
 ### RD-016e 미로드 pyodide 배포 패키지의 import 후보
 
-**상태**: 보류(범위 밖 확정). 3절 참고.
+**상태**: 보류(범위 밖 확정). `10-parity-deviations.md` 2절 참고.
 
 ### RD-016f 게이트 참 빈 스템 줄의 Tab 연타 손실
 
 **사용자 시나리오**: `important = ` 뒤 Tab **8연타(간격 0ms)**에 공백 **32칸**이 들어간다(동기 모드에서는 4칸만 들어갔다).
-**규칙·결정**: 왕복 중 들어온 Tab을 버리지 않고 큐에 두어 이어 처리한다. (동기 모드 실측: 간격 0ms 8연타 4칸, 30ms·100ms는 32칸. `import ` 3연타 10ms는 왕복 2회에 목록 1번 — 버려진 Tab 뒤 `lastKeyWasTab`가 남아 세 번째가 `second: true`.)
-**이전 구현 상태**: RD-021에 흡수되어 해소(브라우저에서 32칸 확인).
+**규칙·결정**: 왕복 중 들어온 Tab을 버리지 않고 큐에 두어 이어 처리한다.
+
+- 동기 모드 실측: 간격 0ms 8연타는 4칸, 30ms·100ms는 32칸.
+- 동기 모드 실측: `import ` 3연타 10ms는 왕복 2회에 목록 1번이다. 버려진 Tab 뒤 `lastKeyWasTab`가 남아 세 번째가 `second: true`가 된다.
+  **이전 구현 상태**: RD-021에 흡수되어 해소(브라우저에서 32칸 확인).
 
 ### RD-017 여러 줄 입력 제출 (붙여넣기·Shift+Enter·히스토리 재호출)
 
@@ -432,7 +441,7 @@
 - 파싱 오류가 있으면 **아무 문장도 실행하지 않는다**. 값은 **마지막 문장만** 에코한다(`1\n2\n3` → `3`).
 - 예외·`KeyboardInterrupt`·`exit()`가 나면 나머지 문장은 실행하지 않는다. 붙여넣은 탭은 보존한다.
 - 예외: 블록 입력 중(`... `)에 붙여넣은 여러 줄은 분할하지 않고 한 줄씩 흘려 넣는다(이 경우에만 블록 안 빈 줄이 블록을 끝낸다).
-- worker는 붙여넣기/Shift+Enter/히스토리 재호출을 구분할 수 없다 — 규칙은 하나다.
+- worker는 붙여넣기/Shift+Enter/히스토리 재호출을 구분할 수 없다. 규칙은 하나다.
 
 **완료 기준**: 위 시나리오 + 클래스 메서드 사이 빈 줄, 탭 들여쓰기 유지, 한 줄 입력·빈 줄·`input()` 기존 동작 유지.
 **이전 구현 상태**: 완료
@@ -484,7 +493,9 @@
 **규칙·결정**
 
 - REPL 프롬프트 읽기와 완성 요청을 **전용 `MessageChannel` 위 비동기 RPC** 하나로 옮긴다. 센티널·resume 코덱, 플래그, 우회 모듈은 전부 제거한다.
-- `input()`의 stdin 읽기는 CPython이 동기로 부르므로 **동기 경로에 남긴다**(대기 중 다른 콜백이 돌면 CPython 의미가 깨진다 — `time.sleep`을 블로킹으로 둔 것과 같은 근거).
+- `input()`의 stdin 읽기는 CPython이 동기로 부른다. 그래서 **동기 경로에 남긴다**.
+  - 대기 중 다른 콜백이 돌면 CPython 의미가 깨진다.
+  - `time.sleep`을 블로킹으로 둔 것과 같은 근거다.
 - 치르는 대가: 프롬프트 대기 중 worker 이벤트 루프가 살아 있어 asyncio 콜백이 돈다.
   - 3.14 기본 REPL은 돌 루프가 없다. `python -m asyncio`는 돈다.
   - → **`python -m asyncio` 쪽으로 정렬**(사용자 결정).
@@ -500,8 +511,12 @@
 
 - 비동기 RPC가 REPL 프롬프트 읽기의 유일한 경로다(동기 `readLine`이 proxy에 남지 않는다).
 - 가드·전역 스트림·유휴 폐기·완성 중 취소에 단위 시험(RED 확인 + 변이 검사)이 있다.
-- 브라우저 회귀가 기준선과 같다: RD-016 58/58, RD-016a 129/129, RD-012b 22/24(E1·E2), RD-012c 20/24(A1·C2·H1·J1), RD-006b 74/74, boot-press N=30 전부 복귀. Tab 왕복 지연 중앙값 25ms 안팎.
-- `test`·`check-types`·`lint` 통과(종료 시점 32파일 / 781개).
+- 브라우저 회귀가 기준선과 같다.
+  - RD-016·RD-016a·RD-006b 시나리오는 전부 통과한다.
+  - RD-012b는 E1·E2, RD-012c는 A1·C2·H1·J1만 고정 실패다.
+  - boot-press는 전부 복귀한다.
+  - Tab 왕복 지연은 25ms 안팎이다.
+- `test`·`check-types`·`lint` 통과.
 
 **이전 구현 상태**: 완료. RD-016c·RD-016f를 흡수했고 RD-012h (a)는 이후 재평가 대상으로 남았다.
 
@@ -518,7 +533,7 @@
   - main 쪽 완성이나 별도 배선이 필요하다.
   - 이 읽기는 REPL 읽기와 프롬프트 합성·취소 처리가 다르다.
 - **RD-012i `asyncio.run` 코루틴 안 중복 트레이스백**: 실작업으로 분류됐으나 착수 전(대기). 완료 기준 미확정.
-- **RD-012j `time.sleep` 대기 중 워커 CPU 점유**: Node 측정으로 `sleep(1.0)`이 벽시계 1000ms에 CPU 1115ms(기본 JSPI는 1003ms에 5ms). 눌림 지연·화면·정확성에 영향이 없는 CPU 점유만이라 재측정 비용(Node 10분 + 브라우저 50분)이 이득보다 크다. 후보: 조각을 원본 C 대신 사설 `SharedArrayBuffer`의 `Atomics.wait`로 재운다.
+- **RD-012j `time.sleep` 대기 중 워커 CPU 점유**: Node 측정으로 `sleep(1.0)`이 벽시계 1000ms에 CPU 1115ms(기본 JSPI는 1003ms에 5ms). 눌림 지연·화면·정확성에 영향이 없는 CPU 점유만이라 재측정 비용이 이득보다 크다. 후보: 조각을 원본 C 대신 사설 `SharedArrayBuffer`의 `Atomics.wait`로 재운다.
 - **RD-016d 후보 선택 UI(popover, 필터·쪽 넘김)**: 3.14 동등 밖의 UI 기능. 시나리오와 완료 기준이 정해지면 재등록.
 - **RD-012h (a) "Python 정지" 플래그**: 정확성 영향이 없는 송신기 잔류만 없애므로 문제로 드러날 때까지 미룸.
 - **readline 라이브러리 포크**: `xterm-readline` 소스를 저장소에 포팅하지 않기로 확정(npm 패키지 그대로 사용).
@@ -542,7 +557,7 @@
 
 | 파일                    | 역할                                                                                        |
 | ----------------------- | ------------------------------------------------------------------------------------------- |
-| `auto-indent.ts`        | 자동 들여쓰기 순수 계산(`nextIndentation`, `backspaceCount`, `indentUnitWidth`)             |
+| `auto-indent.ts`        | 자동 들여쓰기 순수 계산(`nextIndentation` 등)                                               |
 | `auto-indent-reader.ts` | `Readline.read()`/`readKey` 래핑. 프리필·Backspace·Shift+Enter·Ctrl+C 취소·`cancelSettling` |
 | `block-history.ts`      | `history.append` 래핑. 블록 여러 줄을 history 항목 하나로 묶음(`beginRead`/`discard`)       |
 | `history-filter.ts`     | `skipBlankHistory` — 공백만 있는 제출을 history에서 제외                                    |
@@ -558,15 +573,15 @@
 
 ### 중단(Ctrl+C)
 
-| 파일                         | 역할                                                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `interrupt-protocol.ts`      | 버퍼 슬롯 규약과 원자 연산(`signalInterrupt`, `acknowledgeInterrupt`, `readRequestSeq`, `discardPendingInterrupt`) |
-| `interrupt-sender.ts`        | main 송신기. 전송·점검·재전송 상태기계                                                                             |
-| `interrupt-buffer.ts`        | `connectInterrupts`(핸들러 설치 → 버퍼 연결), `attachInterruptBuffer`                                              |
-| `sigint-handler.ts` / `.py`  | Python SIGINT 핸들러 설치, 정지한 실행 깨우기, `time.sleep` 조각 래퍼, `formattraceback` 절단                      |
-| `interrupt-watch.ts`         | worker 감시 타이머(정지 구간 엿보기·소비, 프롬프트 유휴 폐기)                                                      |
-| `stdin-callback.ts`          | `input()` 취소(`null`)를 `KeyboardInterrupt`로 바꾸는 stdin 콜백                                                   |
-| `webloop-reraise.ts` / `.py` | WebLoop의 `KeyboardInterrupt`·`SystemExit` 재보고 억제                                                             |
+| 파일                         | 역할                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `interrupt-protocol.ts`      | 버퍼 슬롯 규약과 원자 연산(`signalInterrupt`·`acknowledgeInterrupt` 등)                       |
+| `interrupt-sender.ts`        | main 송신기. 전송·점검·재전송 상태기계                                                        |
+| `interrupt-buffer.ts`        | `connectInterrupts`(핸들러 설치 → 버퍼 연결), `attachInterruptBuffer`                         |
+| `sigint-handler.ts` / `.py`  | Python SIGINT 핸들러 설치, 정지한 실행 깨우기, `time.sleep` 조각 래퍼, `formattraceback` 절단 |
+| `interrupt-watch.ts`         | worker 감시 타이머(정지 구간 엿보기·소비, 프롬프트 유휴 폐기)                                 |
+| `stdin-callback.ts`          | `input()` 취소(`null`)를 `KeyboardInterrupt`로 바꾸는 stdin 콜백                              |
+| `webloop-reraise.ts` / `.py` | WebLoop의 `KeyboardInterrupt`·`SystemExit` 재보고 억제                                        |
 
 ### 출력(main sink + worker 전역 스트림)
 
@@ -581,16 +596,16 @@
 | 파일              | 역할                                                                           |
 | ----------------- | ------------------------------------------------------------------------------ |
 | `repl-reader.ts`  | `createReplBridge` — 꼬리 + `>>> `/`... ` 프롬프트 합성                        |
-| `stdin-reader.ts` | `createInputReader`/`createStdinBridge`/`rewindTail` — `input()` 읽기          |
+| `stdin-reader.ts` | `createInputReader`·`createStdinBridge` — `input()` 읽기                       |
 | `read-guard.ts`   | `createReadGuard(readLine, readInput)` — stdin 읽기를 활성 REPL 읽기 뒤로 미룸 |
 
 ### 완성(Tab)
 
-| 파일                         | 역할                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `tab-completion.ts`          | 순수 로직(`planTab`, `mentionsImportKeyword`, `resolveCompletion`, `formatCompletionList`) |
-| `tab-reader.ts`              | main의 Tab 가로채기, 요청 큐, 목록 재그리기                                                |
-| `complete-source.ts` / `.py` | worker 후처리(`ZipStdlibModuleCompleter`, 모듈 완성 우선 판정)                             |
+| 파일                         | 역할                                                           |
+| ---------------------------- | -------------------------------------------------------------- |
+| `tab-completion.ts`          | 순수 로직(`planTab`·`formatCompletionList` 등)                 |
+| `tab-reader.ts`              | main의 Tab 가로채기, 요청 큐, 목록 재그리기                    |
+| `complete-source.ts` / `.py` | worker 후처리(`ZipStdlibModuleCompleter`, 모듈 완성 우선 판정) |
 
 ### 세션/배선
 
