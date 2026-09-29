@@ -28,7 +28,7 @@
   - `res`를 뺀 케이스의 `screen*` 차이는 후보 열 폭(가장 긴 후보 이름)이 바뀐 열 배치 차이라 재계산할 수 없다.
     - 양쪽 화면의 단어가 모두 해당 쪽 `res`의 원소일 때만 환경 유래 표로 옮긴다.
   - 옵션 사용 사실은 출력과 `--json`의 `ignored_baseline_candidates`에 남는다.
-  - `*.meta.json`에는 적용되지 않는다.
+  - `*.meta.json`에는 적용되지 않는다. 그 파일을 지정하면 오류(종료 코드 2)로 끝난다.
 """
 import argparse
 import fnmatch
@@ -378,6 +378,9 @@ def main(argv=None):
             return 2
         if fname not in [b for b, _ in pairs]:
             print(f"오류: --ignore-baseline-candidates의 파일이 대상 목록에 없다: {fname}", file=sys.stderr)
+            return 2
+        if fname.endswith(".meta.json"):
+            print(f"오류: --ignore-baseline-candidates는 *.meta.json에 쓸 수 없다: {fname}", file=sys.stderr)
             return 2
         ignore.setdefault(fname, set()).update(lst)
     files = []

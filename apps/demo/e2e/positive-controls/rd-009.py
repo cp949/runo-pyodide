@@ -175,7 +175,7 @@ def run_scripts(scripts):
         )
         # ctrl-c-check.mjs·sleep-await-check.mjs 둘 다 `h.finish()`가 끝에 JSON 요약을 찍는다.
         # 요약의 `pageErrors`는 재보고를 포함한 목록이다. `webLoopReraises`는 그중 재보고 건수다(lib.mjs, 진단용).
-        # 아래 합산은 재보고를 두 번 센다. 0인지 여부에는 영향이 없다.
+        # 총계는 `pageErrors` 길이 그대로다. `webLoopReraises`를 더하지 않는다(더하면 재보고를 두 번 센다).
         json_line = next((l for l in reversed(lines) if l.startswith("{")), None)
         page_errors = None
         web_loop_reraises = 0
@@ -190,9 +190,7 @@ def run_scripts(scripts):
                 web_loop_reraises = parsed.get("webLoopReraises") or 0
             except Exception:
                 page_errors = None
-        total_page_errors = (len(page_errors) if isinstance(page_errors, list) else page_errors)
-        if total_page_errors is not None:
-            total_page_errors += web_loop_reraises
+        total_page_errors = len(page_errors) if isinstance(page_errors, list) else page_errors
         # sleep-await-check.mjs에만 있는 필드다. `cellResults`의 셀별 중앙값이다.
         # 양성 대조 ②·③의 신호는 PASS/FAIL이 아니라 이 값이다.
         # 스크립트가 형식·프레임만 판정하고 중앙값은 기록만 하기 때문이다(09-testing.md 9.7의 6항).
