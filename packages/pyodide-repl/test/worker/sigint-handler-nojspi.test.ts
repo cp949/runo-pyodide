@@ -6,7 +6,7 @@
  * - vitest 파일 격리라 다른 파일에 영향이 없다. `afterAll`에서 원복한다.
  * - 이 경로에서 `run_sync` 대기는 사용자 스택을 정지하지 않는다(`pyodide.ffi.can_run_sync()`가 거짓).
  *   그래서 정지한 실행 깨우기(핸들러 규칙 ③)는 대상이 없다.
- * - 중단은 핸들러 규칙 ①②④만 맡는다. 스택에 사용자 프레임이 있을 때만 `KeyboardInterrupt`를 낸다.
+ * - 중단은 핸들러 규칙 ①④만 맡는다. 스택에 사용자 프레임이 있을 때만 `KeyboardInterrupt`를 낸다.
  * - `time.sleep`은 JSPI 유무와 무관한 20ms 블로킹 조각 래퍼(`sleep-slice.py`)다. sleep 중 눌림도 조각 사이의 폴링이 끊는다.
  * - 조립은 `console-harness.ts`가 `sigint-handler.test.ts`와 공유한다.
  */
@@ -82,7 +82,7 @@ describe("JSPI 없는 경로", () => {
     expect(runner.screen.stderr).toBe("");
   });
 
-  it("바쁜 루프 중 눌림은 핸들러가 중단한다(규칙 ①②④, JSPI 무관)", async () => {
+  it("바쁜 루프 중 눌림은 핸들러가 중단한다(규칙 ①④, JSPI 무관)", async () => {
     const runner = await setup();
 
     expect(await runner.run(execSource(`press()\n${BUSY}`))).toEqual(READY);

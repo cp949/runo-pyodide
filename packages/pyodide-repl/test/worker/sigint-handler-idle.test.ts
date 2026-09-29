@@ -836,7 +836,7 @@ pyodide.ffi.run_sync is pyodide.webloop.run_sync and pyodide.ffi.run_sync.__code
 });
 
 // 가정이 깨지면 정지한 실행 깨우기만 건너뛴다.
-// 핸들러 규칙 ①②④(바쁜 루프 중단)와 `time.sleep` 조각 중단은 그대로다.
+// 핸들러 규칙 ①④(바쁜 루프 중단)와 `time.sleep` 조각 중단은 그대로다.
 describe("설치 가드", () => {
   // 가드에 걸린 설치에서도 남아 있어야 하는 것을 단언한다. 바쁜 루프 중단과 `time.sleep` 조각 중단이다.
   async function expectStillInterruptible(runner: Runner): Promise<void> {

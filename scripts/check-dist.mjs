@@ -4,8 +4,8 @@
 // 사용: node scripts/check-dist.mjs [--allow-sync-bridge] <dist 폴더>...   (패키지 폴더에서는 `node ../../scripts/check-dist.mjs dist`)
 // `--allow-sync-bridge`는 dom-bridge(RD-023, ADR-0006) 전용이다. 코드 파일의 coincident 금지 문자열 검사를 끄는 대신 CSP 정적 규칙을 건다:
 // 코드 파일(`.mjs`·`.ts`·`.tsx` 등, 시험·소스맵 제외)의 coincident 모듈 지정자는 `coincident/window/main`·`coincident/window/worker`
-// 또는 포크 패키지 `@cp949/runo-coincident/window/main`·`@cp949/runo-coincident/window/worker`(2026-09-28, coincident 4.1.1 대체)뿐이고
-// (`reflected-ffi`·포크 `@cp949/runo-reflected-ffi`도 2026-09-28에 대체됐고 둘 다 직접 import하지 않는다), 주석을 뺀 코드에
+// 또는 포크 패키지 `@cp949/runo-coincident/window/main`·`@cp949/runo-coincident/window/worker`(coincident 4.1.1을 대체한 포크)뿐이고
+// (`reflected-ffi`는 포크 `@cp949/runo-reflected-ffi`로 대체했고, 둘 다 직접 import하지 않는다), 주석을 뺀 코드에
 // `evaluate`·`serviceWorker`·`coincident/sync`·`window.import`가 없어야 한다. 또 `.../window/worker`를 import하는 `.mjs`는 그보다
 // **앞서** `bootstrap-observer-install` 모듈(부트스트랩 관찰기 설치, 별도 파일)을 import해야 한다: 관찰 리스너가 coincident의
 // 부트스트랩 리스너보다 먼저 등록돼야 메시지를 본다(번들러가 외부 import를 위로 올리면 순서가 뒤집힌다). 코드도 소스맵도 아닌
@@ -17,15 +17,14 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 // 부분 문자열 검사라 포크 이름(`@cp949/runo-coincident`·`@cp949/runo-reflected-ffi`)도 그대로 잡는다 — 둘 다 옛 이름을 부분
-// 문자열로 담고 있다(2026-09-28 포크 전환, `docs/design/16-dom-bridge.md` 16.1).
+// 문자열로 담고 있다(`docs/design/16-dom-bridge.md` 16.1).
 const FORBIDDEN = ["coincident", "reflected-ffi"];
 const ALLOW_SYNC_BRIDGE_FLAG = "--allow-sync-bridge";
 
 /**
  * CSP(`worker-src 'self'` 등)에서 위반을 내지 않는 coincident 진입점(canvas 저장소 실측 F23). 이 밖의 coincident 지정자는 위반이다.
- * `@cp949/runo-coincident/*`는 coincident 4.1.1을 대체한 포크 패키지 이름이다(2026-09-28, `docs/design/16-dom-bridge.md`
- * "coincident 4.1.1 → 포크 전환"). 옛 이름과 새 이름
- * 둘 다 같은 규칙을 받는다 — 소비자가 어느 쪽을 쓰든(이 저장소는 새 이름만 쓴다) 같은 CSP 허용선을 강제한다.
+ * `@cp949/runo-coincident/*`는 coincident 4.1.1을 대체한 포크 패키지 이름이다(`docs/design/16-dom-bridge.md` 16.1).
+ * 옛 이름과 새 이름 둘 다 같은 규칙을 받는다 — 소비자가 어느 쪽을 쓰든(이 저장소는 새 이름만 쓴다) 같은 CSP 허용선을 강제한다.
  */
 const CSP_ALLOWED_SPECIFIERS = new Set([
   "coincident/window/main",
@@ -47,7 +46,7 @@ function isCoincidentWorkerSpecifier(specifier) {
     (name) => specifier === `${name}/window/worker`,
   );
 }
-/** reflected-ffi 계열로 취급하는 패키지 이름(옛 이름·포크 이름, 2026-09-28 전환). dom-bridge는 둘 다 직접 import하지 않는다. */
+/** reflected-ffi 계열로 취급하는 패키지 이름(옛 이름·포크 이름). dom-bridge는 둘 다 직접 import하지 않는다. */
 const REFLECTED_FFI_PACKAGE_NAMES = ["reflected-ffi", "@cp949/runo-reflected-ffi"];
 /** `specifier`가 reflected-ffi 계열(옛 이름 또는 포크 이름) 지정자인가. */
 function isReflectedFfiSpecifier(specifier) {
@@ -88,7 +87,7 @@ const CSP_FORBIDDEN_TOKENS = [
  * 블록 주석과 줄 주석을 지운다. 두 주석을 한 정규식의 대안으로 두어 앞에서부터 먼저 시작한 주석 하나씩 지운다: 줄 주석 속 `/*`는
  * 줄 주석과 함께 사라지고(블록 주석 시작으로 잡아 다음 `*\/`까지 실제 코드를 지우지 않는다), 블록 주석 속 `//`는 블록 주석과 함께
  * 사라진다. 줄 주석은 줄 머리나 공백 뒤의 `//`만 본다(`https://` 같은 문자열 속 `//`를 주석으로 오인해 뒤 코드를 가리지 않으려는
- * 것이다). 문자열 리터럴을 파싱하는 것은 아니므로 코드의 문자열 속 `/*`·` //`가 있으면 어긋날 수 있다(이슈 `dom-bridge-followups/01`).
+ * 것이다). 문자열 리터럴을 파싱하는 것은 아니므로 코드의 문자열 속 `/*`·` //`가 있으면 어긋날 수 있다.
  */
 function stripComments(text) {
   return text.replace(

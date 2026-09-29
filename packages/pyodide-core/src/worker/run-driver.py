@@ -32,7 +32,7 @@ def _is_interrupt(exc):
     # `IdleInterrupt`는 정지한 콘솔 task를 깨울 때 `sigint-handler.py`가 올리는 표지 예외다(KeyboardInterrupt의 하위 클래스가
     # 아니다: Task가 KeyboardInterrupt로 끝나면 WebLoop가 다시 던진다). 공개 이름이 없어 클래스 이름으로 알아본다.
     # 판정을 `sigint-handler.py`에서 받아 오지 않는다: 두 파일은 별도 namespace라 import 경로가 없고, TS 전달·모듈 등록은
-    # 이 결합 하나보다 비싸다(arch-review 04 후보 5 기각, `docs/traps/TRP-040`).
+    # 이 결합 하나보다 비싸다(`docs/traps/TRP-040`).
     return isinstance(exc, KeyboardInterrupt) or type(exc).__name__ == "IdleInterrupt"
 
 

@@ -43,7 +43,7 @@
 #     핸들러가 소비한 SIGINT는 `pending`으로 표시해 두었다가 재개하는 `run_sync` 래퍼가 올린다(TRAP-08).
 #   - 이벤트 루프가 비어 폴링이 아예 일어나지 않는 구간은 JS 감시 타이머가 `interrupt_idle()`을 불러 같은 일을 한다.
 #   - 설치 가드 3종에 걸리면 깨우기만 건너뛴다(`active`가 늘 `None`이라 `interrupt_idle()`은 언제나 거짓이고 위 규칙
-#     ①②④는 그대로다). 어긋난 이름마다 `report('run-sync', 이름)`을 부른다.
+#     ①④는 그대로다). 어긋난 이름마다 `report('run-sync', 이름)`을 부른다.
 #   - `pyodide.webloop.__file__`이 `pyodide/webloop.py`로 끝나지 않으면 `report('webloop-filename', 경로)`를 부른다: `formattraceback`이
 #     `webloop.py` 프레임을 떼는 규칙(`is_webloop`)이 무효가 될 뿐 끌 기능은 없다.
 import asyncio
@@ -180,7 +180,7 @@ def install(console, ack, seq, report, extra_own_codes=()):
 
     problems = find_problems(console)
     if problems:
-        # 깨우기 없이 규칙 ①②④만 남는다: active가 None이라 interrupt_idle()은 아무것도 하지 않는다.
+        # 깨우기 없이 규칙 ①④만 남는다: active가 None이라 interrupt_idle()은 아무것도 하지 않는다.
         for problem in problems:
             report('run-sync', problem)
     else:

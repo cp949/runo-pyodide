@@ -23,7 +23,6 @@ Ctrl+C(0x03)가 자식의 포그라운드 프로세스 그룹으로 가는 이�
 - 부모가 물려준 SIGINT 처분(SIG_IGN 등)이 남지 않게 exec 전에 `signal.signal(SIGINT, SIG_DFL)`을 건다.
 - 근거는 09-testing.md 9.5의 3번이다.
 
-이전 구현의 `pty_input*.py`(RD-006a, 09-testing.md 9.6.3)를 늘린 것이다.
 케이스마다 여러 단계를 보낸다.
 
 사용: python3 pty_cancel.py > raw.txt

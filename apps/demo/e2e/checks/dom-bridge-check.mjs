@@ -1,5 +1,5 @@
 // RD-023(`@cp949/runo-pyodide-dom-bridge` 실행창)을 실제 브라우저로 검증한다. 데모는 `?view=dom-bridge`다. 규칙은 docs/design/16-dom-bridge.md.
-// 실제 xterm 6, 실제 브라우저, 실제 CDN pyodide, 실제 coincident 4.1.1을 쓴다.
+// 실제 xterm 6, 실제 브라우저, 실제 CDN pyodide, 실제 포크(`@cp949/runo-coincident`)를 쓴다.
 // S1~S7은 RD-023 스파이크의 시나리오다. `native: false`와 늦은 import 양성 대조를 더했다.
 //
 // 조작과 판정:
