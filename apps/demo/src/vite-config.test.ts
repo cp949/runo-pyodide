@@ -1,8 +1,11 @@
 /**
  * `vite.config.ts`의 cross-origin isolation·worker 설정 시험.
- * 이전 구현은 COOP/COEP를 dev 서버에만 걸어 preview·빌드 산출물이 비격리였고,
- * worker 기본 형식(iife)은 top-level await가 든 worker의 프로덕션 빌드를 깨뜨렸다.
- * 브라우저 없이 두 회귀를 막는다(ADR-0004, 00-architecture.md 4.1·6절).
+ * 브라우저 없이 설정 객체만 읽는다. 두 회귀를 막는다.
+ *
+ * - COOP/COEP: 이전 구현은 dev 서버에만 걸어 preview·빌드 산출물이 비격리였다.
+ * - worker 형식: `es`를 유지한다. 기본 iife 빌드는 현재 성공하므로 이 시험은 형식이 조용히 바뀌는 것을 막는 고정이다.
+ *
+ * 근거는 `vite.config.ts` 주석. 규칙은 ADR-0004, 00-architecture.md 4.1·6절.
  */
 import { describe, expect, test } from "vitest";
 import config from "../vite.config";

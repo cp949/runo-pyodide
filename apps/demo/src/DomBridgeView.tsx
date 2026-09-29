@@ -1,4 +1,5 @@
-// `./force-non-native`는 coincident를 가져오는 어떤 모듈보다 먼저 평가돼야 한다(`?native=0` 시험 훅, `TRP-066`). 첫 import를 유지한다.
+// `./force-non-native`는 coincident를 가져오는 어떤 모듈보다 먼저 평가돼야 한다(`?native=0` 시험 훅, TRP-066).
+// 첫 import를 유지한다.
 import "./force-non-native";
 import { detectRuntimeSupport } from "@cp949/runo-pyodide-core";
 import {
@@ -16,14 +17,22 @@ import { createDomBridgeWorker } from "./create-dom-bridge-worker";
 import { DomBridgeCoreView } from "./DomBridgeCoreView";
 import { log } from "./dom-bridge-log";
 
-/** `run()`이 끝났을 때 `result`에 보여 줄 문자열(`RunnerView`와 같은 형태). */
+/** `run()`이 실패했을 때 `result`에 보여 줄 문자열(`RunnerView`와 같은 형태). 거부는 `{"rejected":"<reason>"}`, 그 밖은 `{"error":"<message>"}`. */
 function describeError(error: unknown): string {
   if (error instanceof RunRejectedError)
     return JSON.stringify({ rejected: error.reason });
   return JSON.stringify({ error: String(error) });
 }
 
-/** dom-bridge를 쓸 수 없는 이유(사용자에게 보여 준다). `isDomBridgeSupported()`가 false인 세 원인을 구분한다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`). */
+/**
+ * dom-bridge를 쓸 수 없는 이유를 사용자에게 보여 줄 문구로 돌려준다.
+ * `isDomBridgeSupported()`가 false인 세 원인을 구분한다.
+ * - pyodide 런타임 미지원.
+ * - cross-origin isolation 꺼짐.
+ * - growable SharedArrayBuffer 생성 불가.
+ *
+ * 규칙은 docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md.
+ */
 function unsupportedReason(): string {
   const support = detectRuntimeSupport();
   if (support === "unsupported")
@@ -34,10 +43,19 @@ function unsupportedReason(): string {
 }
 
 /**
- * dom-bridge 실행창 데모(`?view=dom-bridge`, RD-023). `RunnerView`와 같은 plain 조작 요소(코드 입력·`run`·`stop`·`reset`·`clear`·상태·
- * 결과)에 `<canvas>`를 더한다. Python은 `from runo.browser import document`로 이 페이지의 `document`·`window`를 동기로 다룬다
- * (`input()`·출력·Ctrl+C는 core 채널). `isDomBridgeSupported()`가 false면 worker를 만들지 않고 이유만 보인다. 쿼리 `?gate=off`는
- * 이 검사를 건너뛰는 시험 훅이다(worker가 `load-failed`로 실패하는 경로를 보려면 worker가 만들어져야 한다). 쿼리 `?runner=core`는 `<PythonRunner>` 대신 core `createRunner`를 직접 쓰는 순서 시험 화면(`DomBridgeCoreView`)을 그린다.
+ * dom-bridge 실행창 데모(`?view=dom-bridge`, RD-023).
+ *
+ * 화면 구성:
+ * - `RunnerView`와 같은 plain 조작 요소: 코드 입력, `run`·`stop`·`reset`·`clear`, 상태, 결과.
+ * - `draw` 버튼과 `<canvas>`를 더한다.
+ * - Python은 `from runo.browser import document`로 이 페이지의 `document`·`window`를 동기로 다룬다.
+ * - `input()`·출력·Ctrl+C는 core 채널로 간다.
+ *
+ * 쿼리:
+ * - `?gate=off`: `isDomBridgeSupported()` 검사를 건너뛰는 시험 훅. worker가 `load-failed`로 실패하는 경로를 보려면 worker를 만들어야 한다.
+ * - `?runner=core`: `<PythonRunner>` 대신 core `createRunner`를 직접 쓰는 순서 시험 화면(`DomBridgeCoreView`).
+ *
+ * `isDomBridgeSupported()`가 false면 worker를 만들지 않고 이유만 보인다.
  * REPL과의 조합은 지원하지 않는다(ADR-0006).
  */
 export function DomBridgeView({ fit }: { fit: boolean }) {
@@ -64,7 +82,7 @@ export function DomBridgeView({ fit }: { fit: boolean }) {
   );
 }
 
-/** canvas(`#dom-canvas`)에 파란 사각형을 그리는 고정 Python 코드(`draw` 버튼용). */
+/** `draw` 버튼이 실행하는 고정 Python 코드. `#dom-canvas`에 파란 사각형을 그린다. */
 const DRAW_CODE = [
   "from runo.browser import document",
   'ctx = document.getElementById("dom-canvas").getContext("2d")',
@@ -73,13 +91,17 @@ const DRAW_CODE = [
   'print("drawn", flush=True)',
 ].join("\n");
 
+/**
+ * `<PythonRunner>` + plain 조작 요소로 dom-bridge를 실행하는 화면.
+ * 사건마다 `dom-bridge-log.ts`의 이벤트 열에 기록한다(`runStart`·`drawStart`·`stop`·`outcome`·`status`·`out`).
+ */
 function DomBridgeRunner({ fit }: { fit: boolean }) {
   const runnerRef = useRef<PythonRunnerHandle>(null);
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<RunnerStatus>("loading");
   const [result, setResult] = useState("");
 
-  /** `code`를 실행하고 결과를 `result`에 반영한다(`run`·`draw` 공통). */
+  // `source`를 실행하고 결과를 `result`에 반영한다. `run`·`draw`가 공통으로 쓴다. `label`은 시작 사건 이름이다.
   const runCode = (label: string, source: string) => {
     const runner = runnerRef.current;
     if (runner === null) return;
