@@ -1,18 +1,35 @@
-// RD-014 브라우저 검증. 출처 RD-014에서 이관(RD-018).
-// 이전 RD-020 A0~J1 25개 + RD-006b X2·X3
-// (RD-008 건너뜀 ID) + 붙여넣기 2건(P1·P2)을 이식한다.
-// ONLY=<절 이름,…>로 절만 분리 실행한다: 초기,A,B,C,D,E,F,G,H,I,J,X,P
-// 사용: node block-history-check.mjs <devURL> [previewURL]
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// RD-014(블록 입력을 history 항목 하나로)를 실제 브라우저로 검증한다. 규칙은 docs/design/06-editing.md 6.4.
 //
-// 절 사이는 각 절 시작에서 reset()(ctrlC → waitPrompt(">>>") → clear())으로 정리한다. reset()의
-// Ctrl+C는 커밋된 history 항목을 지우지 않고 열려 있던 읽기만 취소한다 — 그래서 G가 F의 블록을,
-// J가 I의 블록을 그대로 이어 참조할 수 있다(절이 서로 독립이 아니라 한 세션의 history 흐름을
-// 공유한다). F·G는 계획대로 resetSession()으로 절을 연다(exit()·세션 리셋 시나리오 자체가 절의
-// 본문이라 reset()으로는 전제를 만들 수 없다).
+// 절 구성(확인 이름의 첫 글자가 절 이름이다):
+// - A: 블록을 끝낸 뒤 ↑는 블록 전체(한 항목)를 돌려주고 Enter 1회로 다시 실행된다.
+// - B: Ctrl+C로 취소한 블록은 history에 남지 않는다(첫 줄 포함).
+// - C: `... ` 입력줄에서 ↑는 history를 탐색하지 않는다.
+// - D: 괄호 안의 빈 줄이 보존된다.
+// - E: 문법 오류나 예외로 끝난 블록도 전체가 남는다.
+// - F: `exit()`로 끝난 블록은 세션 리셋 뒤에도 남는다.
+// - G: 입력을 기다리던 블록은 세션 리셋 때 버려진다.
+// - H: 한 줄 입력은 그대로 남고 빈 제출·공백 제출은 남지 않는다.
+// - I: Shift+Enter로 만든 여러 줄 입력이 블록 항목에 이어 붙는다.
+// - J: `input()`은 블록 항목에 영향을 주지 않는다.
+// - X: 꼬리 붙은 프롬프트(`012>>> `)에서도 같다(RD-006b 이식, RD-008이 건너뛴 ID).
+// - P: 붙여넣기.
+//
+// 실행 순서: A부터 P까지 한 세션에서 이어 돈다. 절이 서로 독립이 아니라 history 흐름을 공유한다.
+// - 각 절은 시작에서 `reset()`(Ctrl+C, 프롬프트, Ctrl+L)으로 정리한다.
+// - `reset()`의 Ctrl+C는 커밋된 history 항목을 지우지 않는다. 열려 있던 읽기만 취소한다.
+// - 그래서 G가 F의 블록을, J가 I의 블록을 이어 참조한다.
+// - F·G는 `resetSession()`으로 절을 연다. `exit()`와 세션 리셋이 절의 본문이라 `reset()`으로는 전제를 만들 수 없다.
+//
+// dev와 preview를 한 프로세스에서 돈다. preview는 초기·A·B·C만 돈다(RD-044 K6).
+// 사용법·`ONLY`·결과 파일 이름은 apps/demo/e2e/README.md.
 import { open, same, show } from "../lib.mjs";
 import { checkEntry, exitWith, runDevPreview, serverLabel } from "../check-runner.mjs";
 
+/**
+ * 서버 하나(dev 또는 preview)에서 `ONLY`로 고른 확인을 위 순서대로 실행하고 결과 JSON을 남긴다.
+ * `ONLY`는 `lib.mjs` `step()`의 접두어 검사로 확인 이름을 거른다. 초기는 항상 실행한다.
+ * 결과 JSON의 `pasteFallback`에 합성 paste 이벤트로 붙여넣은 확인 ID를 남긴다.
+ */
 async function run(url) {
   const h = await open(url);
   const {
@@ -20,18 +37,17 @@ async function run(url) {
     tail, rows, lastLine, focus, statusText, ctrlC, resetPrompt,
   } = h;
 
-  /**
-   * 다음 확인을 깨끗한 `>>> `에서 시작한다. 앞 확인이 단언 실패로 도중에 멈추면(`... ` 등 열린 읽기가
-   * 남는다) `clear()`(Ctrl+L)만으로는 화면만 지워질 뿐 읽기가 안 끝나 다음 확인의 `clear()`가 시간
-   * 초과한다 — 먼저 Ctrl+C로 취소한다(비어 있는 `>>> `에서도 안전, RD-008 B0와 같다).
-   */
+  // 다음 확인을 깨끗한 `>>> `에서 시작한다.
+  // 앞 확인이 단언 실패로 도중에 멈추면 `... ` 같은 열린 읽기가 남는다.
+  // 그때 `clear()`(Ctrl+L)만으로는 화면만 지워지고 읽기가 안 끝나 다음 확인의 `clear()`가 시간 초과한다.
+  // 그래서 먼저 Ctrl+C로 취소한다. 빈 `>>> `에서도 안전하다(prompt-cancel-check.mjs B0과 같다).
   async function reset() {
     await ctrlC();
     await waitPrompt(">>>", 8000);
     await page.waitForTimeout(250); // 취소 직후의 재그리기가 비동기라 바로 Ctrl+L을 누르면 놓친다
     await clear();
   }
-  /** 리셋 버튼을 누르고 새 세션의 첫 프롬프트까지 기다린다(TRP-024: 안내 줄 개수가 아니라 status로 판정). */
+  // 리셋 버튼을 누르고 새 세션의 첫 프롬프트까지 기다린다. 끝은 안내 줄 개수가 아니라 status로 판정한다(TRP-024).
   async function resetSession() {
     await page.click('[data-testid="reset"]');
     await waitStatus(["loading"], "리셋: loading 상태");
@@ -40,13 +56,14 @@ async function run(url) {
     await focus();
     await waitPrompt(">>>", 30000);
   }
-  /** 입력 줄을 지우고(Ctrl+U) 빈 줄을 제출해 `>>> `로 돌아온다(절 안에서 recall 단언 뒤 다음 단언 전 정리용). */
+  // 입력 줄을 지우고(Ctrl+U) 빈 줄을 제출해 `>>> `로 돌아온다. 절 안에서 recall 단언과 다음 단언 사이를 정리한다.
   async function navReset() {
     await press("Control+u");
     await enter();
     await waitPrompt(">>>", 8000);
   }
 
+  // 합성 paste 이벤트 경로로 붙여넣은 확인 ID. 판정이 아니라 기록이다(결과 JSON `pasteFallback`).
   const pasteFallback = [];
 
   await step("초기", async () => {
@@ -63,10 +80,10 @@ async function run(url) {
     await type("for i in range(2):");
     await enter();
     await waitPrompt("...", 8000);
-    await type("print(i)"); // 프리필(4칸) 위에 그대로 친다(RD-013 프리필, 직접 들여쓰기 치지 않음)
+    await type("print(i)"); // 프리필(4칸) 위에 그대로 친다(RD-013). 들여쓰기를 직접 치지 않는다.
     await enter();
     await waitPrompt("...", 8000);
-    await enter(); // 프리필만 있는 빈 줄 — 블록 종료
+    await enter(); // 프리필만 있는 빈 줄. 블록이 끝난다.
     await waitPrompt(">>>", 8000);
     const t = await tail(3);
     if (!same(t, ["0", "1", ">>>"])) throw new Error(show(t));
@@ -166,7 +183,7 @@ async function run(url) {
     await type("x = [");
     await enter();
     await waitPrompt("...", 8000);
-    await enter(); // 괄호가 안 닫혀 계속 `... `
+    await enter(); // 괄호가 안 닫혀 계속 `... `가 나온다.
     await waitPrompt("...", 8000);
     await type("1]");
     await enter();
@@ -247,7 +264,7 @@ async function run(url) {
     await waitPrompt("...", 8000);
     await type("print(9)");
     await enter();
-    await waitPrompt("...", 8000); // 아직 블록이 안 닫힌 채 대기 중
+    await waitPrompt("...", 8000); // 블록이 안 닫힌 채 입력을 기다린다.
     await resetSession();
     await press("ArrowUp");
     await page.waitForTimeout(300);
@@ -263,7 +280,7 @@ async function run(url) {
     await waitPrompt(">>>", 8000);
     await enter();
     await waitPrompt(">>>", 8000);
-    await page.keyboard.type("   "); // 공백뿐 — lib.mjs의 type()은 대기 없이 바로 돌아온다
+    await page.keyboard.type("   "); // 공백뿐이다. `lib.mjs`의 `type()`은 대기 없이 바로 돌아온다.
     await page.waitForTimeout(300);
     await enter();
     await waitPrompt(">>>", 8000);
@@ -281,10 +298,10 @@ async function run(url) {
     await waitPrompt("...", 8000);
     await type("print(1)");
     await press("Shift+Enter");
-    await type("print(2)"); // 둘째 줄도 프리필 위에 그대로 친다
+    await type("print(2)"); // 둘째 줄도 프리필 위에 그대로 친다.
     await enter();
     await waitPrompt("...", 8000);
-    await enter(); // 빈 줄로 블록 종료
+    await enter(); // 빈 줄로 블록이 끝난다.
     await waitPrompt(">>>", 8000);
     const t = await tail(3);
     if (!same(t, ["1", "2", ">>>"])) throw new Error(show(t));
@@ -313,7 +330,7 @@ async function run(url) {
     if (!same(t, [">>> if True:", "    print(1)", "    print(2)"])) throw new Error(show(t));
   });
 
-  // ── X(RD-006b 이식). 블록 재호출·재실행 뒤 프롬프트가 출력 꼬리를 물고 있어도 같다. ──
+  // ── X(RD-006b 이식, RD-008이 건너뛴 ID). 블록 재호출·재실행은 프롬프트가 출력 꼬리를 물고 있어도 같다. ──
   await step("X X1 `012>>> ` 프롬프트가 뜬다", async () => {
     await reset();
     await type("for i in range(3):");
@@ -322,7 +339,7 @@ async function run(url) {
     await type('print(i, end="")');
     await enter();
     await waitPrompt("...", 8000);
-    await enter(); // 빈 줄 — 블록 종료·실행, 개행 없는 출력이 프롬프트와 한 행에 붙는다
+    await enter(); // 빈 줄. 블록이 끝나 실행되고, 개행 없는 출력이 프롬프트와 한 행에 붙는다.
     await waitPrompt("012>>>", 8000);
     const last = await lastLine();
     if (last !== "012>>>") throw new Error(show(last));
@@ -342,7 +359,7 @@ async function run(url) {
     await resetPrompt();
   });
 
-  // ── P(확정 4). 붙여넣기는 개행을 문자 그대로(LF) 받아 xterm.js의 LF→CR 전처리에 의존한다(남은 위험). ──
+  // ── P. 붙여넣기는 개행을 문자 그대로(LF) 받아 xterm.js의 LF→CR 전처리에 의존한다(남은 위험). ──
   await step("P P1 `... `에서 붙여넣은 여러 줄이 top-level 문장까지 블록에 이어진다", async () => {
     await reset();
     await type("for i in range(2):");
@@ -359,13 +376,11 @@ async function run(url) {
     const t = await tail(4);
     if (!same(t, [">>> for i in range(2):", "    print(i)", "", "x = 1"])) throw new Error(show(t));
   });
-  // 계획(RD-014 그릴링 확정 4)은 이 붙여넣기가 블록을 "열어 둔 채" 끝나 다음
-  // `... ` 읽기로 이어질 것을 기대했다. 실측 결과 다르다: 실제 `push()`(worker/console.ts
-  // `runLine` → `pyconsole.push(source)`)는 개행이 든 하나의 제출 텍스트를 항상 그 자리에서
-  // 최종 판정한다 — 계속(`... `)으로 넘어가는 경우가 없다(같은 전제로 시도한 괄호 미종결·삼중
-  // 따옴표 미종결·괄호 함수 호출도 전부 즉시 SyntaxError로 판정됐다).
-  // 그래서 이 절은 계획의 `... ` 대기 대신 실제로 벌어지는 일(즉시 실행, 그래도 한 항목으로
-  // 기록됨)을 확인한다.
+  // `>>> `에서 붙여넣은 여러 줄은 블록을 열어 둔 채 `... ` 읽기로 이어지지 않는다(실측).
+  // 실제 `push()`(packages/pyodide-repl/src/worker/console.ts `runLine`이 `pyconsole.push(source)`를 부른다)는
+  // 개행이 든 제출 텍스트 하나를 그 자리에서 최종 판정한다. 계속(`... `)으로 넘어가는 경우가 없다.
+  // 괄호 미종결·삼중 따옴표 미종결·괄호 함수 호출도 즉시 SyntaxError로 판정됐다.
+  // 그래서 이 확인은 `... ` 대기가 아니라 실제 동작을 본다. 즉시 실행되고, 한 항목으로 기록된다.
   await step("P P2(실측) `>>> `에서 붙여넣은 여러 줄은 즉시 완결되지만 한 항목으로 기록된다", async () => {
     await reset();
     await type("q = 0");
@@ -374,7 +389,7 @@ async function run(url) {
     const { usedFallback } = await paste("for i in range(2):\n    print(i)");
     if (usedFallback) pasteFallback.push("P2");
     await enter();
-    await waitPrompt(">>>", 8000); // 계획은 `...`를 기대했으나 실제로는 바로 `>>>`로 완결된다
+    await waitPrompt(">>>", 8000); // `...`가 아니라 바로 `>>>`로 완결된다.
     const out = await tail(3);
     if (!same(out, ["0", "1", ">>>"])) throw new Error(`출력 불일치(실측) ${show(out)}`);
     await press("ArrowUp");
@@ -393,7 +408,7 @@ async function run(url) {
 
 const { url: devUrl, previewUrl } = checkEntry();
 
-// preview는 초기·A·B·C 절만 돈다(계획, K6 선언 목록).
+// preview는 아래 절만 돈다. 사용자 `ONLY`가 있으면 이 목록과의 교집합만 돈다(RD-044 K6).
 const ok = await runDevPreview({
   url: devUrl,
   previewUrl,

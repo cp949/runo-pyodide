@@ -1,29 +1,35 @@
 /**
- * node N=30 통계(RD-009 완료 기준). 실제 pyodide(node)에 저장소 worker 모듈을 `boot.ts`와 같은
- * 순서로 배선하고(`createConsole` → `attachRuntime`(WebLoop 재보고 억제 포함) → `createSubmissionRunner`),
- * 별도 스레드(core `test/roles/interrupt-presser.ts`)가 저장소 송신 프로토콜(`signalInterrupt`)로 눌림을 쓴다.
- * `--mode jspi|nojspi` × 5 프로그램 × N=30, 눌림 시각은 300~3000ms 균등 무작위(시행마다 다시 뽑는다).
+ * 유휴 sleep 중 Ctrl+C의 node N=30 통계(RD-009 완료 기준).
+ * - 실제 pyodide(node)에 저장소 worker 모듈을 `boot.ts`와 같은 순서로 배선한다.
+ *   `createConsole` → `attachRuntime`(WebLoop 재보고 억제 포함) → `createSubmissionRunner`.
+ * - 별도 스레드(core `test/roles/interrupt-presser.ts`)가 저장소 송신 프로토콜(`signalInterrupt`)로 눌림을 쓴다.
+ * - `--mode jspi|nojspi` × 5 프로그램 × N=30이다.
+ * - 눌림 시각은 300~3000ms 균등 무작위이며 시행마다 다시 뽑는다.
+ *
  * 출처 RD-009에서 이관(RD-018).
+ * 실행법·판정선은 `README.md`다.
  *
- * 실행(레포 루트에서):
- *   H1=packages/pyodide-testkit/src/ts-resolve-hook.mjs
- *   H2=apps/demo/e2e/node/rd-009/py-raw-hook.mjs
- *   node --import $H1 --import $H2 apps/demo/e2e/node/rd-009/sleep-stats.mjs --mode jspi --n 30
+ * `--import` 훅:
+ * - `ts-resolve-hook.mjs`가 확장자 없는 상대 import와 `.py?raw`를 푼다.
+ * - `py-raw-hook.mjs`도 `?raw`를 푼다. 실측: `ts-resolve-hook.mjs` 하나만 등록해도 `console.ts`가 로드된다.
  *
- * `--import` 순서가 중요하다: `ts-resolve-hook.mjs`(확장자 없는 상대 import 해석)를 먼저, `py-raw-hook.mjs`(`.py?raw`
- * 텍스트 해석)를 **나중에** 등록해야 한다(node 훅 체인은 스택이라 나중 등록이 먼저 실행된다). 순서가 바뀌면
- * `ts-resolve-hook.mjs`의 확장자 정규식이 `?raw` 쿼리 문자열을 모르고 `.py?raw.ts`로 잘못 늘린다(README 참고).
+ * 모드:
+ * - `nojspi`는 `loadPyodide()` 전에 `WebAssembly.Suspending`·`promising`·`Suspender`를 지운다.
+ * - vitest `sigint-handler-nojspi.test.ts`와 같은 방법이다.
  *
- * `--mode nojspi`는 `loadPyodide()` 전에 `WebAssembly.Suspending`·`promising`·`Suspender`를 지운다(vitest
- * `sigint-handler-nojspi.test.ts`와 같은 방법). 프로그램: `sleep5` = `time.sleep(5)`, `loopXX` =
- * `while True: time.sleep(<초>)`(`01`→0.1, `002`→0.02, `0015`→0.015, `001`→0.01). 각 시행은 `started()`를 먼저
- * 실행해 presser 스레드에 "Python이 들어갔다"를 알리고, presser는 그 시각 기준 무작위 지연 뒤 `signalInterrupt`를 쓴다.
+ * 프로그램:
+ * - `sleep5`: `time.sleep(5)`.
+ * - `loopXX`: `while True: time.sleep(<초>)`. `01`→0.1, `002`→0.02, `0015`→0.015, `001`→0.01.
+ * - 각 시행은 `started()`를 먼저 실행해 presser 스레드에 "Python이 들어갔다"를 알린다.
+ * - presser는 그 시각 기준 무작위 지연 뒤 `signalInterrupt`를 쓴다.
  *
- * `--dry`(양성 대조): 저장소 송신 프로토콜을 통째로 건너뛰어(presser 스레드를 아예 띄우지 않는다) 각 프로그램을
- * **유한** 형태(무한 `while True` 대신 총 실행 시간이 비슷한 `for` 상한)로 돌려 눌림 없이 완주시킨다. `screen.stderr`가
- * 비어 있으면(트레이스백 없음) "중단 없음"이다 — 하니스가 완주와 중단을 실제로 구별하는지 증명한다(RD-007
- * `poll-overhead.mjs` 류의 `--mutate` 양성 대조와 같은 목적, 다만 `interrupt-presser.ts`를 고치지 않으므로 신호를
- * 아예 보내지 않는 쪽으로 구현했다).
+ * `--dry`(양성 대조):
+ * - 저장소 송신 프로토콜을 통째로 건너뛴다. presser 스레드를 띄우지 않는다.
+ * - 각 프로그램을 유한 형태로 돌려 눌림 없이 완주시킨다. 무한 `while True` 대신 총 실행 시간이 비슷한 `for` 상한을 쓴다.
+ * - `screen.stderr`가 비어 있으면(트레이스백 없음) "중단 없음"이다.
+ * - 하니스가 완주와 중단을 실제로 구별하는지 증명한다.
+ * - RD-007 `press-loss.mjs`의 `--mutate` 양성 대조와 같은 목적이다.
+ * - `interrupt-presser.ts`를 고치지 않으므로 신호를 아예 보내지 않는 쪽으로 구현했다.
  */
 import { Worker } from "node:worker_threads";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -32,6 +38,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 // apps/demo/e2e/node/rd-009/ 기준 5단계 위가 레포 루트다.
+/** `packages/pyodide-repl/` 폴더 URL. 소스 모듈 import의 기준이며 pyodide도 이 패키지의 `node_modules`에서 가져온다. */
 const REPO = new URL("../../../../../packages/pyodide-repl/", import.meta.url);
 const RESULTS_DIR = process.env.E2E_RESULTS_DIR ?? path.join(scriptDir, "..", "..", "results");
 
@@ -64,8 +71,7 @@ const [pressMin, pressMax] = (args.press ?? "300,3000").split(",").map(Number);
 const dry = args.dry === "true";
 
 if (mode === "nojspi") {
-  // pyodide는 `"Suspending" in WebAssembly`로 JSPI 지원을 판정한다. loadPyodide 전에 지워 JSPI 없는 환경을 흉내낸다
-  // (`sigint-handler-nojspi.test.ts`와 같은 방법).
+  // pyodide는 `"Suspending" in WebAssembly`로 JSPI 지원을 판정한다. loadPyodide 전에 지워 JSPI 없는 환경을 흉내낸다.
   for (const name of ["Suspending", "promising", "Suspender"]) {
     delete WebAssembly[name];
   }
@@ -89,7 +95,7 @@ const { createInterruptBuffer, discardPendingInterrupt } = await import(
 
 const pyodide = await loadPyodide();
 
-/** 시행마다 초기화한다. */
+/** 이 시행의 stdout·stderr 누적. 시행마다 비운다. */
 let screen = { stdout: "", stderr: "" };
 /** 이 시행에서 stderr 첫 바이트가 도착한 시각(ns). `undefined`면 아직 없음. */
 let firstStderrAt;
@@ -115,8 +121,7 @@ const repl = createConsole(
   },
   { topLevelAwait: false },
 );
-// worker의 부팅 순서와 같게 배선한다(createConsole → attachRuntime). attachRuntime이 WebLoop 재보고 억제까지
-// 한 번에 한다(이전에는 별도 호출이었다).
+// worker의 부팅 순서와 같게 배선한다(createConsole → attachRuntime). attachRuntime이 WebLoop 재보고 억제까지 한 번에 건다.
 const buffer = createInterruptBuffer();
 attachRuntime(pyodide, repl.pyconsole, {
   interruptBuffer: buffer,
@@ -146,7 +151,9 @@ pyodide.globals.set("started", () => {
   return true;
 });
 
+/** 눌림 스레드. 처음 필요할 때 한 번 띄운다. `--dry`는 띄우지 않는다. */
 let presser;
+/** 눌림 스레드가 없으면 띄우고 그 핸들을 돌려준다. */
 function ensurePresser() {
   if (presser) return presser;
   presser = new Worker(
@@ -179,11 +186,15 @@ function nextPresserMessage() {
   });
 }
 
+/** `loopXX` 프로그램 접미사 → `time.sleep` 초. */
 const LOOP_SECS = { "01": 0.1, "002": 0.02, "0015": 0.015, "001": 0.01 };
 
-/** `--progs` 이름 → 제출할 소스 줄 목록. `real`은 무한 루프(눌림이 있어야 끝난다), `dry`는 눌림 없이 완주하는 유한
- * 형태(총 실행 시간이 비슷하도록 총 1초 안팎으로 반복 횟수를 잡는다). 두 경우 다 `started()`를 첫 줄로 둔다(dry는
- * presser가 없어 신호를 안 쓰지만 구조를 맞춰 둔다). */
+/**
+ * `--progs` 이름을 제출할 소스 줄 목록으로 바꾼다. 알 수 없는 이름이면 던진다.
+ * - 실측(`isDry` 거짓): 무한 루프다. 눌림이 있어야 끝난다.
+ * - 양성 대조(`isDry` 참): 눌림 없이 완주하는 유한 형태다. `loopXX`는 총 1초 안팎이 되도록 반복 횟수를 잡고, `sleep5`는 `time.sleep(1)`이다.
+ * 두 경우 모두 `started()`를 첫 줄로 둔다. dry는 presser가 없어 신호를 쓰지 않지만 구조를 맞춘다.
+ */
 function programLines(name, isDry) {
   if (name === "sleep5") {
     return isDry ? ["started(); time.sleep(1)"] : ["started(); time.sleep(5)"];
@@ -207,11 +218,21 @@ const percentile = (values, p) => {
   return Number(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))].toFixed(3));
 };
 
-/** 표준 트레이스백 형식(사용자 프레임 하나, `<console>`). 콘솔 인스턴스를 시행마다 새로 만들지 않으므로(속도) 줄
- * 번호는 시행마다 증가한다 — 그래서 고정 문자열이 아니라 형태를 정규식으로 본다. */
+/**
+ * 표준 트레이스백 형태(사용자 프레임 하나, `<console>`).
+ * 콘솔 인스턴스를 시행마다 새로 만들지 않아(속도) 줄 번호가 시행마다 늘어난다.
+ * 그래서 고정 문자열이 아니라 형태를 정규식으로 본다.
+ */
 const TRACEBACK_SHAPE =
   /^Traceback \(most recent call last\):\n {2}File "<console>", line \d+, in <module>\nKeyboardInterrupt\n$/;
 
+/**
+ * 프로그램 하나를 눌림 스레드와 함께 한 시행 돌린다.
+ * 반환: `{ requestedDelayMs, actualDelayMs, interrupted, latencyMs, exactMatch, extraStderr, stderr }`.
+ * - `latencyMs`: `started()` 시각 + presser가 보고한 상대 지연을 눌림 시각으로 보고, 첫 stderr 바이트 도착(없으면 실행 종료)까지의 시간. 중단이 없으면 null.
+ * - `exactMatch`: stderr가 `TRACEBACK_SHAPE`와 일치하는지.
+ * - `extraStderr`: 중단됐지만 형태가 다른 경우.
+ */
 async function runRealTrial(program) {
   screen = { stdout: "", stderr: "" };
   firstStderrAt = undefined;
@@ -222,12 +243,14 @@ async function runRealTrial(program) {
   const delayMs = pressMin + Math.random() * (pressMax - pressMin);
   ensurePresser();
   const pressed = nextPresserMessage();
+  // 눌림을 예약한다. `started()`가 불린 시각 기준 `delayMs` 뒤에 누른다(`waitStarted`).
   presser.postMessage({
     kind: "press",
     offsets: [delayMs],
     waitStarted: true,
   });
 
+  // 프로그램 줄을 차례로 제출한다. 복합문이면 PS2가 남으므로 빈 줄로 닫는다.
   let result;
   for (const line of programLines(program, false)) {
     result = await runner.run(line);
@@ -259,6 +282,7 @@ async function runRealTrial(program) {
   };
 }
 
+/** 프로그램 하나를 눌림 없이 유한 형태로 한 시행 돌린다. 반환: `{ interrupted, stderr }`. */
 async function runDryTrial(program) {
   screen = { stdout: "", stderr: "" };
   firstStderrAt = undefined;

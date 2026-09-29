@@ -1,22 +1,32 @@
-// RD-023: dom-bridge-check의 판정 함수. 브라우저 없이 가짜 입력으로 시험할 수 있게 순수 함수로 분리했다
-// (`dom-bridge-judge.test.mjs`, 양성 대조). 시간 값은 받지 않는다: 판정은 `?view=dom-bridge`가 남기는 이벤트 열(`window.__domBridge.events`)의
-// 앞뒤·화면 행·상태 전이만 본다(`docs/design/09-testing.md` 9.7).
+// RD-023: dom-bridge-check의 판정 함수.
+// 순수 함수라 브라우저 없이 가짜 입력으로 시험한다(`dom-bridge-judge.test.mjs`, 양성 대조).
+// 시간 값은 받지 않는다. 판정은 아래만 본다(`docs/design/09-testing.md` 9.7).
+// - `?view=dom-bridge`가 남기는 이벤트 열(`window.__domBridge.events`)의 앞뒤.
+// - 화면 행.
+// - 상태 전이.
 //
-// 이벤트 모양(`apps/demo/src/dom-bridge-log.ts`): `{ type, data }`. `type`은 `runStart`·`outcome`(`data` = 결과 유니온)·`out`(`data` =
-// `{ stream, text }`)·`status`(`data` = 상태 문자열)·`dom`(`data` = `<title>` 문자열)·`slowStart`·`slowDone`(`data` = `{ id, ms }`).
+// 이벤트 모양은 `{ type, data }`다(`apps/demo/src/dom-bridge-log.ts`).
+// | `type` | `data` |
+// | --- | --- |
+// | `runStart` | 없음 |
+// | `outcome` | 결과 유니온 |
+// | `out` | `{ stream, text }` |
+// | `status` | 상태 문자열 |
+// | `dom` | `<title>` 문자열 |
+// | `slowStart`·`slowDone` | `{ id, ms }` |
 
-/**
- * traceback 문자열에서 사용자 코드(`main.py`) 마지막 프레임의 줄 번호. 없으면 `null`.
- */
+/** traceback 문자열에서 사용자 코드(`main.py`) 마지막 프레임의 줄 번호. 없으면 `null`. */
 export function userLine(traceback) {
   const lines = [...String(traceback ?? "").matchAll(/File "main\.py", line (\d+)/g)];
   return lines.length === 0 ? null : Number(lines[lines.length - 1][1]);
 }
 
 /**
- * 출력·DOM 쌍의 도착 순서. Python이 `print(f"p{i}", flush=True)` 직후 `document.title = f"d{i}"`를 `iters`번 반복한 실행 하나의 이벤트 열
- * (실행 시작부터 결말까지)을 받아, i마다 출력(`o{i}`)이 title 변경(`d{i}`)보다 먼저 도착했는지 센다. 역전 = d{i}가 o{i}보다 먼저.
- * 누락 = 둘 중 하나가 없음. 출력 청크 하나에 여러 줄이 들어올 수 있어 청크 안의 `p<숫자>`를 전부 센다.
+ * 출력·DOM 쌍의 도착 순서를 센다.
+ * 입력은 실행 하나의 이벤트 열(시작부터 결말까지)이다. Python이 `print(f"p{i}", flush=True)` 직후 `document.title = f"d{i}"`를 `iters`번 반복한다.
+ * - 역전: `d{i}`가 `o{i}`보다 먼저 도착.
+ * - 누락: 둘 중 하나가 없음.
+ * - 출력 청크 하나에 여러 줄이 들어올 수 있다. 청크 안의 `p<숫자>`를 전부 센다.
  * @returns {{ pairs: number, inversions: number, missing: number }}
  */
 export function judgeOrder(events, iters) {
@@ -41,11 +51,16 @@ export function judgeOrder(events, iters) {
 }
 
 /**
- * S5: 동기 coincident 호출 도중 중단 요청의 결말이 호출이 반환된 **뒤**에 왔는가. `events`는 실행 시작부터 결말 뒤까지의 열이고 `id`는
- * 그 호출의 `slowStart`·`slowDone` id다. 결말(`outcome`)이 `slowDone`보다 뒤여야 통과다(앞이면 호출 도중에 전달된 것이라 스파이크 판정과 다르다).
- * `expectKind`가 있으면 결말 종류도 맞아야 한다. `slowDone`이 없으면(호출이 끝나기 전에 결말이 왔거나 호출이 시작되지 않음) 실패다.
- * `requestType`(`ctrlC`·`stop` 이벤트)이 있으면 그 중단 요청이 `slowStart`와 `slowDone` 사이(호출 도중)에 들어갔어야 한다: 호출이 끝난 뒤에 눌렀다면
- * "호출 반환 뒤에 결말"은 당연한 결과라 시험이 성립하지 않는다.
+ * S5: 동기 coincident 호출 도중의 중단 요청이 호출 반환 **뒤에** 결말을 냈는가.
+ * `events`는 실행 시작부터 결말 뒤까지의 열이다. `id`는 그 호출의 `slowStart`·`slowDone` id다.
+ *
+ * 통과 조건:
+ * - `outcome`이 `slowDone`보다 뒤다. 앞이면 호출 도중에 전달된 것이라 스파이크 판정과 다르다.
+ * - `expectKind`가 있으면 결말 종류가 같다.
+ * - `requestType`(`ctrlC`·`stop` 이벤트)이 있으면 그 요청이 `slowStart`와 `slowDone` 사이에 들어갔다.
+ *   - 호출이 끝난 뒤에 눌렀다면 "호출 반환 뒤에 결말"은 당연한 결과다. 시험이 성립하지 않는다.
+ *
+ * `slowDone`이 없으면 실패다. 호출이 끝나기 전에 결말이 왔거나 호출이 시작되지 않은 경우다.
  * @returns {{ ok: boolean, reason: string }}
  */
 export function judgeAfterCallReturn(events, id, expectKind, requestType) {
@@ -68,10 +83,16 @@ export function judgeAfterCallReturn(events, id, expectKind, requestType) {
 }
 
 /**
- * S5 stop 셀: 동기 호출 도중 누른 `stop()`의 결말(`outcome`, kind `restarted`)이 옛 호출이 끝나기(`slowDone`) **전에** 왔는가. `events`는 실행 시작부터
- * 판정 시점까지의 열이고 `id`는 그 호출의 `slowStart`·`slowDone` id다. 성립 조건: `slowStart` 뒤 첫 결말이 `restarted`이고, 그 앞에 `stop` 요청이 있으며,
- * 그 id의 `slowDone`이 없거나 결말보다 뒤다. 판정 시점(새 worker `ready` 뒤 등)에 `slowDone`이 이미 기록됐는지는 보지 않는다: 재부팅 시간이 길면 결말 뒤
- * `slowDone`이 먼저 기록될 수 있고, 그 경우도 순서상 성립이다(재부팅 시간을 판정선으로 쓰지 않는다, 9.7).
+ * S5 stop 셀: 동기 호출 도중 누른 `stop()`의 결말이 옛 호출이 끝나기(`slowDone`) **전에** 왔는가.
+ * `events`는 실행 시작부터 판정 시점까지의 열이다. `id`는 그 호출의 `slowStart`·`slowDone` id다.
+ *
+ * 성립 조건:
+ * - `slowStart` 뒤 첫 결말(`outcome`)의 kind가 `restarted`다.
+ * - 그 앞에 `stop` 요청이 있다.
+ * - 그 id의 `slowDone`이 없거나 결말보다 뒤다.
+ *
+ * 판정 시점(새 worker `ready` 뒤 등)에 `slowDone`이 이미 기록됐는지는 보지 않는다.
+ * 재부팅이 길면 결말 뒤에 `slowDone`이 기록될 수 있다. 그 경우도 순서상 성립이다. 재부팅 시간을 판정선으로 쓰지 않는다(9.7).
  * @returns {{ ok: boolean, reason: string }}
  */
 export function judgeStopBeforeCallReturn(events, id) {
@@ -91,7 +112,7 @@ export function judgeStopBeforeCallReturn(events, id) {
 }
 
 /**
- * `events`(status 이벤트 포함)의 `from` 이후 status 전이가 `wanted`를 이 순서로 부분 수열로 포함하는가. 예: `["restarting", "ready"]`.
+ * `events`의 `from` 이후 status 전이가 `wanted`를 이 순서의 부분 수열로 포함하는가. 예: `["restarting", "ready"]`.
  * @returns {{ ok: boolean, seen: string[] }}
  */
 export function judgeStatusSubsequence(events, from, wanted) {
@@ -101,14 +122,19 @@ export function judgeStatusSubsequence(events, from, wanted) {
   return { ok: next === wanted.length, seen };
 }
 
-/** 화면 행 목록을 공백 없이 이어붙인 문자열. 긴 문구는 80열에서 감기고(한글 2열) 감기는 위치의 공백이 사라질 수 있어 공백을 뺀 채 비교한다. */
+/**
+ * 화면 행 목록을 공백 없이 이어붙인 문자열.
+ * 긴 문구는 80열에서 감긴다(한글은 2열). 감기는 위치의 공백이 사라질 수 있어 공백을 뺀 채 비교한다.
+ */
 export function squashRows(rows) {
   return rows.join("").replace(/\s/g, "");
 }
 
 /**
- * `load-failed` 화면 문구 판정. 터미널은 `pyodide 로드 실패: <메시지>`를 내고 메시지는 `Error: plugin "<이름>": <원인>`이다(core `bootWorker`가
- * `String(error)`로 통지하므로 `Error: ` 접두가 붙는다). 접두 `pyodide 로드 실패: Error: plugin "<이름>": `과 원인 문구(`phrases`) 전부를 요구한다.
+ * `load-failed` 화면 문구를 판정한다.
+ * - 터미널은 `pyodide 로드 실패: <메시지>`를 낸다. 메시지는 `Error: plugin "<이름>": <원인>`이다.
+ * - core `bootWorker`가 `String(error)`로 통지하므로 `Error: ` 접두가 붙는다.
+ * - 접두 `pyodide 로드 실패: Error: plugin "<이름>": `과 원인 문구(`phrases`) 전부를 요구한다.
  * @returns {{ ok: boolean, reason: string }}
  */
 export function judgeLoadFailedRows(rows, pluginName, phrases) {
@@ -124,14 +150,27 @@ export function judgeLoadFailedRows(rows, pluginName, phrases) {
   return { ok: true, reason: "접두와 원인 문구가 있다" };
 }
 
-/** S6이 측정하는 DOM 효과 방식: C(`document.title` 대입 + MutationObserver 기록), Ag(guarded `window`로 main 함수 호출), Ar(가드 없는 창으로 호출). */
+/**
+ * S6이 측정하는 DOM 효과 방식.
+ * - `C`: `document.title` 대입 + MutationObserver 기록.
+ * - `Ag`: guarded `window`로 main 함수 호출.
+ * - `Ar`: 가드 없는 창으로 호출.
+ */
 export const ORDER_METHODS = ["C", "Ag", "Ar"];
 
 /**
- * S6 경로 하나(core `createRunner` 직접 또는 `<PythonRunner>` + terminal)의 출력·DOM 도착 순서 판정. `methods`는 방식(`C`·`Ag`·`Ar`)별
- * `{ pairs, inversions, missing, outcomes }`(`outcomes`는 실행별 결말 `kind`)다. 필수는 세 방식이 모두 있고, 쌍이 있으며, 기록 누락 0·모든 실행 `ok`인 것이다.
- * **역전 수는 어느 경로·방식이든 판정하지 않고 `summary`·`reason`에 기록만 한다**(사용자 재확정 2026-09-25: 출력은 core MessagePort, DOM 호출은 coincident
- * 채널로 가서 두 채널 사이의 도착 순서는 보장되지 않는다. 관측 수치는 `docs/design/16-dom-bridge.md` 16.9).
+ * S6 경로 하나의 출력·DOM 도착 순서를 판정한다. 경로는 core `createRunner` 직접 또는 `<PythonRunner>` + terminal이다.
+ * `methods`는 방식(`C`·`Ag`·`Ar`)별 `{ pairs, inversions, missing, outcomes }`다. `outcomes`는 실행별 결말 `kind`다.
+ *
+ * 통과 조건:
+ * - 세 방식이 모두 있다.
+ * - 쌍이 있다.
+ * - 기록 누락이 0이다.
+ * - 모든 실행이 `ok`다.
+ *
+ * 역전 수는 판정하지 않는다. `summary`·`reason`에 기록만 한다(사용자 재확정 2026-09-25).
+ * 출력은 core MessagePort로, DOM 호출은 coincident 채널로 간다. 두 채널 사이의 도착 순서는 보장되지 않는다.
+ * 관측 수치는 `docs/design/16-dom-bridge.md` 16.9.
  * @returns {{ ok: boolean, reason: string, summary: Record<string, { pairs: number, inversions: number, missing: number }> }}
  */
 export function judgeOrderPath(methods) {

@@ -1,25 +1,42 @@
-// RD-023 브라우저 확인: dom-bridge 실행창(`?view=dom-bridge`, `@cp949/runo-pyodide-dom-bridge`). 실제 xterm 6 + 실제 브라우저 + 실제 CDN
-// pyodide + 실제 coincident 4.1.1. RD-023 스파이크 S1~S7·`native: false`·늦은 import 양성 대조를 저장소 L1로 옮겼다.
-// 코드를 `textarea`에 넣고 `run` 버튼으로 실행하고 xterm 화면 행·`result`·`window.__domBridge.events`(순서 기록)로 판정한다. dev 서버 전용
-// (StrictMode 이중 마운트에서의 worker 수도 함께 본다).
+// RD-023(`@cp949/runo-pyodide-dom-bridge` 실행창)을 실제 브라우저로 검증한다. 데모는 `?view=dom-bridge`다. 규칙은 docs/design/16-dom-bridge.md.
+// 실제 xterm 6, 실제 브라우저, 실제 CDN pyodide, 실제 coincident 4.1.1을 쓴다.
+// S1~S7은 RD-023 스파이크의 시나리오다. `native: false`와 늦은 import 양성 대조를 더했다.
 //
-// 페이지(=새 브라우저) 7개:
-//   plain    `?view=dom-bridge`                      — 초기 3 + S1(부팅·worker 수)·S2(document·canvas·guarded window)·S3(input 전달·취소 2종·재입력)·
-//                                                      S4(busy·sleep Ctrl+C)·S7(전역 패치 뒤 core 채널)
-//   slow     `&mode=slow`                            — S5(동기 호출 도중 interrupt는 호출 반환 뒤에 결말, stop()은 restarted+새 ready) + S6 view 경로
-//                                                      (`<PythonRunner>`+terminal 출력·DOM 도착 순서: 누락 0·모든 ok 필수, 역전 수는 기록)
-//   core     `&mode=slow&runner=core`                — S6 core 경로(`createRunner` 직접, terminal 없음: 누락 0·모든 ok 필수, 역전 수는 기록)
-//   native0g `&native=0`                             — N0a(main native false·isDomBridgeSupported false → worker를 만들지 않고 이유 표시)
-//   native0  `&native=0&gate=off`                    — N0b(worker가 만들어져 load-failed + 명시 문구, worker realm native false의 근거)
-//   late     `&mode=late`                            — LATE(dom-bridge를 늦게 import하는 양성 대조 → load-failed + 첫 정적 import 문구)
-//   runlate  `&mode=late-run`                        — RUNLATE(`runWorker`를 늦게 불러도 ready, init 버퍼링)
+// 조작과 판정:
+// - 조작: `textarea`에 코드를 넣고 `run` 버튼으로 실행한다.
+// - 판정: xterm 화면 행, `result`, `window.__domBridge.events`(순서 기록)로 한다.
+// - dev 서버 전용이다. StrictMode 이중 마운트에서의 worker 수도 함께 본다.
 //
-// 사용: node dom-bridge-check.mjs [url](생략 시 http://localhost:5173)   ONLY=S5,N0 처럼 이름 접두어로 셀·페이지를 거른다("초기"는 페이지마다 실행).
-// 결과 파일: `dom-bridge-check-<label>.json`(label = plain|slow|core|native0g|native0|late|runlate, `lib.mjs` `resultFileName`·`finish({ label })`. `-dev` 접미 없음)
+// 페이지(=새 브라우저) 7개. 아래 순서로 돈다. 페이지마다 새 브라우저라 서로 상태를 공유하지 않는다.
+// - plain `?view=dom-bridge`:
+//   - 초기: 격리와 main native·supported.
+//   - S1: 부팅, worker 수.
+//   - S2: document·canvas·guarded window.
+//   - S3: input 전달, 취소 2종, 재입력.
+//   - S4: `while True` Ctrl+C, `time.sleep` Ctrl+C, 중단 뒤 실행.
+//   - S7: 전역 패치 뒤 core 채널.
+//   - 마지막: 콘솔 경고·오류·pageerror 없음.
+// - slow `&mode=slow`:
+//   - S5: 동기 호출 도중 interrupt는 호출 반환 뒤에 결말이 난다. `stop()`은 `restarted`와 새 `ready`다. 옛 worker가 끝난 뒤에도 오류가 없다.
+//   - S6 view 경로: `<PythonRunner>` + terminal의 출력·DOM 도착 순서.
+// - core `&mode=slow&runner=core`: S6 core 경로(`createRunner` 직접, terminal 없음).
+// - native0g `&native=0`: N0a. main native false, `isDomBridgeSupported` false, worker를 만들지 않고 이유를 보인다.
+// - native0 `&native=0&gate=off`: N0b. worker가 만들어져 `load-failed`와 명시 문구가 나온다(worker realm native false의 근거).
+// - late `&mode=late`: LATE. dom-bridge를 늦게 import하는 양성 대조. `load-failed`와 첫 정적 import 문구가 나온다.
+// - runlate `&mode=late-run`: RUNLATE. `runWorker`를 늦게 불러도 `ready`(init 버퍼링).
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기·ms 상한을 쓰지 않는다. 순서는 이벤트 열의 앞뒤(S5·S6), 상태는 `waitFor` 조건 대기, `timeoutMs`는
-// 정지 감지용이다. 오래 걸리는 동기 호출(S5)의 길이(2000ms·8000ms)는 시험이 만드는 상황이지 판정 상한이 아니다. 옛 worker는 `terminate()` 뒤 최대 약 2초
-// 살아 있으므로(TRP-049) worker 수는 옛 worker가 사라지는 조건을 기다린다. 판정 함수는 `../dom-bridge-judge.mjs`(순수 함수, `dom-bridge-judge.test.mjs`).
+// S6 판정: 두 경로 모두 기록 누락 0과 모든 `ok`가 필수다. 역전 수는 기록만 한다(16.9).
+//
+// 시간 판정은 docs/design/09-testing.md 9.7을 따른다. 고정 대기·ms 상한이 없다.
+// - 순서(S5·S6)는 이벤트 열의 앞뒤로 판정한다.
+// - 상태는 `waitFor` 조건 대기로 본다. `timeoutMs`는 정지 감지용이다.
+// - S5 호출 길이(2000ms·8000ms)는 시험이 만드는 상황이다. 판정 상한이 아니다.
+// - 옛 worker는 `terminate()` 뒤 최대 약 2초 살아 있다(TRP-049). worker 수는 옛 worker가 사라지는 조건을 기다린다.
+// - 판정 함수는 apps/demo/e2e/dom-bridge-judge.mjs(순수 함수)다. 시험은 `dom-bridge-judge.test.mjs`.
+//
+// 사용법·`ONLY`는 apps/demo/e2e/README.md.
+// - `ONLY`는 페이지를 `pageSelected`(양방향 접두어)로, 확인을 `step()`의 접두어로 거른다. 초기는 페이지마다 실행한다.
+// - 결과 파일은 `dom-bridge-check-<label>.json`이다. label은 페이지 이름(plain·slow·core·native0g·native0·late·runlate)이고 `-dev` 접미가 없다.
 import { open, same, show } from "../lib.mjs";
 import {
   judgeAfterCallReturn,
@@ -41,28 +58,46 @@ const BOOT_TIMEOUT_MS = 90000;
 /** 실패(load-failed) 도착을 기다리는 정지 감지 timeout. 정상 실패는 pyodide 로드 뒤 곧 오므로 부팅보다 짧게 둔다(판정선이 아니다). */
 const FAIL_TIMEOUT_MS = 60000;
 
+/** 출력 행 `go` 뒤 무한 루프. 실행이 진행 중임을 `go`로 확인한다. */
 const SPIN = 'print("go")\nwhile True: pass';
-/** S5 호출 길이(ms). 시험이 만드는 상황(main이 이만큼 뒤에 Promise를 정착)이고 판정 상한이 아니다. interrupt 셀은 끝까지 기다리고 stop 셀은 1초 폴백 안에 끝난다. */
+/**
+ * S5 호출 길이(ms). main이 이만큼 뒤에 Promise를 정착한다.
+ * 시험이 만드는 상황이고 판정 상한이 아니다.
+ * - interrupt 셀은 호출이 끝날 때까지 기다린다.
+ * - stop 셀은 호출이 끝나기 전에 끝난다. `STOP_FALLBACK_MS`(1초)에 worker를 교체하기 때문이다.
+ */
 const SLOW_INTERRUPT_MS = 2000;
 const SLOW_STOP_MS = 8000;
 
+/** 모든 페이지가 통과했는지. 종료 코드로 쓴다. */
 let allOk = true;
 /** 이 실행에서 남기는 측정·관찰 기록(판정이 아니다). 페이지별로 `finish`의 extra에 실린다. */
 const record = {};
 
-/** S6 측정 코드. 매 반복 `print(f"p{i}", flush=True)` 직후 DOM 효과 하나를 낸다. C: `document.title` 대입, Ag: guarded `window`로 main 함수, Ar: 가드 없는 창(`runo_test.raw_window`, `mode=slow`)으로 main 함수. */
+/**
+ * S6 측정 코드. 매 반복 `print(f"p{i}", flush=True)` 직후 DOM 효과 하나를 낸다. 방식은 셋이다(16.9).
+ * - C: `document.title` 대입.
+ * - Ag: guarded `window`로 main 함수 호출.
+ * - Ar: 가드 없는 창(`runo_test.raw_window`, `mode=slow`)으로 main 함수 호출.
+ */
 const ORDER_CODES = {
   C: (iters) => ["from runo.browser import document", `for i in range(${iters}):`, "    print(f'p{i}', flush=True)", "    document.title = f'd{i}'"].join("\n"),
   Ag: (iters) => ["from runo.browser import window", `for i in range(${iters}):`, "    print(f'p{i}', flush=True)", "    window.__domBridgeMark(i)"].join("\n"),
   Ar: (iters) => ["import runo_test", "w = runo_test.raw_window", `for i in range(${iters}):`, "    print(f'p{i}', flush=True)", "    w.__domBridgeMark(i)"].join("\n"),
 };
+/** 방식마다 실행하는 횟수. */
 const ORDER_RUNS = 5;
+
+/** 한 실행의 출력·DOM 쌍 수. */
 const ORDER_ITERS = 20;
 
 /**
- * 메인 창에 main 핸들러를 심는다: Python이 `window.__domBridgeMark(i)`를 부르면 이벤트 열에 DOM 도착(`dom`, `d<i>`)으로 기록한다(스파이크의 `spikeMark`).
- * `runOne(code)`는 코드를 실행해 결말을 돌려주고 `getEvents`는 이벤트 열을 돌려준다. 방식 C·Ag·Ar 각각 5회 × 20쌍의 도착 순서를 잰다.
- * 결말은 같은 core 포트의 마지막 메시지라 앞선 out 알림은 이미 기록됐고, DOM 효과는 동기 호출이 돌아온 시점에 기록됐다.
+ * 방식 C·Ag·Ar 각각 `ORDER_RUNS`회 × `ORDER_ITERS`쌍의 출력·DOM 도착 순서를 잰다.
+ * 방식별 `{ pairs, inversions, missing, outcomes, perRun }`을 돌려준다. 판정은 호출자가 `judgeOrderPath`로 한다.
+ * - 준비: 메인 창에 `window.__domBridgeMark(i)`를 심는다. Python이 부르면 이벤트 열에 DOM 도착(`dom`, `d<i>`)으로 기록한다(스파이크의 `spikeMark`).
+ * - `runOne(code)`는 코드를 실행해 결말을 돌려준다. `getEvents`는 이벤트 열을 돌려준다.
+ * - 결말은 같은 core 포트의 마지막 메시지다. 그래서 앞선 `out` 알림은 이미 기록됐다.
+ * - DOM 효과는 동기 호출이 돌아온 시점에 기록됐다.
  */
 async function measureOrder(page, runOne, getEvents) {
   await page.evaluate(() => {
@@ -91,19 +126,25 @@ async function measureOrder(page, runOne, getEvents) {
   return methods;
 }
 
-/** 페이지 하나를 열어 `body(h, helpers)`를 돌리고 결과를 남긴다. */
+/**
+ * 페이지 하나를 열어 `body(c)`를 돌리고 결과 JSON을 남긴다.
+ * `ONLY`가 이 페이지의 `prefixes`와 맞지 않으면 열지 않는다(`pageSelected`).
+ * `body`는 하니스 핸들 `h`와 페이지 도우미 묶음 `c`를 받는다. 결과는 `allOk`에 반영한다.
+ * `record[label]`이 있으면 결과 JSON의 `record`로 싣는다. label은 결과 파일 이름에도 쓰인다.
+ */
 async function runPage({ label, path, prefixes, before, body }) {
   if (!pageSelected(only, ...prefixes)) return;
   const h = await open(new URL(path, baseUrl).href, { before });
   const { page, waitFor, waitStatus, statusText, rows, trimmedRows, focus, ctrlC } = h;
 
   const resultText = () => page.locator('[data-testid="result"]').textContent();
-  /** `result`가 비어 있지 않을 때까지 기다려 JSON으로 파싱해 돌려준다(새 실행을 시작하면 앱이 이전 결과를 지운다). */
+  // `result`가 비어 있지 않을 때까지 기다려 JSON으로 파싱해 돌려준다.
+  // 새 실행을 시작하면 앱이 이전 결과를 지운다.
   async function waitResult(description, timeoutMs = 30000) {
     await waitFor(async () => (await resultText()) !== "", `result: ${description}`, timeoutMs);
     return JSON.parse(await resultText());
   }
-  /** 코드를 `textarea`에 넣고 `run` 버튼을 누른다(앱이 터미널에 포커스를 준다). */
+  // 코드를 `textarea`에 넣고 `run` 버튼을 누른다. 앱이 터미널에 포커스를 준다.
   async function startRun(code) {
     await page.fill('[data-testid="code"]', code);
     await page.click('[data-testid="run"]');
@@ -113,9 +154,8 @@ async function runPage({ label, path, prefixes, before, body }) {
     await waitFor(async () => (await trimmedRows()).length === 0, "clear 뒤 빈 화면", 5000);
   }
   const waitRow = (text, timeoutMs = 30000) => waitFor(async () => (await rows()).some((r) => r === text), `출력 행 ${show(text)}`, timeoutMs);
-  /**
-   * 첫 `ready`를 기다린다. `load-failed`·`crashed`가 되면 90초를 다 기다리지 않고 바로 던진다(정지 감지용 timeout이 실패를 늦추지 않게 한다).
-   */
+  // 첫 `ready`를 기다린다.
+  // `load-failed`·`crashed`가 되면 90초를 다 기다리지 않고 바로 던진다. 정지 감지용 timeout이 실패를 늦추지 않게 한다.
   async function waitReady(timeoutMs = BOOT_TIMEOUT_MS) {
     let status = "";
     await waitFor(
@@ -128,10 +168,11 @@ async function runPage({ label, path, prefixes, before, body }) {
     );
     if (status !== "ready") throw new Error(`status = ${status}(ready 기대)`);
   }
-  /**
-   * 셀 시작 상태: 이전 셀이 남긴 실행·입력 대기는 `stop`으로, `crashed`는 `reset`으로 복구해 `ready`가 된 뒤 화면을 지운다. `load-failed`는
-   * 세션 시작 자체가 실패한 것이라 `reset`해도 같은 실패이므로 재시도하지 않고 던진다(뒤 셀이 90초씩 기다리며 연쇄 실패하지 않게 한다).
-   */
+  // 셀 시작 상태를 만든다. `ready`가 된 뒤 화면을 지운다.
+  // - 이전 셀이 남긴 실행·입력 대기는 `stop`으로 끝낸다.
+  // - `crashed`는 `reset`으로 복구한다.
+  // - `load-failed`는 세션 시작 자체가 실패한 것이라 `reset`해도 같은 실패다. 재시도하지 않고 던진다.
+  //   뒤 셀이 90초씩 기다리며 연쇄 실패하지 않게 한다.
   async function freshCell() {
     const current = await statusText();
     if (current === "load-failed") throw new Error("status load-failed: 세션을 시작하지 못했다(reset 재시도 없음)");
@@ -140,16 +181,18 @@ async function runPage({ label, path, prefixes, before, body }) {
     await waitStatus(["ready"], "셀 시작: status = ready", BOOT_TIMEOUT_MS);
     await clearScreen();
   }
-  /** 페이지의 관찰 기록(`dom-bridge-log.ts`). 순서 판정의 재료다. */
+  // 페이지의 관찰 기록(apps/demo/src/dom-bridge-log.ts)을 돌려준다. 순서 판정의 재료다.
   const getEvents = () => page.evaluate(() => window.__domBridge.events.map((e) => ({ type: e.type, data: e.data })));
   const waitEvent = (pred, description, timeoutMs = 30000) => waitFor(async () => pred(await getEvents()), description, timeoutMs);
+  // 데모가 표시하는 값(`cross-origin-isolated`·`native`·`supported`)의 텍스트를 읽는다.
   const cross = async (testid) => page.locator(`[data-testid="${testid}"]`).textContent();
-  /** 화면 행에 문구가 나타날 때까지 기다린 뒤(터미널 렌더는 비동기) 공백 없는 행 전체를 돌려준다. */
+  // 화면 행에 문구가 나타날 때까지 기다린 뒤 행 전체를 돌려준다. 터미널 렌더가 비동기라서다.
+  // 비교는 공백을 뺀 행(`squashRows`)으로 한다.
   async function waitSquashed(needle, timeoutMs = 15000) {
     await waitFor(async () => squashRows(await rows()).includes(squashRows([needle])), `화면에 ${show(needle)}`, timeoutMs);
     return await rows();
   }
-  /** `load-failed`가 오는지 결말 기반으로 판정한다. `ready`가 되거나 도착하지 않고 대기 상태로 남으면 던진다. */
+  // `load-failed`가 오는지 결말 기반으로 판정한다. `ready`가 되거나 도착하지 않고 대기 상태로 남으면 던진다.
   async function expectLoadFailed(timeoutMs = FAIL_TIMEOUT_MS) {
     let status = "";
     try {
@@ -166,6 +209,7 @@ async function runPage({ label, path, prefixes, before, body }) {
     }
     if (status !== "load-failed") throw new Error(`status = ${status}(load-failed 기대)`);
   }
+  // 이벤트 열에서 status 이력만 문자열로 뽑는다.
   const statuses = async () => (await getEvents()).filter((e) => e.type === "status").map((e) => String(e.data));
 
   await body({ h, page, step: h.step, waitFor, waitStatus, statusText, rows, trimmedRows, focus, ctrlC, resultText, waitResult, startRun, clearScreen, waitRow, waitReady, freshCell, getEvents, waitEvent, cross, waitSquashed, expectLoadFailed, statuses });
@@ -427,7 +471,8 @@ await runPage({
     const { h, page, step, waitFor, waitStatus, waitResult, startRun, freshCell, getEvents, waitEvent, focus, ctrlC } = c;
     record.slow = {};
 
-    /** 실행을 시작하고 main의 `slowStart`가 기록될 때까지 기다린 뒤 그 호출의 id와 실행 시작 이벤트 위치를 돌려준다. */
+    // 실행을 시작하고 main의 `slowStart`가 기록될 때까지 기다린다.
+    // 그 호출의 id와 실행 시작 이벤트 위치를 돌려준다.
     async function startSlow(ms) {
       await freshCell();
       const from = (await getEvents()).length;
@@ -490,8 +535,9 @@ await runPage({
       if (h.problemLogs().length > 0 || h.pageErrors.length > 0) throw new Error(JSON.stringify({ problemLogs: h.problemLogs(), pageErrors: h.pageErrors }));
     });
 
-    // 사용자 재확정(2026-09-25): 역전 수는 두 경로 모두 판정 없이 기록만 하고, 필수는 기록 누락 0·모든 실행 ok다. 출력은 core MessagePort로, DOM 호출은
-    // coincident 채널로 가서 두 채널 사이의 도착 순서는 보장되지 않는다. 역전의 원인은 실측하지 않았다(view 경로의 가설: terminal 출력 렌더 지연).
+    // 판정 기준(2026-09-25 사용자 확정): 역전 수는 두 경로 모두 판정 없이 기록만 한다. 필수는 기록 누락 0과 모든 실행 `ok`다.
+    // 출력은 core MessagePort로, DOM 호출은 coincident 채널로 간다. 두 채널 사이의 도착 순서는 보장되지 않는다(16.9).
+    // 역전의 원인은 실측하지 않았다. view 경로의 가설은 terminal 출력 렌더 지연이다.
     await step("S6 view 경로(<PythonRunner> + terminal): 방식 C·Ag·Ar 각 5회 × 20쌍, 기록 누락 0·모든 ok는 필수, 역전 수는 기록만", async () => {
       await freshCell();
       const runOne = async (code) => {
@@ -517,7 +563,8 @@ await runPage({
   async body(c) {
     const { step, page, waitReady, getEvents } = c;
     record.core = {};
-    // core `createRunner` 직접 경로(terminal 없음). view 경로와 같은 기준이다: 필수는 누락 0·모든 ok, 역전 수는 기록만(관측 0~5/100, 스파이크 0/500).
+    // core `createRunner` 직접 경로(terminal 없음). view 경로와 같은 기준이다. 필수는 누락 0과 모든 ok, 역전 수는 기록만 한다.
+    // 관측은 0~5/100이고 스파이크는 0/500이었다.
     await step("S6 core createRunner 직접 경로: 방식 C·Ag·Ar 각 5회 × 20쌍, 기록 누락 0·모든 ok는 필수, 역전 수는 기록만", async () => {
       await waitReady();
       const runOne = (code) => page.evaluate((src) => window.__domBridgeCore.run(src), code);

@@ -1,22 +1,26 @@
-// RD-012 브라우저 확인. ROADMAP 시나리오 + TLA ON 스모크 5건 + asyncio.run(main()) OFF/ON +
-// ON→OFF 전환 + sticky(리셋·크래시 재시작) + (선택) not-isolated.
-// 출처 RD-012에서 이관(RD-018).
+// RD-012 브라우저 확인: top-level await(TLA) 옵션. 규칙은 `docs/design/02-console-core.md` 5.4. RD-012에서 이관했다(RD-018).
+// 절 5개를 `ONLY=<절 이름,…>`로 고를 수 있다.
+//   scenario    RD-012 시나리오. OFF에서 SyntaxError → ON 리셋·실행 → 새로고침 뒤 OFF
+//   smoke       TLA ON에서 기존 동작 5건
+//   arun        `asyncio.run(main())` OFF·ON 각 1건
+//   toggle-off  ON→OFF 전환이 리셋을 일으키고 그 뒤 `await` 줄이 SyntaxError
+//   sticky      세션 리셋·크래시 재시작 뒤에도 ON 유지
+// preview는 "초기"와 scenario만 돈다(`previewSections`).
 //
-// 사용법(dev, `pnpm --filter demo dev`가 떠 있어야 함):
-//   node tla-check.mjs [devURL] [previewURL]
-// ONLY=<절 이름,…>로 절만 분리 실행할 수 있다(scenario·smoke·arun·toggle-off·sticky).
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// `defineMain()`과 smoke의 for 블록은 RD-013 자동 들여쓰기 프리필(4칸)을 그대로 쓴다.
+// - 콜론 뒤 다음 줄에 프리필이 이미 채워져 있다. 수동 4칸을 더 치면 한 단계 더 들어간다.
+// - 콜론 없는 줄 뒤 프리필은 직전 줄의 실제 들여쓰기를 그대로 잇는다(`auto-indent.ts`의 `nextIndentation`).
+// - 수동 4칸을 치면 `defineMain()`의 둘째(`await …`)·셋째(`return 42`) 줄이 8칸·12칸으로 달라져 `IndentationError`가 난다(실측).
+// - `ctrl-c-check.mjs`·`auto-indent-check.mjs`의 `multiline-shift` 절과 같은 패턴이다. 프리필 위에 본문만 친다.
 //
-// RD-018 갱신: `defineMain()`과 "smoke: for 블록" 절은 콜론 뒤 다음 줄에 공백 4칸을 직접 쳤다.
-// RD-013(2026-09-23 dev 병합) 뒤에는 그 자리에 이미 자동 들여쓰기 프리필(4칸)이 채워져 있어 수동 4칸을
-// 더 치면 한 단계 더 들어간다 — `defineMain()`은 둘째(`await …`)·셋째(`return 42`) 줄의 실제 들여쓰기가
-// 각각 8칸·12칸으로 서로 달라져(콜론 없는 줄 뒤 프리필은 직전 줄의 **실제** 들여쓰기를 그대로 이어받는다,
-// `auto-indent.ts`의 `nextIndentation`) `IndentationError`가 난다(실측). `ctrl-c-check.mjs`·
-// `auto-indent-check.mjs`의 `multiline-shift` 절과 같은 패턴으로 고쳤다: 프리필 위에 본문만 친다.
+// 사용: `node tla-check.mjs [devURL] [previewURL]`
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { open, same, show } from "../lib.mjs";
 import { checkEntry, currentOnly, exitWith, pageSelected, runDevPreview, serverLabel } from "../check-runner.mjs";
 
+/** 세션 리셋 안내 줄. */
 const RESET_NOTICE = "[세션 리셋됨 — 이전 변수/import가 모두 초기화되었습니다]";
+/** TLA가 꺼져 있을 때 `await` 줄이 내는 오류 행. */
 const SYNTAX_ERROR_ROW = "SyntaxError: 'await' outside function";
 
 /** 화면 전체(이어붙인 문자열)에서 needle이 나온 횟수. 행이 감겨도 놓치지 않는다. */
@@ -38,6 +42,7 @@ async function defineMain(h) {
   await waitPrompt(">>>");
 }
 
+/** dev 또는 preview 화면에서 절을 돌리고 모든 확인이 통과했는지 돌려준다. */
 async function run(url) {
   const h = await open(url);
   const {
@@ -68,6 +73,7 @@ async function run(url) {
     await page.click(`[data-testid="${testid}"]`);
     await focus();
   };
+  // `testid` 버튼(`reset` 또는 `restart`)을 눌러 `loading` → `ready`/`load-failed` → 새 프롬프트까지 기다린다.
   async function resetAndWait(testid = "reset") {
     await click(testid);
     await waitFor(async () => (await statusText()) === "loading", `${testid}: loading 상태`);
@@ -83,7 +89,7 @@ async function run(url) {
     await waitPrompt(">>>");
   });
 
-  // ── scenario: ROADMAP 시나리오(OFF SyntaxError → ON 리셋·실행 → 새로고침 OFF) ──
+  // ── scenario: RD-012 시나리오(OFF SyntaxError → ON 리셋·실행 → 새로고침 OFF) ──
   await step("scenario: OFF에서 await asyncio.sleep(1)은 SyntaxError 행", async () => {
     await submit("import asyncio");
     await type("await asyncio.sleep(1)");
@@ -110,13 +116,14 @@ async function run(url) {
     if ((await countTracebacks()) !== 0) {
       throw new Error(`트레이스백이 남았다 — ${show((await tail(6)))}`);
     }
-    // rows()(전체 스크롤백)가 아니라 최근 행만 본다 — 이전 절(OFF SyntaxError 확인)의 문구가 스크롤백에
-    // 남아 있어 전체 검사로는 이번 실행이 다시 SyntaxError를 냈는지 구분할 수 없다.
+    // `rows()`(전체 스크롤백)가 아니라 최근 행만 본다.
+    // 이전 절(OFF SyntaxError 확인)의 문구가 스크롤백에 남아 있어 전체 검사로는 이번 실행의 SyntaxError를 구분하지 못한다.
     const recent = await tail(6);
     if (recent.some((r) => r.includes("SyntaxError"))) {
       throw new Error(`SyntaxError가 남아 있다(TLA가 실제로 켜지지 않았다) — ${show(recent)}`);
     }
-    // 실제 sleep(1)이 돌았다면 ~1초, SyntaxError로 즉시 끝났다면 수십ms — 시간으로도 실행 여부를 가른다.
+    // 실제 `sleep(1)`이 돌았다면 약 1초다. SyntaxError로 즉시 끝났다면 수십 ms다.
+    // 시간으로도 실행 여부를 가른다.
     if (elapsed < 500) {
       throw new Error(`복귀가 너무 빠르다(${elapsed}ms) — await가 실제로 실행되지 않았을 수 있다`);
     }

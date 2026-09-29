@@ -1,23 +1,37 @@
-// RD-015 브라우저 검증. 출처 RD-015에서 이관(RD-018).
-// 이전 RD-016 C1~C12(`browser-check.mjs`, 558줄)를 이 저장소의 새 프로토콜/lib.mjs
-// 구조로 이식하고, C13(Tab 큐)·C14(완성 중 Ctrl+C, RD-021 getattr-loop-probe.mjs 이식)을 더한다. pty 기준
-// 리터럴(res_s10_0.json screen2 행)은 원문 그대로 옮긴다.
+// RD-015(이름·속성 Tab 완성)와 RD-016(`import`/`from` 줄 모듈 완성)을 실제 브라우저로 검증한다.
+// 규칙은 docs/design/07-tab-completion.md.
 //
-// 실행 순서는 원문 C1..C12 순서가 아니라 세션 상태(A/a/os 픽스처, C11의 세션 리셋)를 따라 재배열했다:
-//   초기 → C1..C10 → C12(지연, a.·빈 스템 픽스처가 아직 살아 있어야 한다) → C13(큐, a. 필요) →
-//   C15(import/from 모듈 완성, RD-016 — os 픽스처 필요) → C11(세션 리셋·exit()) →
-//   C14(완성 중 Ctrl+C, 리셋 뒤에도 무관하게 새 클래스로 독립 실행)
-// 이는 rubber-workflow 관례(계획 문구는 소급 수정하지 않는다)에 따른 재배열이다.
+// 절 구성:
+// - 초기: 프롬프트와 픽스처.
+// - C1~C10: 삽입·목록·빈 스템 공백·커서 중간·여러 줄·왕복 경합·`input()`·후처리.
+// - C11: 세션 리셋과 `exit()` 뒤 Tab.
+// - C12: 왕복 지연 기록(판정은 정지 0뿐).
+// - C13: Tab 큐.
+// - C14: 완성 중 Ctrl+C(RD-021).
+// - C15: `import`/`from` 줄 모듈 완성(RD-016).
 //
-// 사용: node tab-check.mjs [devURL] [previewURL]
-//   previewURL이 있으면 C1·C3·C8·C11(+초기)만 그 URL에서 재실행한다(RD-044 K6).
-// ONLY=<절 접두어,…>로 절 전체(설정·확인 전부)를 걸러 실행한다(양성 대조용): 초기,C1,C2,...,C13,C15,C11,C14
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
-// RD-018 갱신: 자기 results 경로 상수 + `writeFileSync`를 없애고 `lib.mjs`의 `finish({ label })`로
-// 통일했다(옛 `results/dev.json`·`results/preview.json` 직접 쓰기 제거).
+// 실행 순서: 초기 → C1~C10 → C12 → C13 → C15 → C11 → C14. 번호순이 아니다.
+// - 순서는 세션 상태가 정한다.
+// - C12·C13은 초기 픽스처 `a`(클래스 `A`의 인스턴스)와 빈 입력줄이 필요하다.
+// - C15는 픽스처가 만든 전역 `os`가 필요하다.
+// - C11은 세션을 리셋해 픽스처를 지운다. 그래서 C15 뒤에 둔다.
+// - C14는 자기 클래스 `G`를 새로 만든다. 리셋과 무관하게 독립이다.
+//
+// 기준 리터럴:
+// - 목록 행(`a.attr_one  a.meth()    a.prop` 등)은 CPython 3.14 pty 측정값이다. 출처는 apps/demo/e2e/pty/rd-015/.
+// - 모듈 후보는 개수·전체 목록을 단정하지 않는다(TRAP-27).
+//
+// 사용법·`ONLY`·결과 파일 이름은 apps/demo/e2e/README.md.
+// - `ONLY`는 절 이름이 정확히 같을 때만 절을 켠다.
+// - previewURL이 있으면 초기·C1·C3·C8·C11만 그 URL에서 다시 돈다(RD-044 K6).
 import { open, hasFg, show } from "../lib.mjs";
 import { checkEntry, currentOnly, exitWith, runDevPreview, sectionEnabled, serverLabel } from "../check-runner.mjs";
 
+/**
+ * 서버 하나(dev 또는 preview)에서 선택된 절을 위 순서로 실행하고 결과 JSON을 남긴다.
+ * 초기 프롬프트와 픽스처는 `ONLY`와 무관하게 항상 실행한다.
+ * 결과 파일 label은 `serverLabel(url)`이다. C12 지연 기록은 `finish`의 `c12` 필드로 실린다.
+ */
 async function run(url) {
   const h = await open(url);
   const {
@@ -25,19 +39,18 @@ async function run(url) {
     rows, tail, lastLine, spansOf, focus, killLine, clear,
   } = h;
 
-  // ONLY=<절 이름,…>: 이름이 정확히 일치하는 절만 실행한다("초기"는 항상 실행). 정확 일치인 이유:
-  // "C1"을 접두어로 허용하면 "C11"·"C12"·"C13"·"C14"도 그 접두어에 걸려 함께 켜진다(실측으로 발견,
-  // TRP-034류 함정). 양성 대조는 절 단위(C8·C11·C13·C14)면 충분하다(개별 확인의 세밀한 필터는 lib.mjs
-  // step()의 자체 ONLY가 한 번 더 건다). 규칙 정의: check-runner.mjs sectionEnabled(RD-044 K3).
+  // 절 필터. 절 이름이 정확히 같을 때만 켠다(`sectionEnabled`, 09-testing.md 9.6.5 K3).
+  // - 접두어를 허용하면 "C1"이 "C11"~"C14"도 켠다(실측).
+  // - 확인 하나의 필터는 `lib.mjs` `step()`의 접두어 검사가 한 번 더 건다.
   const enabled = (name) => sectionEnabled(currentOnly(), name);
 
-  // ── 원문 browser-check.mjs와 같은 의미의 지역 도우미(lib.mjs의 tail/trimmedRows는 중간 빈 줄을
-  //    보존하지만 원문 tailRows는 빈 줄을 전부 걸러낸다 — 판정 리터럴이 원문 기준이라 그대로 옮긴다). ──
+  // 화면 읽기 도우미. `lib.mjs`의 `tail`·`trimmedRows`는 끝의 빈 줄만 자르고 중간 빈 줄을 보존한다.
+  // 여기서는 빈 줄을 전부 거른다. 판정 리터럴이 이 기준으로 잰 값이기 때문이다.
   const nonEmpty = async () => (await rows()).filter((l) => l !== "");
   const tailRows = async (n) => (await nonEmpty()).slice(-n);
   const screenText = async () => (await rows()).join("\n").replace(/\s+$/, "");
-  // rows()가 각 행의 끝 공백을 잘라 읽으므로(xterm DOM 렌더러 + lib.mjs 공통 규칙) 기대값의 끝
-  // 공백도 비교 전에 잘라야 한다(원문 browser-check.mjs의 waitLast와 같은 처리, 예: ">>> import ").
+  // 마지막 줄이 `expected`가 될 때까지 기다린다.
+  // `rows()`가 각 행의 끝 공백을 자르므로 기대값의 끝 공백도 자른다(예: ">>> import ").
   async function waitLast(expected, timeoutMs = 3000) {
     const want = expected.replace(/\s+$/, "");
     await h.waitFor(async () => (await lastLine()) === want, `마지막 줄 === ${show(want)}(원문 ${show(expected)})`, timeoutMs, 10);
@@ -45,12 +58,12 @@ async function run(url) {
   async function waitRow(predicate, desc, timeoutMs = 3000) {
     await h.waitFor(async () => (await rows()).some(predicate), desc, timeoutMs, 20);
   }
-  /** Ctrl+L로 화면을 비우고 프롬프트만 남긴다(각 절 앞). */
+  // Ctrl+L로 화면을 비우고 프롬프트만 남긴다(각 절 앞).
   async function clearScreen() {
     await focus();
     await clear();
   }
-  /** Ctrl+U로 입력줄만 지운다(같은 절 안의 확인 사이). */
+  // Ctrl+U로 입력줄만 지운다(같은 절 안의 확인 사이).
   async function clearLine() {
     await killLine();
     await page.waitForTimeout(150);
@@ -62,8 +75,8 @@ async function run(url) {
     await focus();
   });
 
-  // 픽스처: 3.14 pty 측정(cases.json)과 같은 이름 + 후처리 확인용 객체. C1~C10·C12·C13이 이 픽스처에
-  // 기대므로 ONLY 필터와 무관하게 항상 준비한다.
+  // 픽스처. 3.14 pty 측정(pty/rd-015/cases.json)과 같은 이름에 후처리 확인용 객체를 더한다.
+  // C1~C10·C12·C13이 기대므로 `ONLY`와 무관하게 항상 준비한다.
   await step("초기 픽스처 준비", async () => {
     await submit("import os, warnings");
     await submit("x = [1, 2]");
@@ -139,8 +152,9 @@ async function run(url) {
       await waitRow((l) => l === "a.attr_one  a.meth()    a.prop", "a. 목록 행");
     });
     await step("C3a 목록 아래 새 행에 입력줄 재그리기", async () => {
-      // 목록 행이 보인 시점과 입력줄 재그리기가 끝나는 시점 사이에 짧은 창이 있다(printAbove의
-      // 재그리기 콜백이 별도 마이크로태스크) — 즉시 비교 대신 짧게 기다린다(C7c 실측으로 발견).
+      // 목록 행이 보인 시점과 입력줄 재그리기가 끝나는 시점 사이에 짧은 창이 있다.
+      // `printAbove`의 재그리기 콜백이 별도 마이크로태스크이기 때문이다(C7c 실측).
+      // 즉시 비교하지 않고 기다린다.
       await waitLast(">>> a.");
     });
     await step("C3a 재그리기 뒤 커서 끝: 타이핑이 끝에 붙음", async () => {
@@ -185,8 +199,9 @@ async function run(url) {
       await waitLast(">>> a.xyz");
     });
     await step("C3d 재그리기 뒤 커서 위치 유지(a.txyz)", async () => {
-      // 커서가 줄 중간(a.|xyz)이라 타이핑한 글자로 줄이 끝나지 않는다 — h.type()의 자동 대기(끝
-      // 문자 일치)가 구조적으로 맞을 수 없어 sync:false로 끄고 최종 문자열을 직접 기다린다.
+      // 커서가 줄 중간(a.|xyz)이라 타이핑한 글자로 줄이 끝나지 않는다.
+      // `h.type()`의 자동 대기는 끝 문자 일치를 기다리므로 맞을 수 없다.
+      // `sync: false`로 끄고 최종 문자열을 직접 기다린다.
       await type("t", { sync: false });
       await waitLast(">>> a.txyz");
     });
@@ -280,8 +295,10 @@ async function run(url) {
     await step("C5e important = 뒤 Tab 8연타(지연 0) → 32칸(게이트 참·빈 스템·왕복 + 큐)", async () => {
       await type("important = ");
       for (let i = 0; i < 8; i++) await press("Tab"); // 사이에 sleep 없음(지연 0)
-      // RD-016: 스템이 빈 곳도 게이트 참이면 worker 왕복이 있어 8번의 Tab이 큐로 순서대로 처리된다. 왕복이 끝나기 전에 `z`를 치면
-      // 남은 큐 Tab이 `z` 스템으로 재생돼 `zip(`이 붙는다(실측). 커서 열이 프롬프트 16 + 32칸에 닿기를 기다린 뒤 `z`를 친다.
+      // 줄에 `import` 글자열이 있으면 빈 스템도 게이트가 참이라 worker 왕복을 한다(RD-016).
+      // 그러면 8번의 Tab이 큐로 순서대로 처리된다.
+      // 왕복이 끝나기 전에 `z`를 치면 남은 큐 Tab이 `z` 스템으로 재생돼 `zip(`이 붙는다(실측).
+      // 커서 열이 프롬프트 16칸 + 32칸에 닿기를 기다린 뒤 `z`를 친다.
       await h.waitFor(
         async () =>
           (await page.evaluate(() => {
@@ -314,7 +331,7 @@ async function run(url) {
       await waitLast(">>> os.getcwdxyz");
     });
     await step("C6 삽입 뒤 커서 위치: 타이핑 이어짐", async () => {
-      // 커서가 줄 중간(os.getcwd|xyz)이라 C3d와 같은 이유로 sync:false.
+      // 커서가 줄 중간(os.getcwd|xyz)이라 C3d와 같은 이유로 `sync: false`를 쓴다.
       await type("!", { sync: false });
       await waitLast(">>> os.getcwd!xyz");
     });
@@ -335,9 +352,10 @@ async function run(url) {
     await clearLine();
     await press("Control+c");
     await waitPrompt(">>>");
-    // 취소 직후 재그리기는 두 단계(즉시 프롬프트 → KeyboardInterrupt 삽입 뒤 프롬프트 재출력)라 그
-    // 사이의 짧은 창에 보낸 키가 새 읽기로 교체되며 버려질 수 있다(RD-014 reset()과 같은 이유, 실측). RD-019 뒤에는 읽기 없는
-    // 구간의 키를 벤더가 쌓아 재생하지만 이 재그리기 창(벤더 `offscreen`)의 키 처리는 바뀌지 않아 이 대기는 그대로 둔다.
+    // 취소 직후 재그리기는 두 단계다: 즉시 프롬프트, KeyboardInterrupt 삽입, 프롬프트 재출력.
+    // 그 사이의 짧은 창에 보낸 키는 새 읽기로 교체되며 버려질 수 있다(block-history-check.mjs `reset()`과 같은 이유, 실측).
+    // RD-019 뒤에는 읽기 없는 구간의 키를 벤더가 쌓아 재생한다.
+    // 그러나 이 재그리기 창(벤더 `offscreen`)의 키 처리는 바뀌지 않았다. 그래서 이 대기는 남긴다.
     await sleep(250);
     await step("C7b `... ` 줄 접두사 완성", async () => {
       await type("for i in range(2):");
@@ -496,8 +514,9 @@ async function run(url) {
       await submit("repr(v)");
       if (!(await tailRows(3)).some((l) => l === `"'a = b'"`)) throw new Error(show(await tailRows(3)));
     });
-    // RD-016 재정의: 예전 C9c는 `from os import pa` Tab 직후 `!`를 쳐 무동작을 기대했으나(RD-015 시점, 후보 없음 전제),
-    // 3.14는 `from os import pa`에서 `path`를 채운다(pty 대조 A02). worker 왕복 뒤 삽입을 `waitLast`로 기다린다.
+    // 3.14는 `from os import pa`에서 `path`를 채운다(pty 대조 A02).
+    // RD-015 시점에는 후보 없음을 전제로 무동작을 기대했으나 RD-016이 모듈 완성을 더하며 바뀌었다.
+    // worker 왕복 뒤 삽입을 `waitLast`로 기다린다.
     await step("C9c from os import pa Tab → from os import path(모듈 완성)", async () => {
       await type("from os import pa");
       await press("Tab");
@@ -560,7 +579,8 @@ async function run(url) {
   if (enabled("C12")) {
     const c12 = { attr: [], blank: [] };
     await clearScreen();
-    // a. 속성 후보 다수: 첫 Tab(무동작, 왕복은 있음)을 먼저 정착시키고 두 번째 Tab(목록 반영)만 잰다.
+    // a. 속성 후보 다수. 첫 Tab은 무동작이지만 왕복은 있다. 먼저 정착시키고 두 번째 Tab(목록 반영)만 잰다.
+    // 시각은 페이지 안 `performance.now()`로 잰다(TRP-022).
     for (let i = 0; i < 22; i++) {
       await type("a.");
       await press("Tab");
@@ -594,8 +614,9 @@ async function run(url) {
       await clearLine();
       await page.evaluate(() => window.__mo?.disconnect());
     }
-    // 빈 스템 공백: 첫 Tab이 곧바로 동기 삽입(왕복 없음)이므로 그 Tab 자체를 잰다. 커서 x좌표 이동으로
-    // 감지한다(스크린 텍스트는 끝 공백을 잘라 characterData만으로는 구분되지 않을 수 있다).
+    // 빈 스템 공백. 빈 줄의 첫 Tab은 왕복 없이 곧바로 동기 삽입한다. 그래서 그 Tab 자체를 잰다.
+    // 삽입은 커서 x좌표 이동으로 감지한다.
+    // 화면 텍스트는 끝 공백을 잘라 `characterData`만으로는 구분되지 않을 수 있다.
     for (let i = 0; i < 22; i++) {
       await page.evaluate(() => {
         window.__t0 = null;
@@ -632,9 +653,11 @@ async function run(url) {
       await clearLine();
       await page.evaluate(() => window.__mo?.disconnect());
     }
-    // RD-016: `import os.pa` Tab 한 번(게이트 → worker `ZipStdlibModuleCompleter` → `os.path` 삽입) 지연. 판정 없이 기록만 한다
-    // (9.7 6항, 결과 JSON `notes`·`c12.modulePa`). 삽입은 커서 앞 행 텍스트가 `import os.path`를 포함하는 순간으로 감지한다.
-    // 이 동작의 기능 판정은 C15a가 맡는다. 응답이 안 오면(null) 10초에서 포기하고 null로 세어 남긴다.
+    // `import os.pa` Tab 한 번의 지연(RD-016). 경로는 게이트, worker `ZipStdlibModuleCompleter`, `os.path` 삽입이다.
+    // 판정 없이 기록만 한다(9.7 6항, 결과 JSON `notes`·`c12.modulePa`).
+    // 삽입은 행 텍스트가 `import os.path`를 포함하는 순간으로 감지한다.
+    // 이 동작의 기능 판정은 C15a가 맡는다.
+    // 응답이 안 오면 10초에서 포기하고 null로 남긴다(정지 감지용 timeout).
     c12.modulePa = [];
     for (let i = 0; i < 22; i++) {
       await type("import os.pa");
@@ -710,9 +733,9 @@ async function run(url) {
     await step("C13 a. Tab 2연타(0ms) → 왕복 1회 뒤 목록이 정확히 1번 출력", async () => {
       await type("a.");
       await press("Tab");
-      await press("Tab"); // 지연 없이 바로 두 번째 Tab(왕복 중 큐에 쌓인다)
+      await press("Tab"); // 지연 없이 바로 두 번째 Tab. 왕복 중이라 큐에 쌓인다.
       await waitRow((l) => l === "a.attr_one  a.meth()    a.prop", "a. 목록 행(큐)", 5000);
-      await sleep(300); // 큐가 잘못 배선돼 두 번째 목록이 더 나온다면 이 사이에 나타난다
+      await sleep(300); // 큐가 잘못 배선돼 두 번째 목록이 더 나온다면 이 사이에 나타난다.
       const occurrences = (await rows()).filter((l) => l === "a.attr_one  a.meth()    a.prop").length;
       if (occurrences !== 1) throw new Error(`목록 행 출현 ${occurrences}회 ${show(await tail(8))}`);
       await waitLast(">>> a.");
@@ -721,8 +744,9 @@ async function run(url) {
   }
 
   // ═══════════════════════ C15 import/from 줄 모듈 완성(RD-016) ═══════════════════════
-  // 게이트(main `mentionsImportKeyword`/`planTab`) → worker `complete_source` 모듈 분기 → 삽입·목록·큐 배선을 확인한다.
-  // 정확성(3.14 pty 대조)은 L0 시험(`module-completion-parity.test.ts`)이 맡는다. 판정은 `waitLast`/`waitFor`만 쓴다(9.7).
+  // 배선을 확인한다. 경로는 main 게이트(`mentionsImportKeyword`·`planTab`), worker `complete_source` 모듈 분기, 삽입·목록·큐다.
+  // 정확성(3.14 pty 대조)은 L0 시험 `module-completion-parity.test.ts`가 맡는다.
+  // 판정은 `waitLast`·`waitFor`만 쓴다(9.7).
   if (enabled("C15")) {
     await clearScreen();
     await step("C15a import os.pa Tab → import os.path", async () => {
@@ -748,7 +772,9 @@ async function run(url) {
       await type("import ");
       await press("Tab");
       await press("Tab");
-      // 목록이 다 그려진 신호: 열 행(공백 2칸 이상으로 갈린 여러 단어, 프롬프트 행 제외)이 있고 프롬프트 행이 목록 뒤에 다시 그려졌다.
+      // 목록이 다 그려진 신호는 둘이다.
+      // - 열 행이 있다(공백 2칸 이상으로 갈린 여러 단어, 프롬프트 행 제외).
+      // - 프롬프트 행이 목록 뒤에 다시 그려졌다.
       await h.waitFor(
         async () => {
           const r = await rows();
@@ -761,8 +787,10 @@ async function run(url) {
       );
     });
     await step("C15d 목록에 os·sys 포함(개수 단정 없음)", async () => {
-      // 모듈 178개 안팎이라 목록이 한 화면을 넘어 위쪽이 스크롤백으로 밀린다. 개수를 단정하지 않고(TRAP-27) Shift+PageUp으로
-      // 올라가며 본 단어 집합에 os·sys가 있는지만 본다. 화면이 안 바뀌면 맨 위에 닿은 것이다.
+      // 모듈이 178개 안팎이라 목록이 한 화면을 넘는다. 위쪽은 스크롤백으로 밀린다.
+      // 개수는 단정하지 않는다(TRAP-27).
+      // Shift+PageUp으로 올라가며 본 단어 집합에 os·sys가 있는지만 본다.
+      // 화면이 안 바뀌면 맨 위에 닿은 것이다.
       const seen = new Set();
       const collect = async () => {
         for (const l of await rows()) for (const w of l.split(/\s+/)) if (w) seen.add(w);
@@ -787,9 +815,12 @@ async function run(url) {
       await clearLine();
       await waitLast(">>>");
     });
-    await clearLine(); // C15d가 실패해 입력줄에 `import `가 남아도 다음 clearScreen이 막히지 않게 한다(통과 시에는 빈 줄에 Ctrl+U라 무해).
+    // C15d가 실패해 입력줄에 `import `가 남아도 다음 clearScreen이 막히지 않게 한다.
+    // 통과했으면 빈 줄에 Ctrl+U라 무해하다.
+    await clearLine();
     await clearScreen();
-    // pending 경로: 블록 안 줄(`if True:` 뒤 `...` 프롬프트)에서 `pending`이 worker로 가 `pending + "\n" + source`로 판정된다.
+    // pending 경로. 블록 안 줄(`if True:` 뒤 `...` 프롬프트)에서 `pending`이 worker로 간다.
+    // worker는 `pending + "\n" + source`로 판정한다.
     // 자동 들여쓰기(RD-013)가 `...` 뒤 4칸을 프리필하므로 본문만 입력한다(C14와 같다).
     await step("C15e if True: 블록 안 import os.pa Tab → ...     import os.path(pending 경로)", async () => {
       await type("if True:");
@@ -806,8 +837,9 @@ async function run(url) {
       await waitPrompt(">>>");
     });
     await clearScreen();
-    // 픽스처 `import os, warnings`로 전역 os가 있어야 한다(줄 안의 `import os;`는 Tab 시점에 실행 전이다). 모듈 판정이 None이라
-    // 기존 RD-015 속성 완성(`os.pa*` 5개, 공통 접두 `os.pa`라 채움 없음)으로 폴백해 두 번째 Tab이 목록을 낸다.
+    // 전역 `os`는 픽스처 `import os, warnings`가 만든다. 줄 안의 `import os;`는 Tab 시점에 실행 전이다.
+    // 모듈 판정이 None이라 RD-015 속성 완성으로 폴백한다.
+    // `os.pa*` 후보의 공통 접두가 `os.pa`라 채움이 없고, 두 번째 Tab이 목록을 낸다.
     await step("C15f import os; os.pa Tab 두 번 → 속성 후보 목록(os.path·os.pathsep 포함, None 폴백)", async () => {
       await type("import os; os.pa");
       await press("Tab");
@@ -827,6 +859,7 @@ async function run(url) {
   }
 
   // ═══════════════════════ C11 세션 리셋과 exit() 뒤의 Tab ═══════════════════════
+  // 리셋 버튼을 눌러 새 세션의 첫 프롬프트까지 기다린다. 끝은 안내 줄 개수가 아니라 status로 판정한다(TRP-024).
   async function resetSession() {
     await page.click('[data-testid="reset"]');
     await waitStatus(["loading"], "리셋: loading 상태");
@@ -844,8 +877,8 @@ async function run(url) {
       await waitLast(">>> import ");
     });
     await clearLine();
-    // 편차 22 해소: 새 세션 globals()에 sys가 없어야 한다. submit()이 새 프롬프트를
-    // 기다린 뒤 읽으므로 출력 행은 이미 그려져 있다(고정 대기·ms 상한 없음, 9.7).
+    // 새 세션 `globals()`에 `sys`가 없어야 한다(docs/design/10-parity-deviations.md 편차 22 해소).
+    // `submit()`이 새 프롬프트를 기다린 뒤 읽으므로 출력 행은 이미 그려져 있다(고정 대기·ms 상한 없음, 9.7).
     await step("C11a 새 세션 \"sys\" in globals()가 False(편차 22 해소)", async () => {
       await submit('"sys" in globals()');
       const observed = (await tailRows(2))[0];
@@ -862,8 +895,9 @@ async function run(url) {
       await type("exit()");
       await press("Enter");
       await sleep(1500);
-      // 세션 종료 뒤에는 활성 읽기가 없어 키가 에코되지 않는다(쌓아 두었다가 리셋이 폐기, RD-019) — h.type()은 에코를
-      // 전제로 기다리므로 여기서는 원문처럼 raw page.keyboard.type을 쓴다(대기 없음).
+      // 세션 종료 뒤에는 활성 읽기가 없어 키가 에코되지 않는다.
+      // 벤더가 키를 쌓아 두었다가 리셋이 폐기한다(RD-019).
+      // `h.type()`은 에코를 기다리므로 쓰지 않고 `page.keyboard.type`을 직접 쓴다(대기 없음).
       await page.keyboard.type("os.pa");
       await press("Tab");
       await sleep(600);
@@ -879,15 +913,15 @@ async function run(url) {
     await submit("import os");
   }
 
-  // ═══════════════════════ C14 완성 중 Ctrl+C(RD-021 getattr-loop-probe 이식) ═══════════════════════
+  // ═══════════════════════ C14 완성 중 Ctrl+C(RD-021) ═══════════════════════
   if (enabled("C14")) {
     await clearScreen();
     await step("C14 초기 __getattr__ 무한 루프 클래스 준비(REPL 직접 멀티라인 타이핑)", async () => {
-      // 정정(직전 세션 조사): exec()로 정의하면 컴파일 파일명이 "<string>"이 되어
-      // worker/sigint-handler.py의 co_filename === console.filename("<console>") 매칭에 걸리지
-      // 않는다(exec()/eval() 한정 경계 사례). REPL 프롬프트에 직접
-      // 멀티라인으로 타이핑하면 "<console>" 프레임이 되어 규칙이 즉시 매치된다(실측 25.4ms 복귀).
-      // 자동 들여쓰기(RD-013)가 다음 줄 들여쓰기를 prefill하므로 각 줄은 본문 텍스트만 입력한다.
+      // `exec()`로 정의하면 컴파일 파일명이 "<string>"이 된다.
+      // 그러면 packages/pyodide-core/src/worker/sigint-handler.py의 매칭에 걸리지 않는다.
+      // 이 파일은 `co_filename == console.filename`("<console>")인 프레임을 사용자 코드로 본다.
+      // REPL 프롬프트에 직접 멀티라인으로 타이핑하면 "<console>" 프레임이 되어 규칙이 매치된다.
+      // 자동 들여쓰기(RD-013)가 다음 줄 들여쓰기를 프리필하므로 각 줄은 본문 텍스트만 입력한다.
       await type("class G:");
       await enter();
       await waitPrompt("...");
@@ -904,12 +938,12 @@ async function run(url) {
     });
     for (let i = 0; i < 5; i++) {
       await step(`C14 반복 ${i + 1}/5: Tab 뒤 500ms Ctrl+C → 3초 안에 KeyboardInterrupt + >>> 복귀`, async () => {
-        // 이전 반복의 취소 재그리기(두 단계)가 끝난 직후일 수 있다 — C7b/C7d와 같은 이유로 정착을 기다린다.
+        // 이전 반복의 취소 재그리기(두 단계)가 끝난 직후일 수 있다. C7b·C7d와 같은 이유로 정착을 기다린다.
         await sleep(250);
         await killLine();
-        // "a.x"(속성 이름 스템)가 아니라 "a.x."(끝에 점)여야 한다 — 후자만 완성기가 a.x를 평가해
-        // __getattr__를 부른다(RD-021 t.foo.와 같은 이유, 실측: 양성 대조 ②로 발견 — 원래 "a.x"였을
-        // 때는 dir(a)만으로 후보를 내 __getattr__를 아예 안 불러 무한 루프에 안 걸렸다).
+        // 스템은 "a.x"가 아니라 끝에 점이 붙은 "a.x."여야 한다.
+        // 완성기가 a.x를 평가해 `__getattr__`를 부르는 것은 후자뿐이다(RD-021 `t.foo.`와 같은 이유).
+        // "a.x"는 `dir(a)`만으로 후보를 내 `__getattr__`를 부르지 않아 무한 루프에 걸리지 않았다(실측).
         await type("a.x.");
         await press("Tab");
         await sleep(500);
@@ -951,7 +985,7 @@ async function run(url) {
 
 const { url: devUrl, previewUrl } = checkEntry();
 
-// preview는 C1·C3·C8·C11(+초기)만 돈다(계획, K6 선언 목록).
+// preview는 아래 절만 돈다. 사용자 `ONLY`가 있으면 이 목록과의 교집합만 돈다(RD-044 K6).
 const ok = await runDevPreview({
   url: devUrl,
   previewUrl,

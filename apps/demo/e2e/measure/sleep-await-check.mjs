@@ -1,44 +1,51 @@
-// RD-012 브라우저 지연 측정. RD-009 `sleep-await-check.mjs`
-// 사본에 TLA 셀 4개
-// (`await5`·`awaitloop`·`tla-sleep-0.1`·`tla-burst`)를 더했다. 측정 전용(판정선 재측정은 이 DELTA 범위 밖).
+// RD-012 브라우저 지연 측정. RD-009 `sleep-await-check.mjs`에 TLA 셀 4개(`await5`·`awaitloop`·`tla-sleep-0.1`·`tla-burst`)를 더했다.
+// 유휴 대기 중 Ctrl+C가 프롬프트로 돌아오는 지연을 잰다. 시간 값은 기록만 한다(`docs/design/09-testing.md` 9.7 6항).
+// pass/fail은 셀마다 화면 형식으로 판정한다(`checkForm`).
 //
-// 비TLA 12셀은 RD-009 원본과 동일(재현 확인용 기준선). TLA 4셀은 `tla: true`를 달고 있고, 셀 실행 순서를
-// `tla` 거짓 → 참으로 정렬해 TLA 스위치 전환이 총 1번만 일어나게 한다(전환마다 세션 리셋이라 비용이 크다).
-// `awaitloop`은 `either` 판정(`line` 규칙 또는 `tb1` 규칙 중 하나 통과)이라 셀별로 어느 가지를 탔는지
-// `branches: { line, tb1 }`로 센다(비율 판정 없음, 기록용).
+// 셀 구성(16셀 × 기본 N=20 = 320회, 오래 걸린다):
+// - 비TLA 12셀(RD-009/009a): 재현 확인용 기준선이다.
+// - TLA 4셀(RD-012): `tla: true`를 달고 있다.
+// - 실행 순서는 `tla` 거짓 → 참으로 정렬한다. TLA 스위치 전환이 총 1번만 일어나게 한다(전환마다 세션 리셋이라 비용이 크다).
+// - `awaitloop`은 `either` 판정이다(`line` 규칙 또는 `tb1` 규칙 중 하나 통과). 셀마다 어느 가지를 탔는지 `branches: { line, tb1 }`로 센다. 비율 판정은 없다.
 //
-// 출처 RD-012(canonical, 16셀판)에서
-// 이관(RD-018). 결과 파일 쓰기는 자기 `results/sleep-await-dev.json` 직접 쓰기에서 `finish({ label })`
-// 기준(`E2E_RESULTS_DIR`)으로 통일했다 — 셀별 `{n, passed, median, max, pageErrors, tla, form}` 내용은 불변.
+// 셀별 흐름: pre(가져오기·함수 정의, 셀 시작 시 1회) → N회 반복(run 제출 → 지정 시각에 Ctrl+C → 복귀 대기).
 //
-// 사용: node sleep-await-check.mjs <url>(생략 시 http://localhost:5173)     (16셀 × N=20 = 320회, 오래 걸린다)
-//       ONLY=await5,awaitloop N=5 node sleep-await-check.mjs <url>   (일부 셀만, 시행 수 줄임)
+// 시간 측정(TRP-005·TRP-022의 취지):
+// - 지연은 페이지 안 시계 한 개로 잰다. 기준은 페이지에 심은 keydown 리스너의 `Ctrl+c` 타임스탬프다.
+//   다중 눌림은 마지막 눌림, 연타는 첫 눌림을 쓴다.
+// - 복귀 시각은 페이지 안 MutationObserver가 마지막 텍스트 행이 `>>>`(커서 포함)로 바뀐 순간을 잡는다.
+// - 같은 시계라 Node↔페이지 CDP 왕복(폴링마다 evaluate 2회, 실측 +5~8ms)이 측정값에 섞이지 않는다.
+// - 폴링(`waitPromptAt`)은 "다음 단계로 넘어가도 되는지"를 정하는 정확성 게이트로만 쓴다. 통계에는 쓰지 않는다.
 //
-// 셀별로: pre(가져오기·함수 정의, 셀 시작 시 1회) → N회 반복(run 제출 → 지정 시각에 Ctrl+C → 복귀 대기).
-// 복귀 시각(TRP-005 취지 유지, 측정 정밀도는 페이지 내부 시계로): Node 쪽 `keyboard.press` 직전 시각 대신 페이지
-// 안에 심은 keydown 리스너의 실제 `Ctrl+c` 타임스탬프(다중 눌림은 마지막 눌림, 연타는 첫 눌림)를 쓰고, 복귀 시각도
-// 페이지 안 MutationObserver가 마지막 텍스트 행이 `>>>`(커서 포함)로 바뀐 순간을 잡는다 — 같은 시계라 Node↔페이지
-// CDP 왕복(각 폴링마다 evaluate 2회, 스크래치 진단 실측 +5~8ms)이 측정값에 섞이지 않는다. 폴링(`waitPromptAt`)은
-// "언제 다음 단계로 넘어가도 되는지"(정확성 게이트)에만 쓰고 통계에는 페이지 내부 타임스탬프를 쓴다.
-// 형식 판정은 셀 종류별로 다르다(아래 `checkForm`).
-// 우리 프레임 검사: 화면에 `<sigint-handler>`·`<sleep-slice>`·`webloop.py`·`<webloop-reraise>` 없음.
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// 우리 프레임 검사: 화면에 `<sigint-handler>`·`<sleep-slice>`·`webloop.py`·`<webloop-reraise>`가 없어야 한다.
+//
+// 출처 RD-012(16셀판)에서 이관(RD-018). 사용법은 `apps/demo/e2e/README.md`.
+// 결과 파일은 `finish({ label })`가 쓴다. label은 url에 `:4173`이 있으면 preview, 그 밖은 dev다.
+// 셀별 결과 필드는 `{ n, passed, median, max, pageErrors, tla, form }`이다(`either` 셀은 `branches`가 붙는다).
 import { performance } from "node:perf_hooks";
 import { open, same, show } from "../lib.mjs";
 
 const url = process.argv[2] ?? "http://localhost:5173";
+/** 셀마다 반복하는 시행 수. 기본 20. */
 const N = Number(process.env.N ?? 20);
+/** 돌릴 셀 이름 목록(쉼표 구분). 비어 있으면 전 셀이다. */
 const ONLY = (process.env.ONLY ?? "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 const label = url.includes(":4173") ? "preview" : "dev";
 
-// KeyboardInterrupt를 잡고 3회 세는 함수(계획서 CATCHER 예시 그대로, n·dl은 지역 변수라 호출마다 새로 돈다).
-// RD-018: RD-013 자동 들여쓰기 프리필과 겹치므로(`ctrl-c-check.mjs`와 같은 원인 — 코드는 안
-// 바뀌었는데 이관한 스크립트가 dev에서 실패해 낡은 입력 가정으로 판정, 판정 문자열·로직은 불변) 본문 줄은
-// 들여쓰기 없이 그대로 치고(프리필이 이미 그 레벨), dedent가 필요한 줄만 `{ line, dedent }`로 Backspace 횟수를
-// 명시한다(실측한 규칙: `:`로 끝나는 줄 제출 뒤 프리필 +1단위, 아니면 유지, Backspace 1회 = 1단위 dedent).
+/**
+ * `catch3j` 셀이 정의하는 함수의 소스 줄. `KeyboardInterrupt`를 잡아 세다가 3회째에 그 수를 돌려준다.
+ * 각 항목은 문자열(프리필 위에 그대로 친다) 또는 `{ line, dedent }`다.
+ *
+ * RD-013 자동 들여쓰기 프리필이 있어 본문 줄은 들여쓰기 없이 친다. 프리필이 이미 그 레벨이다.
+ * dedent가 필요한 줄만 `dedent`로 Backspace 횟수를 명시한다.
+ * 규칙(실측):
+ * - `:`로 끝나는 줄을 제출하면 프리필이 1단위 늘어난다. 아니면 유지된다.
+ * - Backspace 1회 = 1단위 dedent.
+ * 줄마다 붙은 주석은 그 줄을 칠 때의 프리필 깊이(칸 수)다.
+ */
 const CATCHER_LINES = [
   "def catcher():",
   "n = 0", // 프리필(4칸)이 def 본문 레벨과 일치한다
@@ -53,11 +60,22 @@ const CATCHER_LINES = [
   { line: "return n", dedent: 3 }, // 함수 본문 레벨(4)로: Backspace 3회(16→12→8→4)
 ];
 
-// offset: Enter 뒤 눌림(들) 시각(ms). loop 셀은 800~1000ms 구간에서 매 시행 무작위(주기 100ms인 sleep-0.1·arun-loop는
-// 이 구간이 정확히 두 주기라 재개 직전 위상도 포함된다), 단발 셀은 1000ms 고정(계획서 "비TLA 9셀 ... 단발 셀은 1000ms 고정").
+// 셀의 `offset`은 Enter에서 Ctrl+C까지의 지연(ms)이다.
+// - loop 셀은 800~1000ms 구간에서 매 시행 무작위다. 주기 100ms인 `sleep-0.1`·`arun-loop`는 이 구간이 정확히 두 주기라 재개 직전 위상도 포함된다.
+// - 단발 셀은 1000ms 고정이다.
+// - 연타 셀은 800ms 고정이다(셀 정의의 `offset`).
+/** loop 셀의 지연. 800~1000ms 무작위. */
 const loopOffset = () => 800 + Math.random() * 200;
+/** 단발 셀의 지연. 1000ms 고정. */
 const fixedOffset = () => 1000;
 
+/**
+ * 셀 정의. `id → { tla?, pre, run, block, kind, offset|presses, form }`.
+ * - `pre`: 셀 시작 시 1회 실행하는 줄. `{ block }`은 여러 줄 정의다.
+ * - `run`: 시행마다 제출하는 코드. `block`이 참이면 복합문이라 빈 줄 Enter까지 보낸다.
+ * - `kind`: `single`(한 번 누름) | `multi`(`presses`의 각 시각(Enter 기준 ms)에 누름) | `burst`(연타).
+ * - `form`: 화면 형식 판정 규칙(`checkForm`).
+ */
 const CELLS = {
   "sleep-0.01": { pre: ["import time"], run: "while True: time.sleep(0.01)", block: true, kind: "single", offset: loopOffset, form: "tb1" },
   "sleep-0.1": { pre: ["import time"], run: "while True: time.sleep(0.1)", block: true, kind: "single", offset: loopOffset, form: "tb1" },
@@ -99,13 +117,13 @@ const CELLS = {
     form: "tb1",
   },
   "sleep-burst": { pre: ["import time"], run: "while True: time.sleep(0.1)", block: true, kind: "burst", offset: () => 800, form: "burst" },
-  // ── RD-012 TLA 셀 4개(브라우저에서만, node는 top-level-await.test.ts) ──
+  // ── RD-012 TLA 셀 4개(브라우저에서만 잰다. node 쪽은 top-level-await.test.ts) ──
   await5: { tla: true, pre: ["import asyncio"], run: "await asyncio.sleep(5)", block: false, kind: "single", offset: fixedOffset, form: "line" },
   awaitloop: { tla: true, pre: ["import asyncio"], run: "while True: await asyncio.sleep(0.1)", block: true, kind: "single", offset: loopOffset, form: "either" },
   "tla-sleep-0.1": { tla: true, pre: ["import time"], run: "while True: time.sleep(0.1)", block: true, kind: "single", offset: loopOffset, form: "tb1" },
   "tla-burst": { tla: true, pre: [], run: "while True: pass", block: true, kind: "burst", offset: () => 800, burstCount: 30, form: "burst" },
 };
-// tla 거짓 → 참 순으로 정렬(전환마다 리셋이라 총 전환 횟수를 최소화한다). 같은 tla값 안에서는 정의 순서를 유지한다.
+// tla 거짓 → 참 순으로 정렬해 전환 횟수를 최소화한다. 같은 tla값 안에서는 정의 순서를 유지한다.
 const orderedIds = Object.keys(CELLS).sort(
   (a, b) => Number(Boolean(CELLS[a].tla)) - Number(Boolean(CELLS[b].tla)),
 );
@@ -121,7 +139,9 @@ const {
   ctrlC, ctrlCBurst, startBlockLine, countTracebacks, setTopLevelAwait, page,
 } = h;
 
-// 페이지 내부 타이머: Ctrl+C(`c` keydown, ctrlKey)의 실제 타임스탬프 기록 + 프롬프트 복귀 순간을 같은 시계로 잡는다.
+// 페이지 안 시계를 심는다. Ctrl+C(`c` keydown, ctrlKey)의 실제 타임스탬프와 프롬프트 복귀 순간을 같은 시계로 잡는다.
+// - `window.__ctrlCAt`: Ctrl+C 타임스탬프 배열.
+// - `window.__armPrompt()`: 복귀 관측을 무장한다. 복귀 시각은 `window.__promptReadyAt`에 남는다.
 await page.evaluate(() => {
   window.__ctrlCAt = [];
   window.addEventListener(
@@ -149,30 +169,39 @@ await page.evaluate(() => {
     check();
   };
 });
-/** 눌림 전에 부른다: 복귀 관측을 무장하고 이전 눌림 기록을 비운다. */
+/** 눌림 전에 부른다. 복귀 관측을 무장하고 이전 눌림 기록을 비운다. */
 async function armMeasurement() {
   await page.evaluate(() => {
     window.__armPrompt();
     window.__ctrlCAt.length = 0;
   });
 }
-/** 눌림·복귀가 끝난 뒤 페이지 시계로 잰 경과(ms)를 읽는다. `which`: "last"(기본, 단발·다중 눌림의 마지막) | "first"(연타 시작). */
+/**
+ * 눌림·복귀가 끝난 뒤 페이지 시계로 잰 경과(ms)를 읽는다.
+ * `which`가 "last"(기본)이면 마지막 눌림, "first"이면 첫 눌림(연타 시작)이 기준이다.
+ */
 async function readElapsed(which = "last") {
   const r = await page.evaluate(() => ({ promptReadyAt: window.__promptReadyAt, ctrlCAt: window.__ctrlCAt.slice() }));
   const at = which === "first" ? r.ctrlCAt[0] : r.ctrlCAt.at(-1);
   return r.promptReadyAt - at;
 }
 
+/** 소수 둘째 자리로 반올림한다. */
 const r2 = (x) => Math.round(x * 100) / 100;
+/** 표본의 중앙값과 최댓값. 표본이 없으면 둘 다 null. */
 const stat = (a) => {
   if (!a.length) return { median: null, max: null };
   const s = [...a].sort((x, y) => x - y);
   const med = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
   return { median: r2(med), max: r2(s[s.length - 1]) };
 };
+/** 화면에 새면 안 되는 우리 프레임 이름. */
 const OUR_FRAME_RE = /<sigint-handler>|<sleep-slice>|webloop\.py|<webloop-reraise>/;
 
-/** 프롬프트가 아닌 상태로 남아 있으면 되돌린다(RD-007 ctrl-c-check.mjs recover와 같은 판단). TLA ON에서도 같다. */
+/**
+ * 프롬프트가 아닌 상태로 남아 있으면 되돌린다. 최대 10회 시도한다.
+ * 커서가 마지막 행에 있으면 Enter, 아니면 Ctrl+C를 보낸다. `ctrl-c-check.mjs`의 `recover`와 같은 판단이다. TLA가 켜져 있어도 같다.
+ */
 async function recover() {
   for (let i = 0; i < 10; i += 1) {
     const all = await rows();
@@ -190,15 +219,16 @@ async function recover() {
     await page.waitForTimeout(500);
   }
 }
+/** `step`을 실행하고 실패하면 `recover()`로 프롬프트를 되찾는다. */
 async function safeStep(name, fn) {
   await step(name, fn);
   if (h.checks[name] === false) await recover();
 }
 
 /**
- * 여러 줄짜리 블록(함수 정의 등)을 제출한다. 마지막에 빈 줄로 닫히며 정의는 곧바로 실행되지 않으므로 `>>>`까지 기다린다.
- * 각 항목은 문자열(프리필 위에 그대로 친다) 또는 `{ line, dedent }`(`dedent`회 Backspace로 프리필을 한 단위씩
- * 줄인 뒤 친다, RD-013 자동 들여쓰기 — `CATCHER_LINES` 참고).
+ * 여러 줄짜리 블록(함수 정의 등)을 제출한다. 마지막 빈 줄로 블록을 닫고 `>>>`까지 기다린다.
+ * 각 항목은 문자열(프리필 위에 그대로 친다) 또는 `{ line, dedent }`다.
+ * `dedent`회 Backspace로 프리필을 한 단위씩 줄인 뒤 친다(RD-013 자동 들여쓰기, `CATCHER_LINES` 참고).
  */
 async function defineBlock(lines) {
   for (const item of lines) {
@@ -212,6 +242,7 @@ async function defineBlock(lines) {
   await enter();
   await waitPrompt(">>>");
 }
+/** 셀의 `pre` 줄을 차례로 제출한다. 문자열은 한 줄 입력, `{ block }`은 `defineBlock`이다. */
 async function runPre(pre) {
   for (const item of pre) {
     if (typeof item === "string") {
@@ -224,7 +255,10 @@ async function runPre(pre) {
   }
 }
 
-/** `keyboard.press` 직전 시각부터 새 `>>> ` 행(커서 포함)이 보일 때까지, 3ms 간격으로 폴링해 그 시각을 돌려준다. */
+/**
+ * 새 `>>> ` 행(커서 포함)이 보일 때까지 3ms 간격으로 폴링한다. 보인 시각(Node 시계)을 돌려준다.
+ * 다음 단계로 넘어가도 되는지 보는 게이트다. 돌려준 시각은 통계에 쓰지 않는다.
+ */
 async function waitPromptAt() {
   return waitFor(
     async () => {
@@ -249,11 +283,12 @@ async function checkTb1() {
   if (last !== "KeyboardInterrupt") throw new Error(`마지막 줄 ${show(last)}(KeyboardInterrupt 기대) ${show(await tail(8))}`);
 }
 /**
- * `line` 규칙(RD-012 확정 13): 트레이스백 0개 + 뒤에서 두 번째(빈 줄 제외) 행이 KeyboardInterrupt. `await` 대기
- * 중 취소는 콘솔 task 취소라 트레이스백 없이 한 줄로 끝난다(`10-parity-deviations.md` 1절, python -m asyncio와 같다).
- * 트레이스백 있는 형식(`tb1`)은 `^C` 에코가 "Traceback (most recent call last):" 행에 붙지만, 이 형식은 그
- * 머리글이 없어 `^C` 에코가 KeyboardInterrupt 행 앞에 그대로 붙는다(실측 `^CKeyboardInterrupt`) — 그 접두만 뗀다.
- * `OUR_FRAME_RE` 0건은 호출부가 모든 셀에 공통으로 검사하므로 여기서 다시 보지 않는다.
+ * `line` 규칙: 트레이스백 0개 + 뒤에서 두 번째(빈 줄 제외) 행이 KeyboardInterrupt.
+ * - `await` 대기 중 취소는 콘솔 task 취소라 트레이스백 없이 한 줄로 끝난다. `python -m asyncio`와 같다.
+ * - 규칙은 `docs/design/10-parity-deviations.md` 1절 끝의 top-level await 항이다.
+ * - `tb1` 형식은 `^C` 에코가 "Traceback (most recent call last):" 행에 붙는다.
+ * - 이 형식은 그 머리글이 없어 `^C` 에코가 KeyboardInterrupt 행 앞에 붙는다(실측 `^CKeyboardInterrupt`). 그 접두만 뗀다.
+ * `OUR_FRAME_RE` 검사는 호출부가 모든 셀에 공통으로 하므로 여기서 다시 보지 않는다.
  */
 async function checkLine() {
   const tb = await countTracebacks();
@@ -263,7 +298,7 @@ async function checkLine() {
   if (last !== "KeyboardInterrupt") throw new Error(`뒤에서 두 번째 줄 ${show(nonEmpty.at(-2))}(KeyboardInterrupt 기대, ^C 접두 허용) ${show(await tail(8))}`);
 }
 
-/** 형식 판정. 실패하면 던진다. `either`는 통과한 가지 이름("line"|"tb1")을 돌려준다(그 외 폼은 undefined). */
+/** 셀의 `form` 규칙으로 화면을 판정한다. 실패하면 던진다. `either`는 통과한 가지 이름("line"|"tb1")을 돌려준다. 그 외 형식은 undefined다. */
 async function checkForm(cfg) {
   if (cfg.form === "tb1") {
     await checkTb1();
@@ -332,6 +367,7 @@ for (const cellId of CELL_IDS) {
         await enter();
       }
 
+      // Enter 시각 기준 지정 지연까지 기다린 뒤 누른다. 복귀 관측은 (마지막) 눌림 직전에 무장한다.
       let measureWhich = "last";
       if (cfg.kind === "multi") {
         for (let p = 0; p < cfg.presses.length; p += 1) {
@@ -353,6 +389,7 @@ for (const cellId of CELL_IDS) {
         await ctrlC();
       }
 
+      // 복귀를 기다린 뒤 화면이 잠잠해지면 형식을 판정한다.
       await waitPromptAt();
       await settled(120, 5000);
       const elapsed = await readElapsed(measureWhich);

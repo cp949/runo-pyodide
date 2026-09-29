@@ -1,15 +1,32 @@
-// RD-010 브라우저 확인. ROADMAP 시나리오 5종 + 이월 6건 + StrictMode + 크래시 유발 실측.
-// 출처 RD-010에서 이관(RD-018).
+// RD-010(세션 리셋·종료 정책·크래시 재시작 UI)을 실제 브라우저로 검증한다.
+// 규칙은 docs/design/08-session.md.
 //
-// 사용법(dev, `pnpm --filter demo dev`가 떠 있어야 함):
-//   node session-reset-check.mjs [devURL] [previewURL]
-// ONLY=<절 이름,…>로 절만 분리 실행할 수 있다(reset·cursor·ctrll·carry·ccreset·ccafter·exit·crash·strict) —
-// preview에도 그대로 적용된다(이 스크립트는 preview 전용 절 목록을 선언하지 않는다, RD-044 K6).
-// preview는 devURL·previewURL 둘 다 있을 때만 돈다(`pnpm --filter demo build && pnpm --filter demo preview`).
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// 절 구성(확인 이름의 접두어가 절 이름이다):
+// - reset: 변수·import 소실, 안내 줄·배너·프롬프트 순서.
+// - cursor: 리셋 직전 커서 행 처리(TRP-006), 미제출 입력 폐기.
+// - ctrll: Ctrl+L은 화면만 지운다.
+// - carry: 옛 세션 상태가 새 세션에 넘어오지 않는다(RD-012b·RD-012c·RD-006b 이월 6건).
+// - ccreset: 리셋 직전 Ctrl+C가 새 세션의 시작 코드를 죽이지 않는다(N=10).
+// - ccafter: 삼키는 루프 실행 중 리셋 뒤 새 세션의 첫 Ctrl+C가 유실되지 않는다(N=8, TRP-049).
+// - exit: `exit()` 뒤 terminated 상태, 무응답, 리셋 복구.
+// - crash: worker 크래시 유발, crashed 상태, 재시작 복구.
+// - strict: StrictMode 이중 마운트에서 worker 1개·`.xterm` 1개·콘솔 경고 0.
+//
+// 실행 순서: 위 순서대로 한 세션에서 이어 돈다.
+// - `exit`·`crash`는 세션을 죽인다. 각 절이 끝에 리셋·재시작으로 복구한다.
+// - `strict`는 마지막이다. worker·`.xterm` 수는 앞 절의 리셋·재시작을 다 거친 상태에서 센다.
+// - `crash`는 `pageerror` 1건(forced)을 의도적으로 낸다. `pageerror` 총계는 dev 실행 끝에서 따로 판정한다.
+//
+// dev와 preview를 한 프로세스에서 돈다. preview는 초기·reset·exit·crash만 돈다(`runPreview`).
+// 사용법·`ONLY`·결과 파일 이름은 apps/demo/e2e/README.md.
+// - `ONLY`는 확인 이름의 접두어로 거른다. preview에도 그대로 적용된다(preview 절 목록을 선언하지 않는다, RD-044 K6).
 import { open, hasFg, same, show } from "../lib.mjs";
 import { checkEntry, currentOnly, exitWith, pageSelected, runDevPreview, serverLabel } from "../check-runner.mjs";
 
+// 기준 리터럴. 화면에 그려지는 값을 그대로 옮겼다.
+// - 리셋 안내 줄: packages/pyodide-repl/src/index.ts.
+// - 배너: 번들 pyodide 3.14.2의 `sys.version` 배너. pyodide 버전이 바뀌면 함께 바꾼다.
+// - terminated 문구: apps/demo/src/ReplView.tsx.
 const RESET_NOTICE = "[세션 리셋됨 — 이전 변수/import가 모두 초기화되었습니다]";
 const BANNER = [
   "Python 3.14.2 (main, Sep 14 2026 03:03:51) on WebAssembly/Emscripten",
@@ -18,6 +35,10 @@ const BANNER = [
 const TERMINATED_TEXT =
   'Python session terminated. "세션 리셋" 버튼으로 새 세션을 시작하세요.';
 
+/**
+ * dev 서버에서 전 절(초기·reset·cursor·ctrll·carry·ccreset·ccafter·exit·crash·strict)을 실행한다.
+ * 결과는 checks 기준으로 판정한다. `finish()`의 `ok`는 쓰지 않는다(crash 절의 forced `pageerror` 때문, TRP-028).
+ */
 async function runDev(url) {
   const h = await open(url);
   const {
@@ -50,18 +71,16 @@ async function runDev(url) {
   const crashedText = () => page.locator('[data-testid="crashed"]').textContent();
   const crashedVisible = () => page.locator('[data-testid="crashed"]').count();
   const rawClick = (testid) => page.click(`[data-testid="${testid}"]`);
-  // 버튼 클릭은 xterm의 숨은 textarea에서 포커스를 가져간다 — 클릭 뒤 focus()로 되돌린다.
+  // 버튼 클릭은 xterm의 숨은 textarea에서 포커스를 가져간다. 클릭 뒤 `focus()`로 되돌린다.
   const click = async (testid) => {
     await rawClick(testid);
     await focus();
   };
-  /**
-   * 리셋(또는 재시작) 버튼 클릭 → `loading` → `ready`/`load-failed` → 새 프롬프트까지 기다린다.
-   * 발견: 화면 행(`세션 리셋됨` 안내 줄) 개수로 "새 리셋이 끝났다"를 판정하면, xterm이 뷰포트(기본 24행)
-   * 밖으로 스크롤된 옛 행을 DOM에서 지워 버려 여러 번 리셋한 뒤에는 안내 줄 개수가 더 늘지 않을 수
-   * 있다(관찰: 3번째 리셋까지는 각 ~1.3초로 통과, 4번째는 60초를 줘도 통과하지 못함) — 상태 텍스트
-   * (`data-testid=status`)는 스크롤과 무관한 단일 엘리먼트라 이 문제가 없다.
-   */
+  // 리셋(또는 재시작) 버튼을 눌러 `loading`, `ready`·`load-failed`, 새 프롬프트까지 기다린다.
+  // 끝은 화면 행 개수가 아니라 status 텍스트로 판정한다(TRP-024).
+  // - 안내 줄(`세션 리셋됨`) 개수로 판정하면, xterm이 뷰포트(기본 24행) 밖 옛 행을 DOM에서 지운다.
+  // - 그러면 여러 번 리셋한 뒤에는 개수가 늘지 않는다(관찰: 3번째 리셋까지 각 약 1.3초, 4번째는 60초를 줘도 실패).
+  // - `data-testid=status`는 스크롤과 무관한 단일 요소다.
   async function resetAndWait(testid = "reset") {
     await click(testid);
     await waitFor(async () => (await statusText()) === "loading", `${testid}: loading 상태`);
@@ -90,8 +109,8 @@ async function runDev(url) {
       throw new Error(`마지막 4행 = ${show(t)}`);
     }
     if ((await cursorRow()) !== (await rows()).length - 1) {
-      // trimmedRows가 아니라 rows() 기준으로 커서가 마지막 텍스트 행에 있는지 tail()로 이미 보장되지만
-      // 명시적으로 한 번 더 확인한다(TRP-006).
+      // `tail()`은 텍스트만 본다. 커서가 마지막 텍스트 행에 있는지 따로 확인한다(TRP-006).
+      // 커서가 뷰포트 마지막 행이 아니면 끝의 빈 행을 뺀 마지막 행과 대조한다.
       const all = await rows();
       let last = all.length - 1;
       while (last >= 0 && all[last] === "") last -= 1;
@@ -128,10 +147,11 @@ async function runDev(url) {
   });
 
   // ── cursor: 리셋 직전 커서 행 처리(TRP-006), 미제출 입력 폐기 ──
-  // 꼬리 없음 분기(개행으로 끝난 출력 직후, 프롬프트가 그려지기 전에 리셋)는 Enter와 reset 클릭을 경합시켜도
-  // (Promise.all) 매번 프롬프트가 먼저 그려져 실사용 경로로는 재현되지 않는다(디버그 스크립트로 4회 확인). 행 머리
-  // 판정은 커서가 아니라 현재 io 꼬리다(RD-028). 이 분기는 `index.test.ts`의 "리셋 안내 줄: 꼬리가 있으면…"(TRP-006)
-  // 단위 시험으로만 고정한다.
+  // 꼬리 없음 분기는 이 스크립트로 재현되지 않는다.
+  // - 분기 조건: 개행으로 끝난 출력 직후, 프롬프트가 그려지기 전에 리셋한다.
+  // - Enter와 reset 클릭을 `Promise.all`로 경합시켜도 매번 프롬프트가 먼저 그려졌다(디버그 스크립트로 4회 확인).
+  // - 행 머리 판정은 커서가 아니라 현재 io 꼬리다(RD-028).
+  // - 이 분기는 packages/pyodide-repl/test/create-repl/reset.test.ts의 "리셋 안내 줄: 꼬리가 있으면 …"(TRAP-12)가 고정한다.
   await step('cursor: 개행 없는 출력(end="") 뒤 리셋 — 꼬리("t>>>")가 있어도 개행 1개', async () => {
     await type('print("t", end="")');
     await enter();
@@ -169,8 +189,8 @@ async function runDev(url) {
     await press("Escape");
     await resetPromptClean();
   });
+  // ArrowUp이 올린 history 줄을 지우고 빈 프롬프트로 되돌린다. 다음 절이 깨끗하게 시작하게 한다.
   async function resetPromptClean() {
-    // ArrowUp이 올린 history 줄을 지우고 빈 프롬프트로 되돌린다(다음 절이 깨끗하게 시작하도록).
     await press("Control+u");
     await enter();
     await waitPrompt(">>>");
@@ -194,8 +214,9 @@ async function runDev(url) {
     await waitLastEndsWith(">>>");
     await resetAndWait();
     const t = await tail(5);
-    // 옛 세션의 꼬리("v")가 새 프롬프트에 물려("v>>> ") 그려지지 않고, 옛 꼬리 행("v>>>")은 그대로 남아
-    // 있어야 한다(TRP-006 케이스와 같은 화면이지만 여기서는 "새 프롬프트가 꼬리를 안 물려받는다"에 초점).
+    // 옛 세션의 꼬리("v")가 새 프롬프트에 물려("v>>> ") 그려지면 안 된다.
+    // 옛 꼬리 행("v>>>")은 그대로 남아야 한다.
+    // 화면은 cursor 절과 같다. 여기서는 새 프롬프트가 꼬리를 물려받지 않는 것을 본다.
     if (!same(t, ["v>>>", RESET_NOTICE, ...BANNER, ">>>"])) {
       throw new Error(`마지막 5행 = ${show(t)}`);
     }
@@ -225,8 +246,9 @@ async function runDev(url) {
       async () => (await rows()).some((r) => r.includes("KeyboardInterrupt")),
       "input() 취소 트레이스백",
     );
-    // 취소 트레이스백 렌더링과 겹치는 창에 친 첫 글자는 RD-019 이전에는 드롭될 수 있었다(TRP-005류). 지금은 읽기 없는
-    // 구간의 키를 벤더가 쌓아 재생하므로 유실되지 않지만, 화면이 안정된 뒤에 타이핑하는 순서는 유지한다.
+    // 취소 트레이스백 렌더링과 겹치는 창에 친 첫 글자는 RD-019 이전에는 버려질 수 있었다(TRP-005류).
+    // 지금은 읽기 없는 구간의 키를 벤더가 쌓아 재생하므로 유실되지 않는다.
+    // 그래도 화면이 안정된 뒤에 타이핑하는 순서는 유지한다.
     await h.settled();
     await submit("print(1)");
     const t = await tail(3);
@@ -259,8 +281,9 @@ async function runDev(url) {
       if (!same(banner, [...BANNER, ">>>"])) {
         throw new Error(`${i}번째 배너 = ${show(banner)}`);
       }
-      // 배너 뒤(prompt 앞)에 KeyboardInterrupt·Traceback이 새지 않아야 한다. lastIndexOf로 "이번" 리셋이
-      // 방금 그린 배너(가장 최근 것)를 찾는다 — findIndex는 첫 배너(맨 처음 부팅)에 걸린다.
+      // 배너 뒤(프롬프트 앞)에 KeyboardInterrupt·Traceback이 새지 않아야 한다.
+      // `lastIndexOf`로 이번 리셋이 방금 그린 배너(가장 최근 것)를 찾는다.
+      // `findIndex`는 맨 처음 부팅의 배너에 걸린다.
       const afterBannerIdx = (await rows()).lastIndexOf(BANNER[1]);
       const afterBanner = (await rows()).slice(afterBannerIdx + 1).join("");
       if (afterBanner.includes("KeyboardInterrupt") || afterBanner.includes("Traceback")) {
@@ -271,15 +294,20 @@ async function runDev(url) {
 
   // ── ccafter: 실행 중 리셋 직후 새 세션의 첫 Ctrl+C가 옛 worker에 가로채이지 않는다(N=8) ──
   // 배경: Chromium은 `worker.terminate()` 뒤에도 Python 루프 중인 worker를 최대 약 2초 살려 둔다(TRP-049).
-  // 옛 worker가 새 세션과 같은 interrupt buffer를 공유하면 그 창 안의 첫 SIGINT를 ack하고 `KeyboardInterrupt`를
-  // 삼킨다. 삼키는 루프를 돌리는 채로 리셋하고, 곧바로 새 세션에서 첫 Ctrl+C를 눌러 "먹음"/"유실"을 센다.
-  // 판정은 이벤트·상태로만 한다(9.7): 눌림이 유실되면 옛 worker가 ack해 재전송이 없으므로 루프가 스스로 끝나지
-  // 않는 영구 상태다 — `waitFor` 제한 시간은 그 정지를 감지하는 용도이고 판정선이 아니다(9.7 4). 시간 값(ms)은
-  // 판정이 아니라 관찰로만 남긴다(9.7 6).
+  // 옛 worker가 새 세션과 같은 interrupt buffer를 공유하면 그 창 안의 첫 SIGINT를 ack한다.
+  // 그러면 새 세션의 `KeyboardInterrupt`가 사라진다.
+  // 방법: 삼키는 루프를 돌리는 채로 리셋한다. 곧바로 새 세션에서 첫 Ctrl+C를 눌러 "먹음"과 "유실"을 센다.
+  // 판정은 이벤트·상태로만 한다(9.7).
+  // - 눌림이 유실되면 옛 worker가 ack해 재전송이 없다. 루프는 스스로 끝나지 않는 영구 상태가 된다.
+  // - `waitFor` 제한 시간은 그 정지를 감지하는 용도다. 판정선이 아니다(9.7 4).
+  // - 시간 값(ms)은 판정이 아니라 관찰로만 남긴다(9.7 6).
   await step("ccafter: 삼키는 루프 실행 중 리셋 → 새 세션 첫 Ctrl+C N=8 유실 0", async () => {
     const N = 8;
     const STALL_MS = 15000;
-    // gb 출력 행 뒤에 KeyboardInterrupt 행이 생기고 새 프롬프트(`>>>`, 커서 있음)가 마지막 텍스트 행일 때 참이다.
+    // 참인 조건은 셋이다.
+    // - `marker`(gb 출력 행) 뒤에 KeyboardInterrupt 행이 있다.
+    // - 새 프롬프트(`>>>`)가 마지막 텍스트 행이다.
+    // - 커서가 그 행에 있다.
     const interruptedAfter = async (marker) => {
       const all = await rows();
       const idx = all.lastIndexOf(marker);
@@ -293,7 +321,8 @@ async function runDev(url) {
     const lostRounds = [];
     for (let i = 0; i < N; i += 1) {
       await clear();
-      // 삼키는 루프: KeyboardInterrupt를 받아도 안쪽 루프를 다시 돈다. `\n`은 Python 문자열 이스케이프라 한 줄로 친다.
+      // 삼키는 루프는 KeyboardInterrupt를 받아도 안쪽 루프를 다시 돈다.
+      // `\n`은 Python 문자열 이스케이프라 프롬프트에는 한 줄로 친다.
       await type(
         `exec("print('ga${i}')\\nwhile True:\\n    try:\\n        while True: pass\\n    except KeyboardInterrupt: pass")`,
       );
@@ -350,9 +379,9 @@ async function runDev(url) {
     if (text !== TERMINATED_TEXT) throw new Error(`terminated 문구 = ${show(text)}`);
   });
   await step("exit: terminated에서 입력은 완전 무응답(에코도 없음)", async () => {
-    // terminated 뒤에는 활성 읽기가 없어(8.3) 키가 화면에 아무 흔적도 안 남긴다 — echo도 없다. RD-019 뒤에는 이 키를 버리지
-    // 않고 벤더 Readline이 쌓아 두지만(그리지 않는다) 리셋(`cancelRead`)이 폐기한다.
-    // type()은 에코를 기다리므로 여기서는 쓰지 않는다(에코가 없는 게 기대 동작이라 항상 타임아웃한다).
+    // terminated 뒤에는 활성 읽기가 없어(docs/design/08-session.md 8.3) 키가 화면에 아무 흔적도 남기지 않는다. 에코도 없다.
+    // RD-019 뒤에는 벤더 `Readline`이 이 키를 버리지 않고 쌓아 두지만 그리지 않는다. 리셋(`cancelRead`)이 폐기한다.
+    // `type()`은 에코를 기다리므로 쓰지 않는다. 에코가 없는 것이 기대 동작이라 항상 시간 초과한다.
     const before = await rows();
     await page.keyboard.type("1+1");
     await press("Enter");
@@ -393,7 +422,8 @@ async function runDev(url) {
   // ── strict: StrictMode 이중 마운트 — worker 1개, .xterm 1개, 콘솔 경고 0 ──
   await step("strict: 로드 직후 worker 1개·.xterm 1개", async () => {
     if (h.workers.created > 2) {
-      // StrictMode의 mount→cleanup→mount로 2개까지는 생성될 수 있으나 page.workers()는 살아있는 것만 센다.
+      // StrictMode의 mount, cleanup, mount로 worker가 2개까지 생성될 수 있다.
+      // 생성 수는 판정하지 않는다. `page.workers()`는 살아 있는 것만 센다.
     }
     const liveWorkers = page.workers().length;
     if (liveWorkers !== 1) throw new Error(`page.workers().length = ${liveWorkers}`);
@@ -410,7 +440,8 @@ async function runDev(url) {
     if (problems.length !== 0) throw new Error(`콘솔 문제 ${problems.length}건 — ${show(problems.slice(0, 3))}`);
   });
 
-  // crash 절이 실제로 돈 경우에만(ONLY로 다른 절만 골랐으면 forced는 0이 맞다) pageerror 총계를 판정한다.
+  // crash 절이 돈 경우에만 pageerror 총계를 판정한다.
+  // `ONLY`로 다른 절만 골랐으면 forced는 0이 맞다.
   const crashRan = pageSelected(currentOnly(), "crash");
   if (crashRan) {
     const forcedErrors = h.pageErrors.filter((e) => e.includes("forced"));
@@ -428,13 +459,18 @@ async function runDev(url) {
     }
   }
 
-  // finish()의 ok는 pageErrors 총계가 0이어야 한다고 보지만, crash 절은 forced 오류 1건을 의도적으로
-  // 낸다(위 checks에서 이미 "forced 1건만, 나머지 0"으로 별도 판정했다) — 전체 ok는 checks 기준으로 낸다.
+  // `finish()`의 `ok`는 pageErrors 총계 0을 요구한다.
+  // crash 절은 forced 오류 1건을 의도적으로 낸다. 위 checks가 "forced 1건만, 나머지 0"을 이미 판정했다.
+  // 그래서 전체 통과 여부는 checks 기준으로 낸다(TRP-028).
   const label = serverLabel(url);
   await h.finish({ label });
   return Object.values(h.checks).every(Boolean);
 }
 
+/**
+ * preview 서버에서 초기·reset·exit·crash만 실행한다. 판정은 `runDev`의 같은 이름 절보다 적다.
+ * cursor·ctrll·carry·ccreset·ccafter·strict와 pageerror 총계 판정은 없다.
+ */
 async function runPreview(url) {
   const h = await open(url);
   const {
@@ -455,6 +491,7 @@ async function runPreview(url) {
     await page.click(`[data-testid="${testid}"]`);
     await focus();
   };
+  // `runDev`의 `resetAndWait`와 같다.
   async function resetAndWait(testid = "reset") {
     await click(testid);
     await waitFor(async () => (await statusText()) === "loading", `${testid}: loading 상태`);
@@ -498,8 +535,9 @@ async function runPreview(url) {
     if (!t.some((r) => r === "2")) throw new Error("preview: 재시작 복구 뒤 1+1 != 2");
   });
 
-  // finish()의 ok는 pageErrors 총계가 0이어야 한다고 보지만, crash 절은 forced 오류 1건을 의도적으로
-  // 낸다(위 checks에서 이미 "forced 1건만, 나머지 0"으로 별도 판정했다) — 전체 ok는 checks 기준으로 낸다.
+  // `finish()`의 `ok`는 pageErrors 총계 0을 요구한다.
+  // crash 절은 forced 오류 1건을 의도적으로 낸다. 그래서 전체 통과 여부는 checks 기준으로 낸다(TRP-028).
+  // 이 함수에는 "forced 1건만, 나머지 0"을 따로 판정하는 검사가 없다.
   const label = serverLabel(url);
   await h.finish({ label });
   return Object.values(h.checks).every(Boolean);
@@ -507,6 +545,7 @@ async function runPreview(url) {
 
 const { url: devURL, previewUrl: previewURL } = checkEntry();
 
+// dev와 preview 본문이 달라 `phase`로 가른다(RD-044 K5).
 const ok = await runDevPreview({
   url: devURL,
   previewUrl: previewURL,

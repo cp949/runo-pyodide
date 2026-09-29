@@ -1,27 +1,34 @@
-// RD-022a 브라우저 확인: REPL 핸들 `runSource(code)`(REPL 화면, 쿼리 없음). 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
-// 코드를 `textarea`(`source`)에 넣고 `run-source` 버튼을 누르면 결과 칸(`source-result`)에 `runSource()`가 돌려준 결과 유니온의 JSON이
-// 나오고 거부는 `{"rejected":"<reason>"}`다. 화면은 xterm 행(`.xterm-rows > div`)으로 판정한다.
+// RD-022a 브라우저 확인: REPL 핸들 `runSource(code)`(REPL 화면, 쿼리 없음). 규칙은 `docs/design/02-console-core.md` 5.6.
+// 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
+// 코드를 `textarea`(`source`)에 넣고 `run-source` 버튼을 누른다.
+// 결과 칸(`source-result`)에 `runSource()`가 돌려준 결과 유니온의 JSON이 나온다.
+// 거부는 `{"rejected":"<reason>"}`다. 화면은 xterm 행(`.xterm-rows > div`)으로 판정한다.
 //
 // 셀:
-//   S01 `pri`까지 친 상태에서 `runSource("x = 1\nprint(x)")` → 행 `1`, 마지막 행 `>>> pri`(커서 끝), `ok`, 이어서 `x` 제출 → `1`(globals 공유)
+//   S01 `pri`까지 친 상태에서 `runSource("x = 1\nprint(x)")` → 행 `1`, 마지막 행 `>>> pri`(커서 끝), `ok`
+//       이어서 `x` 제출 → `1`(globals 공유)
 //   S02 `1/0` → `error`·`ZeroDivisionError`, 트레이스백 행(`File "<console>"`, 빨강), 뒤에 `>>>` 재그리기
 //   S03 블록 입력 중(`if 1:` Enter → `...`) 호출 → `{"rejected":"busy"}`, 화면·블록 입력 무변경
 //   S04 REPL이 `while True: pass`를 실행 중일 때 호출 → `busy`, 이어서 Ctrl+C로 정리
 //   S05 `runSource`가 실행하는 `while True: pass` → Ctrl+C → `interrupted`, `^C`·`KeyboardInterrupt` 행, 프롬프트 복원
 //   S06 `print(input("n: "))` → `n: ` 뒤 입력 → `n: abc`·`abc` 행, `ok`
-//   S07 `sys.exit(3)` → `exit{ code: 3 }`·이어서 REPL `1+1` → `2`(세션 유지), `exit()` → `exit{ code: 0 }`·이어서 `runSource("print(input())")`가 stdin으로 읽는다
+//   S07 `sys.exit(3)` → `exit{ code: 3 }`, 이어서 REPL `1+1` → `2`(세션 유지)
+//       `exit()` → `exit{ code: 0 }`, 이어서 `runSource("print(input())")`가 stdin으로 읽는다
 //   S08 `runSource` 실행 중 `reset` 버튼 → `restarted`, 새 세션에서 REPL 명령이 돈다
 //   S09 `pri`에서 커서를 두 칸 왼쪽(`p|ri`)에 두고 `print(1)` → 재그리기 뒤 커서 열 5, `X` 입력 → `>>> pXri`
 //   S10 `print("a", end="")` 뒤 `a>>> pri`에서 `print(2)` → 꼬리 `a` 행 보존, `2` 행, `>>> pri`
 //   끝  콘솔 경고·오류·pageerror 0(`finish()`의 `pageErrors`도 0이어야 `ok`다)
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기·ms 상한을 쓰지 않는다. 실행이 "진행 중"임은 출력 행 마커(`S0nGO`)로 확인하고,
-// 결과 칸이 채워진 뒤 화면을 읽을 때는 조건이 참이 될 때까지 기다린다(결과 칸이 xterm DOM보다 먼저 바뀔 수 있다, TRP-050). 화면 판정은 행
-// 정확일치(`hasRow`)·증가분(`countOf`)이고 부분일치는 쓰지 않는다. 호출은 프롬프트 행이 화면에 보인 뒤에 한다(그려지기 전 호출은 `busy`다).
-// 거부(`busy`)는 화면을 건드리지 않으므로 "무변경"은 결과 도착 직후 스냅샷과, 뒤이은 정상 조작이 끝난 뒤 행 목록의 형태로 함께 확인한다.
+// 시간 판정은 `docs/design/09-testing.md` 9.7을 따른다.
+// - 실행이 "진행 중"임은 출력 행 마커(`S0nGO`)로 확인한다.
+// - 결과 칸이 채워진 뒤 화면은 조건이 참이 될 때까지 기다려 읽는다. 결과 칸이 xterm DOM보다 먼저 바뀔 수 있다(TRP-050).
+// - 화면 판정은 행 정확일치(`hasRow`)·증가분(`countOf`)이다. 부분일치는 쓰지 않는다.
+// - 호출은 프롬프트 행이 화면에 보인 뒤에 한다. 그려지기 전 호출은 `busy`다.
+// - 거부(`busy`)는 화면을 건드리지 않는다.
+// - "무변경"은 결과 도착 직후 스냅샷과, 뒤이은 정상 조작이 끝난 뒤 행 목록의 형태로 함께 확인한다.
 //
-// 사용: node run-source-check.mjs [url](생략 시 http://localhost:5173)     ONLY=S01,S05 node run-source-check.mjs
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// 사용: `node run-source-check.mjs [url]`. `ONLY=S01,S05`로 셀을 고른다.
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { hasFg, open, same, show } from "../lib.mjs";
 
@@ -54,6 +61,7 @@ const countRow = async (text) => (await rows()).filter((r) => r === text).length
 /** 이어붙인 화면에서 `needle`이 나오는 횟수(행이 감겨도 놓치지 않는다). 증가분으로만 쓴다. */
 const countOf = async (needle) => (await rows()).join("").split(needle).length - 1;
 
+/** 결과 칸(`source-result`)의 텍스트. */
 const resultText = () => page.locator('[data-testid="source-result"]').textContent();
 /** 결과 칸이 비어 있지 않을 때까지 기다려 JSON으로 파싱한다(새 호출을 시작하면 앱이 이전 결과를 지운다). */
 async function waitResult(description, timeoutMs = 30000) {
@@ -116,6 +124,7 @@ async function recover() {
   await focus();
   await waitPrompt(">>>", BOOT_TIMEOUT_MS);
 }
+/** 셀을 실행한다. 실패하면 `recover()`로 새 세션을 열어 다음 셀이 깨끗하게 시작하게 한다. */
 async function rsStep(name, fn) {
   await step(name, fn);
   if (h.checks[name] === false) await recover().catch((e) => console.log(`복구 실패: ${e.message}`));

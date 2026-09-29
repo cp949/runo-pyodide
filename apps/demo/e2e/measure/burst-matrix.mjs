@@ -1,30 +1,47 @@
 // RD-007 연타·키 반복 매트릭스. 이전 구현 `baseline.mjs`의 COMBOS·분류를 옮겼다.
-// 실행 중 Ctrl+C를 여러 형태로 몰아쳐도 프롬프트가 돌아오고(HANG 아님), 트레이스백이 정확히 하나이며
-// (여러 번 중단되지 않는다), 뒤이은 실행이 죽지 않는지(잔류 SIGINT 없음) 본다.
+// 실행 중 Ctrl+C를 여러 형태로 몰아쳐도 다음 셋을 지키는지 본다.
+// - 프롬프트가 돌아온다(HANG 아님).
+// - 트레이스백이 정확히 하나다(여러 번 중단되지 않는다).
+// - 뒤이은 실행이 죽지 않는다(잔류 SIGINT 없음).
 //
-// 셀: a(0ms 30회) b1·b5·b20·b50(간격 ms로 30회) c(키 반복: 500ms 뒤 29×33ms) d2·d5(2회·5회) warm-a(같은 페이지에서 한 번 중단한 뒤 a)
-// 판정 우선순위: CRASH > HANG > DIRTY > OK
-//   CRASH  프롬프트 미복귀 + pageerror/worker 오류
-//   HANG   프롬프트 미복귀
-//   DIRTY  트레이스백이 2 이상이거나(트레이스백 생성 중 또 중단), 스크롤되지 않았는데 0이거나,
-//          뒤이은 `for … pass` + `print('ok')`의 `ok`가 없거나, 핸들러 문자열이 샜다
-// 출처 RD-007에서 이관(RD-018).
-// 사용: N=20 COMBOS=a,b5 node burst-matrix.mjs <url>(생략 시 http://localhost:5173)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev. 판정선은 이 DELTA에서 재측정하지 않는다(배선 확인만).
+// 셀:
+// - a: 0ms 간격 30회.
+// - b1·b5·b20·b50: 간격 1·5·20·50ms로 30회.
+// - c: 키 반복 30회. 첫 타와 둘째 타 사이 500ms, 이후 33ms 간격.
+// - d2·d5: 120ms 간격으로 2회·5회.
+// - warm-a: 같은 페이지에서 한 번 중단해 둔 뒤 a.
+//
+// 판정 우선순위: CRASH > HANG > DIRTY > OK.
+// - CRASH: 프롬프트 미복귀 + pageerror/worker 오류.
+// - HANG: 프롬프트 미복귀.
+// - DIRTY: 아래 중 하나.
+//   - 트레이스백이 2 이상이다(트레이스백 생성 중 또 중단).
+//   - 트레이스백이 0인데 `>>> ^C` 재그림 행도 0이다(스크롤로 밀려난 것이 아니다).
+//   - 뒤이은 `for … pass` + `print('ok')`의 `ok`가 없다.
+//   - 핸들러 문자열이 샜다.
+// 종료 코드는 전 셀이 N/N OK일 때 0이다(`allOk`).
+//
+// 출처 RD-007에서 이관(RD-018). 사용법은 `apps/demo/e2e/README.md`.
+// 결과 파일 label은 url에 `:4173`이 있으면 preview, 그 밖은 dev다.
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { open } from "../lib.mjs";
 
 const url = process.argv[2] ?? "http://localhost:5173";
+/** 셀마다 반복하는 시행 수. 기본 20. */
 const trials = Number(process.env.N ?? 20);
+/** 돌릴 셀 이름 목록(쉼표 구분). 기본은 전 셀이다. */
 const combos = (process.env.COMBOS ?? "a,b1,b5,b20,b50,c,d2,d5,warm-a").split(",").filter(Boolean);
 
 const measureDir = path.dirname(fileURLToPath(import.meta.url));
 const resultsDir = process.env.E2E_RESULTS_DIR ?? path.join(measureDir, "..", "results");
 const label = url.includes(":4173") ? "preview" : "dev";
 
-/** 셀 이름 → 연타 방식. `warm`은 시행 전에 한 번 중단해 둔다(콜드 경로만 보지 않게). */
+/**
+ * 셀 이름을 연타 방식으로 바꾼다. 알 수 없는 이름이면 던진다.
+ * 반환: `{ count, gapMs, leadMs?, warm? }`. `warm`이면 시행 전에 한 번 중단해 둔다(콜드 경로만 보지 않게).
+ */
 function parseCombo(name) {
   if (name === "a") return { count: 30, gapMs: 0 };
   if (name === "c") return { count: 30, gapMs: 33, leadMs: 500 };
@@ -41,7 +58,7 @@ const started = Date.now();
 
 for (const combo of combos) {
   const spec = parseCombo(combo);
-  // 셀마다 새 페이지(cold). `warm-*`은 시행 전에 한 번 중단한다.
+  // 셀마다 새 페이지(cold)를 연다.
   const h = await open(url);
   const { waitPrompt, waitPromptTail, clear, type, enter, rows, focus, ctrlC, holdCtrlC, startBlockLine, resetPrompt, countTracebacks, handlerLeaks, page } = h;
   await waitPrompt(">>>", 60000);
@@ -56,14 +73,14 @@ for (const combo of combos) {
     if (before !== ">>>") await resetPrompt();
     await clear();
     if (spec.warm) {
-      // 한 번 중단해 트레이스백 경로·핸들러를 덥힌 뒤 본 시행을 한다.
+      // 한 번 중단해 트레이스백 경로·핸들러를 덥힌다.
       await startBlockLine("while True: pass");
       await page.waitForTimeout(300);
       await ctrlC();
       await waitPromptTail(8000).catch(() => {});
       await clear();
     }
-    // 복합문 한 줄이라 빈 줄 Enter가 있어야 실행이 시작된다(3.14 REPL과 같다).
+    // 복합문 한 줄은 빈 줄 Enter가 있어야 실행이 시작된다(3.14 REPL과 같다).
     await startBlockLine("while True: pass");
     await page.waitForTimeout(300);
     await holdCtrlC(spec.count, { gapMs: spec.gapMs, leadMs: spec.leadMs ?? 0 });
@@ -77,25 +94,25 @@ for (const combo of combos) {
     }
     if (outcome === "OK") {
       detail.tracebacks = await countTracebacks();
-      // 실행이 끝난 뒤의 눌림은 활성 읽기로 가 벤더가 `>>> ^C` 한 행씩 다시 그린다(정상). 그 행이 쌓이면
-      // 24행 뷰포트에서 트레이스백이 밀려 나가므로 0을 "트레이스백 없음"으로 읽으면 안 된다.
+      // 실행이 끝난 뒤의 눌림은 활성 읽기로 가서 벤더가 `>>> ^C`를 한 행씩 다시 그린다(정상).
+      // 그 행이 쌓이면 24행 뷰포트에서 트레이스백이 밀려 나간다.
+      // 그래서 트레이스백 0을 "트레이스백 없음"으로 읽으면 안 된다.
       detail.redraws = (await rows()).filter((r) => /^>>> \^C$/.test(r)).length;
       const leaks = await handlerLeaks();
       if (leaks.length > 0) {
         outcome = "DIRTY";
         detail.leaks = leaks;
       } else if (detail.tracebacks >= 2) {
-        // 트레이스백을 만드는 중에 또 중단됐다(핸들러의 "그 밖 폐기" 규칙이 막아야 하는 것).
+        // 트레이스백을 만드는 중에 또 중단됐다. 핸들러의 "그 밖 폐기" 규칙이 막아야 하는 결함이다.
         outcome = "DIRTY";
       } else if (detail.tracebacks === 0 && detail.redraws === 0) {
-        // 밀려 나간 것도 아닌데 트레이스백이 없다 = 중단이 트레이스백을 내지 않았다.
+        // 밀려 나간 것도 아닌데 트레이스백이 없다. 중단이 트레이스백을 내지 않았다.
         outcome = "DIRTY";
       } else {
-        // 연타 눌림마다 `^C`가 꼬리에 쌓여 프롬프트가 `^C…^C>>> `다. 빈 Enter로 깨끗한 `>>> `를 만든다.
+        // 연타한 눌림마다 `^C`가 꼬리에 쌓여 프롬프트가 `^C…^C>>> `다. 빈 Enter로 깨끗한 `>>> `를 만든다.
         await resetPrompt();
-        // 잔류 SIGINT가 있으면 뒤이은 실행이 중단된다.
         await clear();
-        // `for`도 복합문이라 빈 줄 Enter가 있어야 실행된다.
+        // 잔류 SIGINT가 있으면 이 실행이 중단된다. `for`도 복합문이라 빈 줄 Enter가 있어야 실행된다.
         await startBlockLine("for i in range(300000): pass");
         try {
           await waitPrompt(">>>", 8000);
@@ -124,7 +141,7 @@ for (const combo of combos) {
   }
   cell.pageErrors = h.otherPageErrors().length - cell.pageErrorsAtStart;
   cell.pageErrorSample = h.otherPageErrors().slice(0, 3);
-  // 정상 중단마다 나는 webloop 재보고는 따로 센다(RD-009가 억제한다).
+  // 정상 중단마다 나는 webloop 재보고는 따로 센다(RD-009가 억제하는 대상).
   cell.webLoopReraises = h.pageErrors.length - h.otherPageErrors().length;
   await h.browser.close();
   report[combo] = cell;

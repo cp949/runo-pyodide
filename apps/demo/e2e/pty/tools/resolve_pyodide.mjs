@@ -1,17 +1,20 @@
-// node 도구 공용: pyodide 패키지 폴더를 해석하고 loadPyodide를 불러온다. 이 저장소는 apps/demo에 pyodide 의존을 두지 않는다
-// (check-dist·smoke:pack 표면을 건드리지 않으려고). 그래서 이 파일이 있는 폴더에서 바로 해석되지 않을 수 있다.
+// node 도구 공용. pyodide 패키지 폴더를 해석하고 `loadPyodide`를 불러온다.
+// 이 저장소는 `apps/demo`에 pyodide 의존을 두지 않는다(check-dist·smoke:pack 표면을 건드리지 않으려고).
+// 그래서 이 파일이 있는 폴더에서 바로 해석되지 않을 수 있다.
 //
 // 해석 순서:
-//   1. --pyodide <폴더>          (pyodide.mjs·package.json이 있는 폴더)
-//   2. createRequire(import.meta.url).resolve('pyodide/package.json')   (이 폴더 기준 일반 해석)
-//   3. 저장소 워크스페이스 폴백: pnpm-workspace.yaml이 있는 조상 폴더의 packages/{pyodide-core,pyodide-repl,pyodide-dom-bridge}/node_modules/pyodide
-// 어느 것도 없으면 오류로 끝낸다(종료 코드 2).
+// 1. `--pyodide <폴더>`: `pyodide.mjs`·`package.json`이 있는 폴더.
+// 2. `createRequire(import.meta.url).resolve('pyodide/package.json')`: 이 폴더 기준 일반 해석.
+// 3. 저장소 워크스페이스 폴백: `pnpm-workspace.yaml`이 있는 조상 폴더의 `packages/{pyodide-core,pyodide-repl,pyodide-dom-bridge}/node_modules/pyodide`.
+// 어느 것도 없으면 `resolvePyodideDir`가 던진다. 호출한 도구가 잡지 않으면 node가 오류로 끝낸다.
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+/** 이 파일이 있는 폴더. 워크스페이스 루트 탐색의 시작점이다. */
 const HERE = dirname(fileURLToPath(import.meta.url))
+/** 워크스페이스 폴백에서 `node_modules/pyodide`를 찾아볼 패키지. 이 순서로 본다. */
 const WORKSPACE_PACKAGES = ['pyodide-core', 'pyodide-repl', 'pyodide-dom-bridge']
 
 /** argv에서 `--pyodide <폴더>`를 뽑아내고 남은 인자를 돌려준다. */
@@ -25,6 +28,7 @@ export function splitPyodideArg(argv) {
   return { pyodide, rest }
 }
 
+/** `HERE`에서 위로 올라가며 `pnpm-workspace.yaml`이 있는 폴더를 찾는다. 없으면 null. */
 function findWorkspaceRoot() {
   let dir = HERE
   for (;;) {

@@ -1,16 +1,21 @@
-// RD-006 브라우저 검증(input()·sys.stdin 읽기). 출처 RD-006에서
-// 이관(RD-018). 이전 구현 RD-006b
-// `browser-check.mjs`(74개) 중 stdin 해당 23개
+// RD-006 브라우저 확인: `input()`·`sys.stdin` 읽기. 규칙은 `docs/design/04-stdin-input.md` 3.1·3.3. RD-006에서 이관했다(RD-018).
+//
+// 이전 구현 RD-006b `browser-check.mjs`(74개) 중 stdin 해당 23개를 새 데모(하니스 `lib.mjs`)로 옮겼다.
 //   E1, K1~K3, L1, M1, M2, N1~N3, O1, O2, P1~P9, R1, U1(`input("p: ")` 원형)
-// 와 ROADMAP RD-006 시나리오(RM1: `x: abc` 한 줄, TICK: 프롬프트 대기 중 배경 출력)를 새 데모(하니스 lib.mjs)에 맞춰 옮겼다.
+// RD-006 시나리오 RM1(`x: abc` 한 줄)과 TICK(프롬프트 대기 중 배경 출력)도 넣었다.
 // 기대 행·입력 문장은 이전 스크립트의 것을 그대로 쓴다.
+//
 // 이전과 달라진 점:
-//   - 입력은 읽기가 시작된 뒤에 보낸다(TRP-005). stdin 프롬프트 글자는 읽기 시작보다 먼저(`write` 알림) 화면에 나오고 프롬프트 없는
-//     `input()`은 화면 신호가 없어, 첫 글자를 한 번 치고 에코될 때까지 기다린다(`typeWhenReading`, 재시도 없음 — RD-019 이후 읽기 전 키는 버려지지 않고 쌓였다가 읽기 시작에서 재생된다).
-//   - 고정 sleep 대신 화면이 안정될 때까지(`settled`) 기다린다.
-//   - 각 확인은 Ctrl+L(`clear`)로 시작해 정확한 행 목록으로 단언한다(TRP-008). 개행 수는 커서 행으로 본다(TRP-006).
-// 사용: node stdin-input-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=RM1,TICK node stdin-input-check.mjs <url>
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
+// - 입력은 읽기가 시작된 뒤에 보낸다(TRP-005).
+//   - stdin 프롬프트 글자는 읽기 시작보다 먼저(`write` 알림) 화면에 나온다.
+//   - 프롬프트 없는 `input()`은 화면 신호가 없다.
+//   - 그래서 첫 글자를 한 번 치고 에코될 때까지 기다린다(`typeWhenReading`). 재시도는 없다.
+//   - RD-019 이후 읽기 전 키는 버려지지 않고 쌓였다가 읽기 시작에서 재생된다. 재시도하면 글자가 중복된다.
+// - 고정 sleep 대신 화면이 안정될 때까지(`settled`) 기다린다.
+// - 각 확인은 Ctrl+L(`clear`)로 시작해 정확한 행 목록으로 단언한다(TRP-008). 개행 수는 커서 행으로 본다(TRP-006).
+//
+// 사용: `node stdin-input-check.mjs [url]`. `ONLY=RM1,TICK`으로 셀을 고른다.
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 
@@ -50,6 +55,7 @@ async function recover() {
     await page.waitForTimeout(400);
   }
 }
+/** 확인을 실행하고, 실패하면 `recover()`로 읽기를 끝내 다음 확인이 이어지게 한다. */
 async function stdinStep(name, fn) {
   await step(name, fn);
   if (h.checks[name] === false) await recover();
@@ -150,6 +156,7 @@ await stdinStep("N1·N2·N3 색 프롬프트: 글자와 입력이 한 줄이고 
 });
 
 // P. 터미널 폭(80)을 넘는 프롬프트: 앞 행이 중복되지 않고 나머지 뒤에 입력이 이어진다.
+/** 터미널 폭(80)을 꽉 채운 행. */
 const Q80 = "q".repeat(80);
 await stdinStep("P1·P2·P3·P4 130자 프롬프트(2행): 첫 행(80자)이 한 번만, 나머지 뒤에 입력이 이어지고, 제출한 줄 바로 아래에서 시작하며, Enter 뒤 값이 돌아온다", async () => {
   await startInput('pv = input("q" * 130 + ": ")', `${"q".repeat(50)}:`);
@@ -245,15 +252,19 @@ await stdinStep("U1 앞 문장의 꼬리(t)를 물려받지 않는다(t>>> 뒤 i
 await stdinStep("TICK ROADMAP: 프롬프트 대기 중 call_later(2, print, 'TICK')의 TICK이 Enter 없이 보이고 2초보다 이르지 않다", async () => {
   await clear();
   await type("import asyncio; asyncio.get_event_loop().call_later(2, print, 'TICK')");
-  // 입력한 코드 행(`call_later(2, print, 'TICK')`)도 `TICK`을 포함한다. 그 행을 빼야 출력이 나온 시점을 잰다(빼지 않으면 즉시 참).
-  // 시작점은 프롬프트 복귀가 아니라 Enter `keydown`의 페이지 시각이다. 복귀 뒤에 재면 느린 장비에서 구간이 짧아져 하한이 깨진다.
-  // 페이지 시계라 Node↔CDP 왕복이 값에 섞이지 않는다(TRP-022). 입력 줄이 80열 안에 들어가 감기지 않으므로 `call_later`가 같은 행에 있다.
+  // 입력한 코드 행(`call_later(2, print, 'TICK')`)도 `TICK`을 포함한다.
+  // 그 행을 빼야(`exclude`) 출력이 나온 시점을 잰다. 빼지 않으면 즉시 참이다.
+  // 시작점은 프롬프트 복귀가 아니라 Enter `keydown`의 페이지 시각이다.
+  // 복귀 뒤에 재면 느린 장비에서 구간이 짧아져 하한이 깨진다.
+  // 페이지 시계라 Node↔CDP 왕복이 값에 섞이지 않는다(TRP-022).
+  // 입력 줄이 80열 안에 들어가 감기지 않으므로 `call_later`가 같은 행에 있다.
   await markText("TICK", { exclude: "call_later", startOnKey: { key: "Enter" } });
   await enter();
   await waitPrompt(">>>");
   const tickRows = async () => (await rows()).filter((l) => l.includes("TICK") && !l.includes("call_later"));
   if ((await tickRows()).length !== 0) throw new Error(`프롬프트가 돌아온 시점에 이미 TICK 출력이 있다 ${show(await tail(4))}`);
-  // 정지 감지용 10초 대기다(판정선이 아니다, 9.7 4항). 상한 ms 판정은 하지 않는다: 요구 사항은 "Enter 없이 나온다"이지 응답성 수치가 아니다.
+  // 10초는 정지 감지용이다(판정선이 아니다, `docs/design/09-testing.md` 9.7 4항).
+  // 상한 ms 판정은 하지 않는다. 요구 사항은 "Enter 없이 나온다"이지 응답성 수치가 아니다.
   const { elapsedMs } = await readMark({ timeoutMs: 10000 });
   await settled();
   console.log(`관찰  TICK ${elapsedMs.toFixed(1)}ms 뒤(Enter 기준) 화면 끝:`, show(await tail(4)), "커서 행", await cursorRow());

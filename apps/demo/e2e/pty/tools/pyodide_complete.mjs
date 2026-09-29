@@ -1,6 +1,9 @@
-// pyodide(Node)에서 mc_probe.probe를 lines json에 돌려 pyodide_result*.json을 만든다.
+// pyodide(Node)에서 `mc_probe.probe`를 lines json에 돌려 `pyodide_result*.json`을 만든다.
+// 네이티브 쪽 짝은 `native_complete.py`다.
 // 사용: node pyodide_complete.mjs <입력 lines json> <출력 json> [--pyodide <pyodide 패키지 폴더>]
-// pyodide 해석 순서는 resolve_pyodide.mjs 상단 주석. 결과 JSON에 pyodide_version(=pyodide/package.json의 version)을 기록한다.
+// - pyodide 해석 순서는 `resolve_pyodide.mjs` 상단 주석이다.
+// - 결과 JSON에 `pyodide_version`(pyodide/package.json의 version)을 기록한다.
+// - 런타임 `pyodide.version`이 그 값과 다르면 경고한다.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { importPyodide, splitPyodideArg } from './resolve_pyodide.mjs'

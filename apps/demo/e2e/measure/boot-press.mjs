@@ -1,24 +1,39 @@
-// RD-007 부팅 중 Ctrl+C(TRAP-31: 핸들러 설치 → 폐기 → 버퍼 연결 순서). pyodide를 로드하는 동안 누른 Ctrl+C가
-// 시작 코드를 죽이지 않는지 본다. main 게이트는 로딩 중에도 열려 있어 눌림이 실제로 버퍼에 써지고,
-// worker의 연결 단계가 그것을 폐기해야 한다.
-// 시행마다 새 페이지를 열고, 프롬프트가 나오기 전에 눌러야 표본이 된다(beforePrompt).
-// 출처 RD-007에서 이관(RD-018).
-// 사용: N=30 PRESS_AT_MS=0 PRESSES=1 node boot-press.mjs <url>(생략 시 http://localhost:5173)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev. 판정선(30/30)은 이 DELTA에서 재측정하지 않는다(baseline 세트 소속, 배선만 확인).
+// RD-007 부팅 중 Ctrl+C 판정(TRAP-31).
+// - pyodide를 로드하는 동안 누른 Ctrl+C가 시작 코드를 죽이지 않는지 본다.
+// - main 게이트는 로딩 중에도 열려 있어 눌림이 실제로 버퍼에 써진다.
+// - worker의 연결 단계(핸들러 설치 → 폐기 → 버퍼 연결)가 그 눌림을 폐기해야 한다.
+//
+// 시행 순서:
+// 1. 시행마다 새 페이지를 연다.
+// 2. 프롬프트가 나올 때까지 Ctrl+C를 누른다. 프롬프트 전에 누른 시행이 표본이며 그 수를 `beforePrompt`에 센다.
+// 3. 프롬프트가 뜨면 `1 + 1`을 평가해 시작 코드가 살았는지 본다.
+//
+// 판정: 전 시행이 `OK`이면 통과한다(종료 코드는 `allOk`). 기준은 기본 N=30의 30/30이다.
+// 기준의 출처는 RD-007 완료 기준이다. RD-018에서 dev N=30이 30/30 OK였다.
+// baseline 세트 소속이다(`apps/demo/e2e/sets.mjs`의 `SETS`). `measure/`에 있지만 판정 스크립트다.
+//
+// 출처 RD-007에서 이관(RD-018). 사용법은 `apps/demo/e2e/README.md`.
+// 결과 파일 label은 url에 `:4173`이 있으면 preview, 그 밖은 dev다.
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { open } from "../lib.mjs";
 
 const url = process.argv[2] ?? "http://localhost:5173";
+/** 시행 수. 기본 30. */
 const trials = Number(process.env.N ?? 30);
+/** 첫 눌림 전 고정 대기(ms). 0이면 기다리지 않는다. */
 const pressAtMs = Number(process.env.PRESS_AT_MS ?? 0);
+/** 눌림 한 번에 누르는 Ctrl+C 횟수. */
 const presses = Number(process.env.PRESSES ?? 1);
-// dev에서는 xterm이 붙는 데 약 1.9초가 걸려 그 시점에 이미 pyodide 로드가 끝나 있다(눌림이 부팅 중이 아니게 된다).
-// CDN 응답을 늦춰 "터미널은 있고 pyodide는 아직"인 창을 연다. 0이면 지연 없이 그대로 본다.
-// 눌림 간격(ms). dev에서 "터미널은 있고 프롬프트는 아직"인 창이 100ms 안팎이라 촘촘해야 한다.
+/** 눌림 반복 간격(ms). dev에서 "터미널은 있고 프롬프트는 아직"인 창이 100ms 안팎이라 촘촘해야 한다. */
 const gapMs = Number(process.env.GAP_MS ?? 20);
-// CDN 응답을 늦춰 부팅 창을 넓힌다. Playwright route가 다른 요청까지 늦춰 창이 넓어지지 않으므로 기본은 0이다.
+/**
+ * pyodide CDN 응답을 늦추는 시간(ms). 0이면 늦추지 않는다.
+ * dev에서는 xterm이 붙는 데 약 1.9초가 걸려, 그 시점에 pyodide 로드가 이미 끝나 있을 수 있다.
+ * 응답을 늦추면 "터미널은 있고 pyodide는 아직"인 창이 넓어진다.
+ * 기본이 0인 이유: Playwright route가 다른 요청까지 늦춰 창이 넓어지지 않는다.
+ */
 const delayPyodideMs = Number(process.env.DELAY_PYODIDE_MS ?? 0);
 
 const measureDir = path.dirname(fileURLToPath(import.meta.url));
@@ -44,8 +59,10 @@ for (let trial = 0; trial < trials; trial += 1) {
   const { page, waitPrompt, rows, type, enter, focus } = h;
   const record = { trial, outcome: "OK" };
   try {
-    // 프롬프트가 나올 때까지 촘촘히 누른다. xterm이 붙기 전의 키는 아무 데도 가지 않아 무해하고, 붙은 뒤
-    // 프롬프트 전에 들어간 키가 이 확인의 표본이다(dev에서 그 창은 100ms 안팎이라 한 번으로는 맞히기 어렵다).
+    // 프롬프트가 나올 때까지 촘촘히 누른다.
+    // - xterm이 붙기 전의 키는 아무 데도 가지 않아 무해하다.
+    // - 붙은 뒤 프롬프트 전에 들어간 키가 이 확인의 표본이다.
+    // - dev에서 그 창은 100ms 안팎이라 한 번으로는 맞히기 어렵다.
     const promptSeen = () =>
       page
         .$$eval(".xterm-rows > div", (els) => els.some((e) => (e.textContent ?? "").includes(">>>")))
@@ -77,7 +94,7 @@ for (let trial = 0; trial < trials; trial += 1) {
     if (!record.status.includes("ready")) {
       record.outcome = "status-not-ready";
     }
-    // 시작 코드가 살았는지: 실제로 한 줄을 평가해 본다. 꼬리에 `^C`가 쌓여 있으면 먼저 비운다.
+    // 시작 코드가 살았는지 한 줄을 평가해 본다. 꼬리에 `^C`가 쌓여 있으면 먼저 비운다.
     const last = (await rows()).filter((r) => r !== "").at(-1) ?? "";
     if (last !== ">>>") await h.resetPrompt();
     await type("1 + 1");

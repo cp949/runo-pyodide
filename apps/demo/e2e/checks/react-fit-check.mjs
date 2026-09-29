@@ -1,27 +1,36 @@
-// RD-024 브라우저 확인: `?fit=1`에서 `@cp949/runo-pyodide-repl-react` 컴포넌트가 컨테이너(창) 너비를 따라 xterm `cols`를 바꾸는지.
-// 실제 xterm 6.0.0 + `@xterm/addon-fit` 0.11.0 + 실제 브라우저 + 실제 CDN pyodide. addon-fit이 xterm 비공개 API에 기대므로(`_core._renderService`)
-// 이 스크립트가 addon-fit + xterm 6.0.0 조합의 첫 실제 브라우저 `cols` 변화 확인이다(jsdom은 셀 크기가 0이라 fit이 no-op이다).
+// RD-024 브라우저 확인: `?fit=1`에서 `@cp949/runo-pyodide-repl-react` 컴포넌트가 컨테이너(창) 너비를 따라 xterm `cols`를 바꾼다.
+// 규칙은 `docs/design/15-react.md` 15.5. 실제 xterm 6.0.0 + `@xterm/addon-fit` 0.11.0 + 실제 브라우저 + 실제 CDN pyodide.
+//
+// addon-fit은 xterm 비공개 API(`_core._renderService`)에 기댄다(TRP-062).
+// 이 스크립트가 addon-fit + xterm 6.0.0 조합의 첫 실제 브라우저 `cols` 변화 확인이다.
+// jsdom은 셀 크기가 0이라 fit이 no-op이다.
 // 컨테이너 높이는 auto라 창 크기로 바뀌는 것은 `cols`(너비)뿐이다. `rows`는 판정하지 않는다.
 //
-// `cols` 측정: 데모 페이지는 `Terminal` 객체를 노출하지 않으므로(`window`에 전역 없음) 두 가지 독립 근거로 잰다.
-//   (1) DOM 기하: `.xterm-screen` 너비 ÷ 셀 너비(`.xterm-char-measure-element` 너비 ÷ 글자 수). xterm이 `cols` 변경 때 `.xterm-screen` 너비를
-//       `cols × 셀 너비`로 다시 쓴다. 창 변경 판정은 이 값으로 한다(`colsFromGeometry`).
-//   (2) 줄바꿈 폭: 열 수보다 긴 `x` 줄(400자)을 출력해 꽉 찬 행의 길이를 읽는다. xterm 버퍼의 실제 `cols`로 줄이 감긴다(`wrappedRowCols`).
-//       (1)과 같아야 한다(`judgeWrapMatchesGeometry`).
+// `cols` 측정: 데모 페이지는 `Terminal` 객체를 노출하지 않는다(`window`에 전역 없음). 그래서 독립 근거 두 가지로 잰다.
+// 1. DOM 기하: `.xterm-screen` 너비 ÷ 셀 너비(`.xterm-char-measure-element` 너비 ÷ 글자 수).
+//    - xterm이 `cols` 변경 때 `.xterm-screen` 너비를 `cols × 셀 너비`로 다시 쓴다.
+//    - 창 변경 판정은 이 값으로 한다(`colsFromGeometry`).
+// 2. 줄바꿈 폭: 열 수보다 긴 `x` 줄(400자)을 출력해 꽉 찬 행의 길이를 읽는다.
+//    - xterm 버퍼의 실제 `cols`로 줄이 감긴다(`wrappedRowCols`).
+//    - 1번과 같아야 한다(`judgeWrapMatchesGeometry`).
 //
 // 화면 두 개를 각각 새 브라우저로 연다: `REPL`(`/?fit=1`), `RUNNER`(`/?view=runner&fit=1`). 시작 창은 1280×720.
 //   F01 fit 켜짐: 초기 `cols`가 fit 끔의 기본값 80이 아니다(1280px 창)
 //   F02 창을 640px로 좁히면 `cols`가 줄어든다(폴링)
 //   F03 창을 1000px로 넓히면 `cols`가 늘어난다(폴링)
 //   F04 출력의 줄바꿈 폭이 DOM 기하 `cols`와 같다
-//   F05 REPL: (a) 유휴 상태에서 `print(1+1)` → `2` 행과 새 `>>>` / RUNNER: (b) `input()` 대기 중 창을 500px로 좁히고(`cols` 감소) 값을 입력하면 출력에 반영된다
+//   F05 REPL: (a) 유휴 상태에서 `print(1+1)` → `2` 행과 새 `>>>`
+//       RUNNER: (b) `input()` 대기 중 창을 500px로 좁히고(`cols` 감소) 값을 입력하면 출력에 반영된다
 //   F06 콘솔 warning·error와 pageerror가 없다
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기·ms 상한을 쓰지 않는다. `cols` 변화·출력 행·상태는 조건 대기(`waitFor`)이고
-// `timeoutMs`는 정지 감지용이다. 판정 함수는 `../react-judge.mjs`(순수 함수, `react-judge.test.mjs`가 가짜 입력으로 시험).
+// 시간 판정은 `docs/design/09-testing.md` 9.7을 따른다.
+// - `cols` 변화·출력 행·상태는 조건 대기(`waitFor`)이고 `timeoutMs`는 정지 감지용이다.
+// - 판정 함수는 `../react-judge.mjs`(순수 함수)다. `react-judge.test.mjs`가 가짜 입력으로 시험한다.
 //
-// 사용: node react-fit-check.mjs [url](생략 시 http://localhost:5173)     ONLY=REPL 또는 ONLY=RUNNER (셀 접두어 `ONLY=RUNNER-F05`도 된다. F02·F03은 F01이 기록한 `cols`에 의존하므로 `ONLY=RUNNER-F01,RUNNER-F02,RUNNER-F03`처럼 선행 셀과 함께 실행한다)
-// 결과 파일: `react-fit-check-<repl|runner>-dev.json`. dev 전용이 아니어도 동작하지만(preview에서도 fit은 같다) 기준선은 dev만 둔다.
+// 사용: `node react-fit-check.mjs [url]`
+// - `ONLY=REPL` 또는 `ONLY=RUNNER`로 화면 하나만 돈다. 셀 접두어(`ONLY=RUNNER-F05`)도 된다.
+// - F02·F03은 F01이 기록한 `cols`에 의존한다. `ONLY=RUNNER-F01,RUNNER-F02,RUNNER-F03`처럼 선행 셀과 함께 돈다.
+// 결과 파일: `react-fit-check-<repl|runner>-dev.json`. preview에서도 fit은 같지만 기준선은 dev만 둔다.
 import { open, same, show } from "../lib.mjs";
 import { colsFromGeometry, judgeColsChange, judgeWrapMatchesGeometry } from "../react-judge.mjs";
 import { checkEntry, currentOnly, exitWith, pageSelected } from "../check-runner.mjs";
@@ -30,7 +39,9 @@ const { url: baseUrl } = checkEntry();
 const only = currentOnly();
 /** worker 부팅(pyodide 로드)·리사이즈 반영 대기용 정지 감지 timeout(판정선이 아니다). */
 const BOOT_TIMEOUT_MS = 90000;
+/** 리사이즈·출력 대기용 정지 감지 timeout(판정선이 아니다). */
 const STEP_TIMEOUT_MS = 15000;
+/** 창 높이. 창 너비만 바꾼다. */
 const HEIGHT = 720;
 /** fit 끔일 때 xterm 기본 열 수. 초기 `cols`가 이 값이면 fit이 붙지 않은 것이다. */
 const DEFAULT_COLS = 80;
@@ -60,7 +71,10 @@ for (const view of VIEWS) {
         };
       })
       .then((g) => (g === null ? Number.NaN : colsFromGeometry(g)));
-  /** 창 너비를 바꾸고 `cols`가 `before`와 달라질 때까지 기다린 뒤 방향 판정 결과를 돌려준다. */
+  /**
+   * 창 너비를 `width`로 바꾸고 `cols`가 `before`와 달라질 때까지 기다린다.
+   * 시간 초과는 던지지 않는다. `judgeColsChange`가 방향 판정으로 실패 사유를 낸다.
+   */
   async function resizeTo(width, before, direction) {
     await page.setViewportSize({ width, height: HEIGHT });
     let after = before;
@@ -100,7 +114,8 @@ for (const view of VIEWS) {
     if (!verdict.ok) throw new Error(verdict.reason);
   });
 
-  // 부팅이 끝나 입력을 받을 수 있는 상태로 만든다(창 크기 변경은 위에서 이미 끝났다: 부팅 중 리사이즈도 함께 통과한 셈이다).
+  // 부팅이 끝나 입력을 받을 수 있는 상태로 만든다.
+  // 창 크기 변경은 위에서 이미 끝났다. 부팅 중 리사이즈도 함께 통과한 셈이다.
   if (view.name === "REPL") await waitPrompt(">>>", BOOT_TIMEOUT_MS);
   else await waitStatus(["ready"], "status = ready", BOOT_TIMEOUT_MS);
 

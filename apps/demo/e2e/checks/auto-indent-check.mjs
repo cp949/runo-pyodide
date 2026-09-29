@@ -1,13 +1,32 @@
-// RD-013 브라우저 검증. 출처 RD-013에서
-// 이관(RD-018). ROADMAP 시나리오(prefill·backspace·unit·history) + RD-019(이전 구현)
-// B1·B2·C1~C4·D1~D3·E1·F1~F4·G1·G2 + RD-012b 이월(G1·C1·D1~D3, RD-008 건너뜀 ID) + input() 원본 동작 +
-// multiline-check.mjs shift 절 복원.
-// ONLY=<절 이름,…>로 절만 분리 실행한다: prefill,backspace,unit,history,shift,alt,paste,cancel,input,multiline-shift
-// 사용: node auto-indent-check.mjs <devURL> [previewURL]
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// RD-013(자동 들여쓰기)을 실제 브라우저로 검증한다. 규칙은 docs/design/06-editing.md 6.3.
+//
+// 절 구성(확인 이름의 접두어가 절 이름이다):
+// - prefill: `:`로 끝난 줄 다음 줄에 4칸이 채워진다.
+// - backspace: Backspace가 들여쓰기 단위까지 지운다.
+// - unit: 들여쓰기 단위가 세션 동안 유지되고, 세션 리셋 뒤 4칸으로 돌아온다.
+// - history: 블록을 공백 줄로 끝낸 뒤 ↑가 블록 전체를 돌려준다(RD-014).
+// - shift·alt: Shift+Enter·Alt+Enter도 같은 규칙으로 채운다.
+// - paste: 붙여넣은 블록은 들여쓰기를 더하지 않는다.
+// - cancel: 취소해도 들여쓰기 단위와 화면 형식은 그대로다(RD-012b 이월, RD-008이 건너뛴 ID).
+// - input: `input()` 읽기에는 자동 들여쓰기가 없다.
+// - multiline-shift: `multiline-check.mjs`의 shift 절 복원.
+//
+// 실행 순서: 위 순서대로 한 세션에서 이어 돈다. 순서가 들여쓰기 단위(`lastUsedIndentation`) 상태를 만든다.
+// - unit D1이 단위를 2칸으로 바꾼다. D2가 새 블록에서 2칸이 유지되는지 본다. D3가 리셋해 4칸으로 되돌린다.
+// - cancel G1이 다시 2칸으로 바꾼다. 4칸을 전제하는 cancel C1은 앞에서 리셋한다.
+// - 각 확인은 `reset()`(Ctrl+C, 프롬프트, Ctrl+L)으로 시작한다.
+// - 예외: 앞 확인의 화면 상태를 잇는 확인(shift F2, alt F4, cancel D2, input 8칸).
+// - 예외: 세션 리셋으로 시작하는 확인(unit D3, cancel C1).
+//
+// dev와 preview를 한 프로세스에서 돈다. preview는 초기·prefill·shift·unit만 돈다(RD-044 K6).
+// 사용법·`ONLY`·결과 파일 이름은 apps/demo/e2e/README.md.
 import { open, same, show } from "../lib.mjs";
 import { checkEntry, exitWith, runDevPreview, serverLabel } from "../check-runner.mjs";
 
+/**
+ * 서버 하나(dev 또는 preview)에서 `ONLY`로 고른 확인을 위 순서대로 실행하고 결과 JSON을 남긴다.
+ * `ONLY`는 `lib.mjs` `step()`의 접두어 검사로 확인 이름을 거른다. 초기는 항상 실행한다.
+ */
 async function run(url) {
   const h = await open(url);
   const {
@@ -15,7 +34,7 @@ async function run(url) {
     cursorRow, focus, statusText, typeWhenReading, ctrlC,
   } = h;
 
-  /** 커서가 있는 행에서, 커서 앞(DOM 순서상 앞) 텍스트의 길이(열 좌표). 커서 행이 없으면 -1. */
+  // 커서 행에서 커서 앞(DOM 순서상 앞) 텍스트의 길이(열 좌표)를 돌려준다. 커서 행이 없으면 -1.
   const cursorCol = () =>
     page.evaluate(() => {
       const rows = [...document.querySelectorAll(".xterm-rows > div")];
@@ -28,37 +47,36 @@ async function run(url) {
       }
       return col;
     });
-  /** 커서 행의 원문(끝 공백 유지 — `rows()`와 달리 자르지 않는다). 프리필이 공백뿐일 때 필요하다. */
+  // 커서 행의 원문을 돌려준다. `rows()`와 달리 끝 공백을 자르지 않는다. 프리필이 공백뿐일 때 필요하다.
   const cursorLineRaw = () =>
     page.evaluate(() => {
       const rows = [...document.querySelectorAll(".xterm-rows > div")];
       const row = rows.find((r) => r.querySelector(".xterm-cursor"));
       return row ? row.textContent.replace(/ /g, " ") : null;
     });
-  /** 한 문장을 실행하고 다음 `>>> `를 기다린다. */
+  // 한 문장을 실행하고 다음 `>>> `를 기다린다.
   async function submitLine(code) {
     await type(code);
     await enter();
     await waitPrompt(">>>");
   }
-  /** `if True:` → `... `까지 간다. */
+  // `header`(기본 `if True:`)를 제출해 `... ` 프롬프트까지 간다.
   async function openBlock(header = "if True:") {
     await type(header);
     await enter();
     await waitPrompt("...");
   }
-  /**
-   * 다음 확인을 깨끗한 `>>> `에서 시작한다. 앞 확인이 단언 실패로 도중에 멈추면(`... ` 등 열린 읽기가 남는다)
-   * `clear()`(Ctrl+L)만으로는 화면만 지워질 뿐 읽기가 안 끝나 다음 확인의 `clear()`가 시간 초과한다 — 먼저
-   * Ctrl+C로 취소한다(비어 있는 `>>> `에서도 안전, RD-008 B0와 같다).
-   */
+  // 다음 확인을 깨끗한 `>>> `에서 시작한다.
+  // 앞 확인이 단언 실패로 도중에 멈추면 `... ` 같은 열린 읽기가 남는다.
+  // 그때 `clear()`(Ctrl+L)만으로는 화면만 지워지고 읽기가 안 끝나 다음 확인의 `clear()`가 시간 초과한다.
+  // 그래서 먼저 Ctrl+C로 취소한다. 빈 `>>> `에서도 안전하다(prompt-cancel-check.mjs B0과 같다).
   async function reset() {
     await ctrlC();
     await waitPrompt(">>>", 8000);
     await page.waitForTimeout(250); // 취소 직후의 재그리기가 비동기라 바로 Ctrl+L을 누르면 놓친다
     await clear();
   }
-  /** 리셋 버튼을 누르고 새 세션의 첫 프롬프트까지 기다린다(TRP-024: 안내 줄 개수가 아니라 status로 판정). */
+  // 리셋 버튼을 누르고 새 세션의 첫 프롬프트까지 기다린다. 끝은 안내 줄 개수가 아니라 status로 판정한다(TRP-024).
   async function resetSession() {
     await page.click('[data-testid="reset"]');
     await waitStatus(["loading"], "리셋: loading 상태");
@@ -73,21 +91,21 @@ async function run(url) {
     await focus();
   });
 
-  // ── prefill: `:`로 끝난 줄 다음 줄에 4칸, 이어지는 본문 줄도 유지, 공백뿐인 줄에서 Enter로 블록 종료 ──
+  // ── prefill: `:`로 끝난 줄 다음 줄에 4칸이 채워지고, 본문 줄 뒤에도 유지된다. 본문이 있으면 공백뿐인 줄에서 Enter로 블록이 끝난다. ──
   await step("prefill 기본: `for i in range(2):` Enter 뒤 커서가 `... ` + 4칸 끝에 있다", async () => {
     await reset();
     await type("for i in range(2):");
     await enter();
     await waitPrompt("...");
     if ((await cursorCol()) !== 8) throw new Error(`cursorCol=${await cursorCol()}, 행=${show(await cursorLineRaw())}`);
-    await ctrlC(); // 본문 없는 블록이라 Enter로 닫을 수 없다 — 취소로 정리한다
+    await ctrlC(); // 본문 없는 블록이라 Enter로 닫을 수 없다. 취소로 정리한다.
     await waitPrompt(">>>", 8000);
   });
 
   await step("prefill B1 본문 없이 Enter를 눌러도 블록이 유지되고 다시 4칸이 채워진다", async () => {
     await reset();
     await openBlock();
-    await enter(); // 빈 프리필 줄에서 Enter — 블록이 끝나지 않는다
+    await enter(); // 빈 프리필 줄에서 Enter. 블록이 끝나지 않는다.
     await waitPrompt("...");
     await type("z");
     if (!/^\.\.\. {5}z$/.test((await tail(1))[0] ?? "")) throw new Error(show(await tail(2)));
@@ -95,7 +113,7 @@ async function run(url) {
     await type("pass");
     await enter();
     await waitPrompt("...");
-    await enter(); // 이제 본문이 있으니 빈 줄로 블록이 닫힌다
+    await enter(); // 이제 본문이 있으니 빈 줄로 블록이 닫힌다.
     await waitPrompt(">>>");
   });
 
@@ -124,8 +142,8 @@ async function run(url) {
     if ((await cursorCol()) !== 4) throw new Error(`cursorCol=${await cursorCol()}`);
     await type("z");
     if (!/^\.\.\. z$/.test((await tail(1))[0] ?? "")) throw new Error(show(await tail(1)));
-    // 여기까지는 본문이 없는 블록이다(z는 확인용으로 쳤다가 지운다) — 빈 줄 Enter는 닫히지 않고 계속
-    // `... `를 채운다(B1과 같음), 취소로 정리한다.
+    // 여기까지는 본문이 없는 블록이다. z는 확인용으로 쳤다가 지운다.
+    // 이 상태의 빈 줄 Enter는 블록을 닫지 않고 `... `를 다시 채운다(B1과 같다). 그래서 취소로 정리한다.
     await press("Backspace");
     await ctrlC();
     await waitPrompt(">>>", 8000);
@@ -136,7 +154,8 @@ async function run(url) {
     await type("for i in range(2):");
     await enter();
     await waitPrompt("...");
-    await type("print(i)"); // 프리필(4칸) 위에 그대로 친다 — 직접 들여쓰기를 더 치면 lastUsedIndentation이 8칸으로 오염된다
+    // 프리필(4칸) 위에 그대로 친다. 직접 들여쓰기를 더 치면 lastUsedIndentation이 8칸으로 오염된다.
+    await type("print(i)");
     await enter();
     await waitPrompt("...");
     await press("Backspace"); // 4칸 → 0칸
@@ -151,7 +170,7 @@ async function run(url) {
     await type("if True:");
     await enter();
     await waitPrompt("...");
-    await type("if True:"); // 첫 프리필(4칸) 위에 이어 쳐서 "    if True:"를 제출한다 → 다음 줄은 8칸
+    await type("if True:"); // 첫 프리필(4칸) 위에 이어 쳐서 "    if True:"를 제출한다. 다음 줄은 8칸이 된다.
     await enter();
     await waitPrompt("...");
     if ((await cursorCol()) !== 12) throw new Error(`중첩 프리필 cursorCol=${await cursorCol()}(기대 12 = 프롬프트 4 + 8칸)`);
@@ -160,7 +179,7 @@ async function run(url) {
     if ((await cursorCol()) !== 8) throw new Error(`Backspace 뒤 cursorCol=${await cursorCol()}(기대 8 = 프롬프트 4 + 4칸)`);
     await type("z");
     if (!/^\.\.\. {5}z$/.test((await tail(1))[0] ?? "")) throw new Error(show(await tail(1)));
-    // 여기서 그대로 "pass"를 채우면 중첩 if의 본문치고는 얕아(4칸) IndentationError가 난다(C4가 그 경로를 본다).
+    // 여기서 "pass"를 그대로 채우면 중첩 if의 본문치고 얕아(4칸) IndentationError가 난다. C4가 그 경로를 본다.
     // 이 확인은 Backspace 폭만 보므로 취소로 정리한다.
     await press("Backspace");
     await ctrlC();
@@ -219,7 +238,7 @@ async function run(url) {
     await waitPrompt(">>>", 8000);
   });
 
-  // ── history: 공백뿐인 줄로 끝낸 제출은 history에 남지 않는다 ──
+  // ── history: 블록을 공백뿐인 줄로 끝내도 ↑는 블록 전체(한 항목)를 돌려준다 ──
   await step("history E1 블록을 공백 줄로 끝낸 뒤 ↑는 블록 전체를 돌려준다(RD-014 block-history)", async () => {
     await reset();
     await type("for i in range(2):");
@@ -237,7 +256,7 @@ async function run(url) {
     await press("Control+u");
   });
 
-  // ── shift / alt: Shift+Enter·Alt+Enter도 같은 규칙으로 채운다 ──
+  // ── shift·alt: Shift+Enter·Alt+Enter도 같은 규칙으로 채운다 ──
   await step("shift F1 Shift+Enter 다음 줄에 4칸이 채워진다", async () => {
     await reset();
     await type("for i in range(2):");
@@ -268,7 +287,7 @@ async function run(url) {
     if (!t.includes("alt")) throw new Error(show(t));
   });
 
-  // ── paste: 붙여넣은 블록은 추가 들여쓰기를 받지 않는다(3.14와 같음) ──
+  // ── paste: 붙여넣은 블록은 추가 들여쓰기를 받지 않는다(붙여넣기 토큰은 `onKey`를 거치지 않는다, 6.3·6.5) ──
   await step("paste G1 붙여넣은 여러 줄 블록은 들여쓰기를 더하지 않고 그대로 실행된다(3)", async () => {
     await reset();
     await paste("def add(a, b):\n    return a + b\n\nprint(add(1, 2))");
@@ -289,13 +308,13 @@ async function run(url) {
     if (!(await rows()).some((r) => r === "KeyboardInterrupt")) throw new Error(show(await tail(4)));
   });
 
-  // ── cancel(RD-012b 이월, RD-008 건너뜀 ID): 취소해도 들여쓰기 단위·형식은 그대로 ──
+  // ── cancel(RD-012b 이월, RD-008이 건너뛴 ID): 취소해도 들여쓰기 단위·형식은 그대로 ──
   await step("cancel G1 2칸 블록을 취소해도 다음 블록의 프리필이 2칸이다", async () => {
     await reset();
     await openBlock();
     await press("Backspace"); // 자동 4칸 → 0칸
     await type("  x = 1");
-    await enter(); // 2칸으로 다시 쓴다 → lastUsedIndentation = "  "
+    await enter(); // 2칸으로 다시 쓴다. lastUsedIndentation이 "  "가 된다.
     await waitPrompt("...");
     await ctrlC(); // 아직 열린 블록을 취소한다
     await waitPrompt(">>>", 8000);
@@ -307,10 +326,10 @@ async function run(url) {
   });
 
   await step("cancel C1 본문 줄(프리필 포함)이 쌓인 블록도 같은 형식으로 취소된다", async () => {
-    // 앞 G1이 세션의 lastUsedIndentation을 2칸으로 남겨 둔다 — 이 확인은 기본 4칸을 전제하므로 리셋한다.
+    // 앞 G1이 세션의 lastUsedIndentation을 2칸으로 남겨 둔다. 이 확인은 기본 4칸을 전제하므로 리셋한다.
     await resetSession();
     await openBlock();
-    await type("print(2)"); // 프리필 4칸 위에 이어 친다(RD-008 시절엔 프리필이 없어 직접 4칸을 쳤다)
+    await type("print(2)"); // 프리필 4칸 위에 이어 친다.
     await enter();
     await waitPrompt("...", 8000);
     await ctrlC();
@@ -353,7 +372,7 @@ async function run(url) {
     if (!same(t, [">>> if True:", "    print(3)", "KeyboardInterrupt", ">>>"])) throw new Error(show(t));
   });
 
-  // ── input: `input()` 읽기에는 자동 들여쓰기가 전혀 없다(확정 4, 벤더 원본 동작) ──
+  // ── input: `input()` 읽기에는 자동 들여쓰기가 전혀 없다(벤더 원본 동작, 6.3) ──
   await step("input 프리필이 없다(`... ` 아님) 그리고 Shift+Enter는 개행만 넣는다", async () => {
     await reset();
     await type("s = input()");
@@ -370,7 +389,7 @@ async function run(url) {
   });
   await step("input 8칸 뒤 Backspace 한 번은 1글자만 지운다(단위 배수 아님)", async () => {
     await typeWhenReading("        "); // 공백 8칸
-    // lib.mjs의 type()은 공백뿐인 입력은 기다리지 않고 바로 돌아온다(trimEnd() 결과가 빈 문자열이면 대기 생략) —
+    // 첫 글자 뒤 나머지 7칸은 `type()`이 보낸다. `type()`은 공백뿐인 입력을 기다리지 않는다(`trimEnd()`가 빈 문자열이면 대기 생략).
     // 렌더가 따라올 시간을 직접 준다.
     await page.waitForTimeout(300);
     const before = await cursorCol();
@@ -384,12 +403,12 @@ async function run(url) {
     await waitPrompt(">>>", 8000);
   });
 
-  // ── multiline-shift(RD-011 multiline-check.mjs shift 절 복원): 프리필 뒤 print(i)만 입력 ──
+  // ── multiline-shift: `multiline-check.mjs`(RD-011)의 shift 절 복원. 프리필 뒤 print(i)만 입력한다. ──
   await step("multiline-shift Shift+Enter 블록(프리필 사용) → 0·1(Enter 1회)", async () => {
     await reset();
     await type("for i in range(2):");
     await press("Shift+Enter");
-    await type("print(i)"); // 들여쓰기 직접 입력 없음 — 프리필이 채운다(RD-013)
+    await type("print(i)"); // 들여쓰기를 직접 입력하지 않는다. 프리필이 채운다(RD-013).
     await enter();
     await waitPrompt(">>>", 8000);
     const t = await tail(3);
@@ -402,8 +421,7 @@ async function run(url) {
 
 const { url: devUrl, previewUrl } = checkEntry();
 
-// preview는 prefill·shift·unit(+초기)만 돈다(계획, K6 선언 목록). 사용자 ONLY가 있으면 이 목록과의
-// 교집합만 preview에서 돈다(RD-044 K6, runDevPreview가 계산·복원한다).
+// preview는 아래 절만 돈다. 사용자 `ONLY`가 있으면 이 목록과의 교집합만 돈다(RD-044 K6, `runDevPreview`가 계산·복원한다).
 const ok = await runDevPreview({
   url: devUrl,
   previewUrl,

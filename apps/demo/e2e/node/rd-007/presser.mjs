@@ -3,11 +3,23 @@
  * 실행 스레드는 Python에 막혀 있어 같은 스레드에서 눌림을 예약할 수 없다(TRAP-26).
  * 출처 RD-007에서 이관(RD-018).
  *
- * 대기는 전부 이벤트 루프 기반이다: `Atomics.wait`로 스레드를 막으면 송신기의 5ms 재전송 점검(`setTimeout`)이 돌지
- * 못해 이 스크립트가 재려는 것(재전송이 소실을 복구하는가)이 사라진다. 마지막 1.5ms만 스핀으로 맞춘다.
+ * 대기는 전부 이벤트 루프 기반이다.
+ * - `Atomics.wait`로 스레드를 막으면 송신기의 5ms 재전송 점검(`setTimeout`)이 돌지 못한다.
+ * - 그러면 이 스크립트가 재려는 것(재전송이 소실을 복구하는가)이 사라진다.
+ * - 목표 시각까지 남은 시간이 2ms 이하가 되면 스핀으로 맞춘다.
  *
- * workerData: `{ buffer, ctl, intervalMs, maxResends, mutate }`. 시각은 `process.hrtime.bigint()`(스레드 간 원점이 같다).
- * ctl: [0] 예약, [1] 종료 플래그, [2] KeyboardInterrupt 수, [3] 시작 표시.
+ * workerData: `{ buffer, ctl, intervalMs, maxResends, mutate }`. `intervalMs`·`maxResends`는 생략하면 5ms·10회다.
+ * 시각은 `process.hrtime.bigint()`다. 스레드 간 원점이 같다.
+ *
+ * ctl 슬롯:
+ * - [0]: 예약.
+ * - [1]: 종료 플래그.
+ * - [2]: `KeyboardInterrupt` 수.
+ * - [3]: 시작 표시(`started()`가 1로 쓴다).
+ *
+ * 메시지:
+ * - 받는 것: `single`(눌림 한 번)·`multi`(눌림 연속)·`round-done`(main이 라운드 종료를 알린다).
+ * - 보내는 것: `round`(`single` 결과)·`page`(`multi` 결과). 시나리오가 시작되지 않으면 `started: false`를 보낸다.
  */
 import { parentPort, workerData } from "node:worker_threads";
 import { createInterruptSender } from "../../../../../packages/pyodide-core/src/protocol/interrupt-sender.ts";
@@ -22,7 +34,7 @@ if (!port) throw new Error("worker 스레드에서만 실행한다");
 
 const { buffer, ctl, intervalMs = 5, mutate = "none" } = workerData;
 
-/** 변이 모드(하니스 검출력 증명용). 여러 개를 `+`로 잇는다. */
+/** 변이 모드(하니스 검출력 증명용). 여러 개를 `+`로 잇는다. 종류와 기대는 `README.md` "하니스 검출력" 절이다. */
 const mutations = new Set(mutate.split("+").filter((name) => name !== "none"));
 /** 재전송 없음. `lose-first`와 조합하면 소실이 그대로 남아야 한다. */
 const maxResends = mutations.has("no-resend") ? 0 : (workerData.maxResends ?? 10);
@@ -31,7 +43,10 @@ const CTL_STOP = 1;
 const CTL_KI = 2;
 const CTL_STARTED = 3;
 
-/** 재전송 시각(ns). 라운드마다 비운다. 송신기의 `compareExchange`를 이 isolate에서만 감싸 기록한다. */
+/**
+ * 재전송 시각(ns). 라운드마다 비운다.
+ * 송신기의 재전송은 `compareExchange(SIGNAL, 0, 2)`다. 이 isolate의 `Atomics.compareExchange`만 감싸 그 호출을 기록한다.
+ */
 let resendAt = [];
 const originalCompareExchange = Atomics.compareExchange;
 Atomics.compareExchange = function (typedArray, index, expected, replacement) {
@@ -81,7 +96,7 @@ Atomics.store = function (typedArray, index, value) {
 
 const sender = createInterruptSender(buffer, { intervalMs, maxResends });
 
-/** 눌림 하나. 변이 모드에 따라 첫 쓰기를 삼키거나(소실) 한 번 더 보낸다(이중). */
+/** 눌림 하나를 보낸다. `lose-first`이면 첫 SIGINT 쓰기를 삼킨다(소실). */
 function press() {
   if (mutations.has("lose-first")) loseNextSignal = true;
   sender.send();
@@ -89,7 +104,10 @@ function press() {
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** 목표 시각까지 기다린다. 이벤트 루프를 열어 두다가 마지막 1.5ms만 스핀한다. */
+/**
+ * `target`(ns) 시각까지 기다린다.
+ * 남은 시간이 2ms를 넘으면 이벤트 루프를 열어 둔 채 (남은 시간 - 1.5ms)만 쉰다. 2ms 이하면 스핀한다.
+ */
 async function sleepUntil(target) {
   for (;;) {
     const remain = Number(target - process.hrtime.bigint()) / 1e6;
@@ -127,7 +145,10 @@ function waitRoundDone() {
   });
 }
 
-/** 라운드가 끝나지 않으면 새 번호의 눌림으로 구조한다. 구조가 필요했다는 것은 눌림이 소실됐다는 뜻이다. */
+/**
+ * 라운드가 끝나지 않으면 `watchdogMs`마다 새 번호의 눌림으로 구조한다. 반환값은 `setInterval` 핸들이다.
+ * 구조가 필요했다는 것은 첫 눌림이 소실됐다는 뜻이라 `state.rescued`를 센다.
+ */
 function startWatchdog(state, watchdogMs) {
   return setInterval(() => {
     state.rescued += 1;
@@ -190,7 +211,7 @@ port.on("message", async (command) => {
       previousKi = ki;
       pressAt.push(process.hrtime.bigint());
       press();
-      // 변이 `double-press`: 같은 자리에서 새 번호로 한 번 더 보낸다(이중 중단이 나와야 한다).
+      // 변이 `double-press`: 2ms 뒤 한 번 더 보낸다.
       if (mutations.has("double-press")) {
         await delay(2);
         press();

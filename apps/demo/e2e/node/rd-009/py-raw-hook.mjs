@@ -1,15 +1,20 @@
 /**
- * `?raw` 텍스트 import 해석 훅(node 통계 전용). 저장소 `ts-resolve-hook.mjs`는 확장자 없는 상대 import만
- * 풀고(`\.[cm]?[jt]s$` 정규식이 쿼리 문자열을 모른다) `?raw`는 모른다(vitest·tsdown은 각자 내장/플러그인으로 처리
- * 하지만 맨 node 실행에는 없다). `console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 `./*.py?raw`를 import하므로
- * 이 훅을 저장소의 `ts-resolve-hook.mjs`보다 **뒤에**(`--import` 두 번째) 등록해야 한다 — 나중에
- * 등록한 훅이 먼저 실행돼(node 훅 체인은 스택) `?raw` 지정자를 `ts-resolve-hook`이 `.ts`를 잘못 덧붙이기 전에
- * 가로챈다. 저장소 소스(`packages/pyodide-testkit/src/ts-resolve-hook.mjs`)는 건드리지 않는다 — 이 파일은 node 통계 전용이다.
+ * `?raw` 텍스트 import 해석 훅(node 통계 전용).
+ * - `console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 `./*.py?raw`를 import한다.
+ * - vitest·tsdown은 `?raw`를 각자 내장·플러그인으로 처리한다. 맨 node 실행에는 그 처리가 없다.
+ * - 이 훅은 `?raw` 지정자를 파일로 풀고 내용을 기본 export 문자열인 모듈로 읽는다.
+ *
+ * 저장소 `packages/pyodide-testkit/src/ts-resolve-hook.mjs`도 `?raw`를 처리한다.
+ * 실측: 이 훅을 등록하지 않고 `ts-resolve-hook.mjs`만 등록해도 `console.ts`가 로드된다.
+ * 두 훅을 함께 등록해도, 등록 순서를 바꿔도 로드된다.
+ * 이 파일은 node 통계 전용이며 저장소 소스를 건드리지 않는다.
+ *
  * 출처 RD-009에서 이관(RD-018).
  */
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 
+/** vite의 `?raw` 접미. 이 접미가 붙은 지정자만 처리한다. */
 const RAW_QUERY = "?raw";
 
 registerHooks({

@@ -1,25 +1,34 @@
-// RD-010: RD-009 하니스를 저장소 devDependency(`playwright`, apps/demo/package.json)로
-// 옮긴 것. 이후 각 RD의 브라우저 확인 스크립트는 이 파일만 import한다(복사하지 않는다).
-//
-// 사용법:
-//   import { open, hasFg, same, show } from "<repo>/apps/demo/e2e/lib.mjs";
-//   const h = await open("http://localhost:5173"); // dev 서버 URL
-//   await h.waitPrompt(">>>");
-//   ...
-//   await h.finish(); // pageErrors 계수 포함 결과를 JSON으로 출력하고 브라우저를 닫는다
-//   await h.finish({ label: "preview" }); // 결과 파일 이름에만 쓰이는 label(기본 "dev")
-//
-// 전제: `pnpm --filter demo dev`(또는 `preview`)가 떠 있고, `pnpm exec playwright install chromium`이
-// 끝나 있어야 한다.
-//
-// 결과 파일(RD-018): `finish()`가 stdout JSON을 그대로 찍으면서 같은 내용을
-// `process.env.E2E_RESULTS_DIR`(기본 `apps/demo/e2e/results/`)에 `<호출 스크립트 파일명>-<label>.json`으로도
-// 쓴다. 같은 프로세스에서 같은 조합이 반복되면 `-2`·`-3` 접미가 붙는다.
-//
-// 규칙(RD-004 계승): 고정 sleep 대신 조건이 참이 될 때까지 폴링한다. 행 텍스트는 `.xterm-rows > div`(NBSP → 공백,
-// 행 끝 공백 제거), 색은 span 클래스(`xterm-fg-1` 빨강, `xterm-fg-2` 초록). 개행 수는 커서 행 번호로 단언한다(TRP-006).
-// 입력은 새 프롬프트 행(`>>> ` 또는 꼬리+`>>> `)이 보인 뒤에 보낸다(TRP-005). 읽기가 없는 구간의 키는 벤더 Readline이
-// 쌓았다가 다음 읽기에서 재생하므로(RD-019) 재시도로 키를 다시 치면 글자가 중복된다.
+/**
+ * e2e 브라우저 하니스. Playwright(`apps/demo/package.json` devDependency)로 데모를 열고 xterm 화면을 다룬다.
+ * 각 RD의 브라우저 확인 스크립트는 이 파일만 import한다. 복사하지 않는다.
+ *
+ * 사용법:
+ * ```js
+ * import { open, hasFg, same, show } from "<repo>/apps/demo/e2e/lib.mjs";
+ * const h = await open("http://localhost:5173"); // dev 서버 URL
+ * await h.waitPrompt(">>>");
+ * await h.finish(); // 결과를 JSON으로 출력하고 브라우저를 닫는다
+ * await h.finish({ label: "preview" }); // 결과 파일 이름에만 쓰인다(기본 "dev")
+ * ```
+ *
+ * 전제:
+ * - `pnpm --filter demo dev`(또는 `preview`)가 떠 있다.
+ * - `pnpm exec playwright install chromium`이 끝나 있다.
+ *
+ * 결과 파일(RD-018):
+ * - `finish()`가 stdout에 JSON을 찍는다.
+ * - 같은 내용을 `<호출 스크립트 파일명>-<label>.json`으로도 쓴다.
+ * - 위치는 `process.env.E2E_RESULTS_DIR`이다. 기본은 `apps/demo/e2e/results/`.
+ * - 같은 프로세스에서 같은 조합이 반복되면 `-2`·`-3` 접미가 붙는다.
+ *
+ * 화면 판정 규칙(RD-004 계승):
+ * - 고정 sleep 대신 조건이 참이 될 때까지 폴링한다(docs/design/09-testing.md 9.7).
+ * - 행 텍스트는 `.xterm-rows > div`에서 읽는다. NBSP는 공백으로 바꾸고 행 끝 공백은 지운다.
+ * - 색은 span 클래스로 본다. `xterm-fg-1`은 빨강, `xterm-fg-2`는 초록이다.
+ * - 개행 수는 커서 행 번호로 단언한다(TRP-006).
+ * - 입력은 새 프롬프트 행(`>>> ` 또는 꼬리+`>>> `)이 보인 뒤에 보낸다(TRP-005).
+ * - 읽기가 없는 구간의 키는 벤더 Readline이 쌓았다가 다음 읽기에서 재생한다(RD-019). 재시도로 키를 다시 치면 글자가 중복된다.
+ */
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -27,9 +36,9 @@ import { fileURLToPath } from "node:url";
 
 const e2eDir = path.dirname(fileURLToPath(import.meta.url));
 
-// RD-018: finish()가 결과 파일을 쓸 때 호출 스크립트 파일명을 기준으로 삼는데, 같은 프로세스에서
-// 같은 스크립트가 label을 바꿔가며(또는 같은 label로) finish()를 여러 번 부를 수 있다(dev·preview 등). 그
-// 반복을 세어 `-2`·`-3` 접미를 붙이는 카운터. 모듈 스코프라 프로세스 하나당 하나만 존재한다.
+// 결과 파일 이름 접미(`-2`·`-3`)를 정하는 카운터(RD-018).
+// 같은 스크립트가 `finish()`를 여러 번 부를 수 있다(dev·preview 등). 반복 횟수를 센다.
+// 모듈 스코프라 프로세스당 하나다.
 const resultFileCounts = new Map();
 
 /** `<스크립트 파일명>-<label>[-N].json` 형태의 결과 파일 이름을 만든다(같은 조합 반복 시 N을 2부터 붙인다). */
@@ -43,8 +52,8 @@ function resultFileName(label) {
 }
 
 /**
- * 환경변수 `name`을 `min` 이상의 유한한 수로 읽는다(없거나 빈 문자열이면 기본값 1). 잘못된 값은 조용히 1로 되돌리지
- * 않고 던진다 — 감속·배율을 켰다고 믿고 실행했는데 실제로는 꺼져 있는 상황을 막는다.
+ * 환경변수 `name`을 `min` 이상의 유한한 수로 읽는다. 없거나 빈 문자열이면 1이다.
+ * 잘못된 값은 1로 되돌리지 않고 던진다. 감속·배율이 꺼진 채 켠 것으로 믿고 실행하는 일을 막는다.
  */
 function readEnvNumber(name, min) {
   const raw = process.env[name];
@@ -59,13 +68,20 @@ function readEnvNumber(name, min) {
 /**
  * 브라우저를 띄워 url을 연다. 반환한 객체의 헬퍼가 화면·입력·콘솔 기록·페이지 내부 시계를 다룬다.
  *
- * 환경변수(이슈 02·03, 판정 규칙은 `docs/design/09-testing.md` 9.7):
- * - `E2E_CPU_THROTTLE`(기본 1): 1보다 크면 CDP `Emulation.setCPUThrottlingRate`로 CPU를 그 배율만큼 감속한다.
- *   감속은 `waitPrompt()`가 **처음 성공한 시점에 1회** 적용한다(부팅 구간은 감속하지 않는다). 기본값(1)에서는 CDP 세션을
- *   만들지 않아 기존 동작이 그대로다.
- * - `E2E_TIME_SCALE`(기본 1): e2e 스크립트가 응답성 상한(9.7 2항)에 곱할 배율. 핸들의 `timeScale`로 노출한다. e2e 전용이며
- *   L0(vitest) 상수에는 적용되지 않는다.
- * 두 값은 결과 JSON `notes`에 기본값이어도 항상 기록되고, 기본값이 아니면 시작 시 콘솔 경고를 한 줄 낸다.
+ * 옵션:
+ * - `viewport`: 뷰포트 크기.
+ * - `before(page)`: 이동 전에 부른다. `installRpcTap` 같은 초기 스크립트를 넣는다.
+ * - `waitUntil`: `page.goto`의 대기 기준. 기본 `"load"`.
+ * - `cdpEndpoint`: 로컬 브라우저를 띄우는 대신 이미 떠 있는 브라우저에 CDP로 붙는다(구버전 Chromium 컨테이너 실측용).
+ *
+ * 환경변수(판정 규칙은 `docs/design/09-testing.md` 9.7):
+ * - `E2E_CPU_THROTTLE`(기본 1): 1보다 크면 CDP `Emulation.setCPUThrottlingRate`로 그 배율만큼 CPU를 감속한다.
+ *   - 감속은 `waitPrompt()`가 처음 성공한 시점에 1회 건다. 부팅 구간은 감속하지 않는다.
+ *   - 기본값에서는 CDP 세션을 만들지 않는다.
+ * - `E2E_TIME_SCALE`(기본 1): 응답성 상한(9.7 2항)에 곱할 배율. 핸들의 `timeScale`로 노출한다.
+ *   - e2e 전용이다. L0(vitest) 상수에는 적용하지 않는다.
+ *
+ * 두 값은 기본값이어도 결과 JSON `notes`에 기록한다. 기본값이 아니면 시작 시 콘솔 경고를 한 줄 낸다.
  */
 export async function open(url, { viewport, before, waitUntil = "load", cdpEndpoint } = {}) {
   const cpuThrottle = readEnvNumber("E2E_CPU_THROTTLE", 1);
@@ -73,9 +89,7 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
   if (cpuThrottle !== 1 || timeScale !== 1) {
     console.warn(`경고: E2E_CPU_THROTTLE=${cpuThrottle} E2E_TIME_SCALE=${timeScale} (기본 1이 아님, 결과 notes에 기록됨)`);
   }
-  // 구버전 Chromium 실측: `cdpEndpoint`를 주면 로컬에서 새 브라우저를 띄우는 대신
-  // 이미 떠 있는 브라우저(구버전 Chromium 컨테이너)에 CDP로 붙는다. 기존 호출자는 이 옵션을
-  // 주지 않으므로 `chromium.launch()` 경로가 그대로다(기존 스크립트 동작 불변).
+  // `cdpEndpoint`가 없으면 `chromium.launch()`로 새 브라우저를 띄운다. 기존 호출자는 이 경로를 쓴다.
   const browser = cdpEndpoint ? await chromium.connectOverCDP(cdpEndpoint) : await chromium.launch();
   const context = cdpEndpoint ? (browser.contexts()[0] ?? (await browser.newContext())) : undefined;
   const page = cdpEndpoint
@@ -94,18 +108,18 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     workers.created += 1;
     w.on("console", (msg) => logs.push({ source: "worker", type: msg.type(), text: msg.text() }));
   });
-  // 클립보드 붙여넣기(paste())가 쓰는 권한. headless Chromium이 거부해도(구버전 등) paste()가 fallback으로
-  // 넘어가므로 여기서는 실패를 삼킨다.
+  // 클립보드 권한. `paste()`가 쓴다. headless Chromium이 거부해도 `paste()`가 합성 이벤트로 대체하므로 실패를 삼킨다.
   await page
     .context()
     .grantPermissions(["clipboard-read", "clipboard-write"])
     .catch(() => {});
   if (before) await before(page);
-  // `commit`은 문서 응답이 오자마자 돌아온다. 부팅 중(pyodide 로드 중)에 무언가를 하려면 이것이 필요하다.
+  // `waitUntil: "commit"`은 문서 응답이 오자마자 돌아온다. 부팅 중(pyodide 로드 중)에 동작하려면 이 값이 필요하다.
   await page.goto(url, { waitUntil });
 
-  // 페이지 내부 타이머(TRP-022): Node↔페이지 CDP 왕복을 측정값에서 빼기 위해, Ctrl+C(`c` keydown, ctrlKey)의
-  // 실제 타임스탬프와 프롬프트 복귀 순간을 같은(페이지 내부) 시계로 잰다. armMeasurement()/readElapsed()가 쓴다.
+  // 페이지 내부 시계 계측(TRP-022).
+  // Node↔페이지 CDP 왕복을 측정값에서 빼려고, Ctrl+C `keydown` 시각과 프롬프트 복귀 시각을 페이지 안 시계로 잰다.
+  // `armMeasurement()`·`readElapsed()`가 쓴다.
   await page.evaluate(() => {
     window.__ctrlCAt = [];
     window.addEventListener(
@@ -133,31 +147,32 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
       check();
     };
   });
-  /** 눌림 전에 부른다: 복귀 관측을 무장하고 이전 눌림 기록을 비운다. */
+  // 눌림 직전에 부른다. 복귀 관측을 무장하고 이전 눌림 기록을 비운다.
   async function armMeasurement() {
     await page.evaluate(() => {
       window.__armPrompt();
       window.__ctrlCAt.length = 0;
     });
   }
-  /** 눌림·복귀가 끝난 뒤 페이지 시계로 잰 경과(ms)를 읽는다. `which`: "last"(기본, 단발·다중 눌림의 마지막) | "first"(연타 시작). */
+  // 눌림·복귀가 끝난 뒤 페이지 시계로 잰 경과(ms)를 읽는다.
+  // `which`: "last"(기본, 단발·다중 눌림의 마지막) 또는 "first"(연타의 첫 눌림).
   async function readElapsed(which = "last") {
     const r = await page.evaluate(() => ({ promptReadyAt: window.__promptReadyAt, ctrlCAt: window.__ctrlCAt.slice() }));
     const at = which === "first" ? r.ctrlCAt[0] : r.ctrlCAt.at(-1);
     return r.promptReadyAt - at;
   }
 
-  /** 화면 행 텍스트(NBSP는 공백으로, 행 끝 공백은 제거). */
+  // 화면 행 텍스트. NBSP는 공백으로 바꾸고 행 끝 공백은 지운다.
   const rows = () =>
     page.$$eval(".xterm-rows > div", (els) =>
       els.map((e) => (e.textContent ?? "").replace(/ /g, " ").replace(/\s+$/, "")),
     );
-  /** 행별 span 클래스 목록. */
+  // 행별 span 클래스 목록.
   const rowClasses = () =>
     page.$$eval(".xterm-rows > div", (els) =>
       els.map((e) => [...e.querySelectorAll("span")].flatMap((s) => s.className.split(/\s+/).filter(Boolean))),
     );
-  /** 텍스트를 가진 마지막 행의 span별 {text, cls}. */
+  // `needle`을 포함하는 마지막 행의 span별 {text, cls}. 없으면 빈 배열.
   const spansOf = (needle) =>
     page.evaluate((n) => {
       const row = [...document.querySelectorAll(".xterm-rows > div")]
@@ -167,10 +182,10 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
         ? [...row.querySelectorAll("span")].map((s) => ({ text: (s.textContent ?? "").replace(/ /g, " "), cls: s.className }))
         : [];
     }, needle);
-  /** 커서가 있는 행 번호(없으면 -1). */
+  // 커서가 있는 행 번호. 없으면 -1.
   const cursorRow = () =>
     page.evaluate(() => [...document.querySelectorAll(".xterm-rows > div")].findIndex((el) => el.querySelector(".xterm-cursor")));
-  /** 끝쪽 빈 행을 자른 행 목록(출력 사이의 빈 행은 보존한다). */
+  // 끝쪽 빈 행을 자른 행 목록. 출력 사이의 빈 행은 남긴다.
   const trimmedRows = async () => {
     const r = await rows();
     while (r.length && r[r.length - 1] === "") r.pop();
@@ -183,7 +198,8 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
   };
   const tail = async (n) => (await trimmedRows()).slice(-n);
 
-  /** 조건이 참이 될 때까지 폴링한다. 시간 초과면 설명과 화면 끝을 담아 던진다. */
+  // 조건이 참이 될 때까지 폴링한다. 시간 초과면 설명과 화면 끝 6행을 담아 던진다.
+  // `timeoutMs`는 정지 감지용이다. 판정선이 아니다(9.7 4항).
   async function waitFor(check, description, timeoutMs = 30000, intervalMs = 40) {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -195,13 +211,11 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
       await page.waitForTimeout(intervalMs);
     }
   }
-  /**
-   * 마지막 텍스트 행이 `expected`(끝 공백 무시)이고 커서가 그 행에 있을 때까지 기다린다. 프롬프트 행이 보이면 읽기가
-   * 시작된 것이다(TRP-005). 첫 프롬프트는 pyodide 로드가 수 초라 기본 30초.
-   *
-   * `E2E_CPU_THROTTLE`이 1보다 크면 이 함수가 **처음 성공한 시점에 1회** CPU 감속을 건다(부팅 뒤부터 감속하려는
-   * 것이다). 이후 호출은 감속을 다시 보내지 않는다. 프롬프트를 기다리지 않는 스크립트는 감속이 걸리지 않는다.
-   */
+  // 마지막 텍스트 행이 `expected`(끝 공백 무시)이고 커서가 그 행에 있을 때까지 기다린다.
+  // 프롬프트 행이 보이면 읽기가 시작된 것이다(TRP-005). 첫 프롬프트는 pyodide 로드에 수 초가 걸려 기본 30초다.
+  //
+  // `E2E_CPU_THROTTLE`이 1보다 크면 처음 성공한 시점에 1회 CPU 감속을 건다. 부팅 뒤부터 감속하려는 것이다.
+  // 이후 호출은 감속을 다시 보내지 않는다. 프롬프트를 기다리지 않는 스크립트에는 감속이 걸리지 않는다.
   async function waitPrompt(expected = ">>>", timeoutMs = 30000) {
     await waitFor(
       async () => {
@@ -218,7 +232,7 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
       throttleApplied = true;
     }
   }
-  /** 마지막 텍스트 행이 suffix로 끝나고 커서가 그 행에 있을 때까지 기다린다(꼬리가 길어 행 전체를 모를 때). */
+  // 마지막 텍스트 행이 `suffix`로 끝나고 커서가 그 행에 있을 때까지 기다린다. 꼬리가 길어 행 전체를 모를 때 쓴다.
   async function waitLastEndsWith(suffix, timeoutMs = 15000) {
     await waitFor(
       async () => {
@@ -232,9 +246,9 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     );
   }
 
-  /** `[data-testid=status]` 텍스트. */
+  // `[data-testid=status]` 텍스트.
   const statusText = () => page.locator('[data-testid="status"]').textContent();
-  /** `statusText()`가 `values` 중 하나가 될 때까지 기다린다(RD-012). */
+  // `statusText()`가 `values` 중 하나가 될 때까지 기다린다(RD-012).
   async function waitStatus(values, label, timeoutMs = 30000) {
     await waitFor(
       async () => values.includes(await statusText()),
@@ -244,10 +258,9 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
   }
 
   const focus = () => page.evaluate(() => document.querySelector(".xterm-helper-textarea")?.focus());
-  /**
-   * 텍스트를 입력하고 커서 행이 그 끝 글자로 끝나도록 그려질 때까지 기다린다. xterm은 키를 비동기로 그려서, 그리기 전에
-   * 화면을 읽으면 낡은 프롬프트 행에 통과한다. 행을 넘겨 감기는 긴 입력은 `sync: false`로 호출자가 따로 기다린다.
-   */
+  // 텍스트를 입력하고 커서 행이 그 끝 글자로 끝나도록 그려질 때까지 기다린다.
+  // xterm은 키를 비동기로 그린다. 그리기 전에 화면을 읽으면 낡은 프롬프트 행에 통과한다.
+  // 행을 넘겨 감기는 긴 입력은 `sync: false`로 부르고 호출자가 따로 기다린다.
   const type = async (text, { sync = true } = {}) => {
     await page.keyboard.type(text);
     const tailChars = text.trimEnd().slice(-10);
@@ -259,14 +272,13 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     }, `입력 ${JSON.stringify(tailChars)}가 커서 행에 그려짐`, 5000);
   };
   const press = (key) => page.keyboard.press(key);
-  /**
-   * xterm의 `paste` 이벤트 경로(RD-011): 클립보드에 쓰고 Control+V로 붙여넣는다(`\n`→`\r` 변환은 벤더
-   * `readPaste`가 한다). headless Chromium은 Control+V가 실제 OS 클립보드 붙여넣기를 일으키지 않는다(실측) — 화면이 안 바뀌면 `textarea`에 `ClipboardEvent("paste")`를 직접 dispatch하는
-   * fallback으로 대체한다. `page.keyboard.insertText`는 대신 쓰지 않는다: CDP `Input.insertText`가 `\n`을
-   * 삽입 이벤트에서 지워버려(실측) 여러 줄 소스가 한 줄로 뭉개진다. 합성 `paste` 이벤트는 xterm이 실제로
-   * 듣는 이벤트(`qs` 핸들러, `event.clipboardData.getData("text/plain")`)라 실제 붙여넣기와 같은 코드 경로를
-   * 지난다. 반환값의 `usedFallback`으로 호출부가 기록할 수 있다.
-   */
+  // xterm의 `paste` 이벤트 경로(RD-011). 클립보드에 쓰고 Control+V로 붙여넣는다.
+  // - 붙여넣은 Enter는 벤더 `readPaste`가 `\n` 텍스트로 입력에 넣는다(`packages/xterm-readline/src/readline.ts`).
+  // - headless Chromium에서는 Control+V가 OS 클립보드 붙여넣기를 일으키지 않는다(실측).
+  // - 화면이 안 바뀌면 `textarea`에 `ClipboardEvent("paste")`를 직접 dispatch한다.
+  // - 합성 이벤트는 xterm이 듣는 이벤트(`clipboardData.getData("text/plain")`)라 실제 붙여넣기와 같은 경로를 지난다.
+  // - `page.keyboard.insertText`는 쓰지 않는다. CDP `Input.insertText`가 `\n`을 지워 여러 줄 소스가 한 줄이 된다(실측).
+  // 반환값의 `usedFallback`으로 호출부가 합성 경로 사용 여부를 기록할 수 있다.
   const paste = async (text) => {
     const before = await snapshot();
     let usedFallback = false;
@@ -301,34 +313,31 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     }
     return { usedFallback };
   };
-  /** 화면 스냅샷(행 + 커서 행). Enter가 화면을 바꿨는지 보는 데 쓴다. */
+  // 화면 스냅샷(행 + 커서 행). Enter가 화면을 바꿨는지 보는 데 쓴다.
   const snapshot = async () => JSON.stringify([await rows(), await cursorRow()]);
-  /**
-   * Enter를 치고 화면이 실제로 바뀔 때까지 기다린다. Enter는 항상 개행을 그리므로 바뀌지 않으면 아직 처리되지 않은 것이다.
-   * 이 뒤에 새 프롬프트를 기다리면 낡은 프롬프트 행에 통과하지 않는다.
-   */
+  // Enter를 치고 화면이 바뀔 때까지 기다린다. Enter는 항상 개행을 그리므로 안 바뀌면 아직 처리되지 않은 것이다.
+  // 이 뒤에 새 프롬프트를 기다리면 낡은 프롬프트 행에 통과하지 않는다.
   const enter = async () => {
     const before = await snapshot();
     await press("Enter");
     await waitFor(async () => (await snapshot()) !== before, "Enter 뒤 화면 변화", 5000);
   };
-  /** 코드를 입력하고 Enter를 친 뒤 다음 프롬프트를 기다린다. */
+  // 코드를 입력하고 Enter를 친 뒤 다음 프롬프트를 기다린다.
   async function submit(code, expectedPrompt = ">>>") {
     await type(code);
     await enter();
     await waitPrompt(expectedPrompt);
   }
-  /** 화면을 지우고(Ctrl+L) 맨 윗 행에 `>>>`가 다시 그려질 때까지 기다린다. 24행을 넘는 출력이 스크롤로 행 비교를 깨지 않게 한다. */
+  // 화면을 지우고(Ctrl+L) 맨 윗 행에 `>>>`가 다시 그려질 때까지 기다린다.
+  // 24행을 넘는 출력이 스크롤로 행 비교를 깨는 일을 막는다.
   async function clear() {
     await focus();
     await press("Control+l");
     await waitFor(async () => (await rows())[0] === ">>>" && (await cursorRow()) === 0, "Ctrl+L 뒤 첫 행의 >>>", 5000);
   }
-  /**
-   * top-level await 체크박스를 `on`에 맞춘다(RD-012). 이미 같으면 무동작. 다르면 클릭 → `reset()`이 동기로
-   * 발행하는 `loading` → `ready`/`load-failed` → 새 프롬프트까지 기다린다. 클릭이 xterm의 숨은 textarea에서
-   * 포커스를 가져가므로 끝에 되돌린다. `load-failed`면 던진다.
-   */
+  // top-level await 체크박스를 `on`에 맞춘다(RD-012). 이미 같으면 아무것도 하지 않는다.
+  // 다르면 클릭한 뒤 `loading` → `ready`/`load-failed` → 새 프롬프트 순으로 기다린다. `reset()`이 `loading`을 동기로 발행한다.
+  // 클릭이 xterm 숨은 textarea의 포커스를 가져가므로 끝에 되돌린다. `load-failed`면 던진다.
   async function setTopLevelAwait(on) {
     const checked = await page.locator('[data-testid="top-level-await"]').isChecked();
     if (checked === on) return;
@@ -342,29 +351,30 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     await waitPrompt(">>>", 30000);
   }
 
-  /** 빈 Enter로 프롬프트를 `>>>`로 되돌린다(꼬리가 든 `t>>>` 뒤 다음 시나리오가 깨끗하게 시작하게 한다). */
+  // 빈 Enter로 프롬프트를 `>>>`로 되돌린다. 꼬리가 든 `t>>>` 뒤에서 다음 시나리오를 깨끗하게 시작한다.
   async function resetPrompt() {
     await enter();
     await waitPrompt(">>>");
   }
-  /** 입력 줄을 지우고(Ctrl+U) 프롬프트만 남긴다. */
+  // 입력 줄을 지우고(Ctrl+U) 프롬프트만 남긴다.
   async function killLine() {
     await press("Control+u");
   }
-  /**
-   * stdin 읽기가 시작되기 전에 친 키는 벤더 readline이 버리지 않고 쌓았다가 읽기가 시작될 때 재생한다(RD-019 type-ahead,
-   * TRP-005). 프롬프트 글자(`x: `)는 `write` 알림으로 읽기 시작보다 먼저 화면에 나오고 프롬프트 없는 `input()`은 화면
-   * 신호가 없어, 화면만으로는 읽기가 시작됐는지 알 수 없다. 그래서 첫 글자를 **한 번만** 치고 그 에코(재생 시점 = 읽기 시작)가
-   * 화면에 나타날 때까지 기다린다. 재시도하지 않는다: 첫 글자가 버려지지 않고 쌓이므로 다시 치면 글자가 중복된다(`x: `에
-   * `abc` → `aabc`). 나머지 글자는 에코 뒤에 친다.
-   */
+  // 읽기가 시작된 것을 첫 글자 에코로 확인하며 입력한다(RD-019 type-ahead, TRP-005).
+  // - 읽기 시작 전에 친 키는 벤더 readline이 버리지 않고 쌓았다가 읽기가 시작될 때 재생한다.
+  // - 프롬프트 글자(`x: `)는 `write` 알림으로 읽기 시작보다 먼저 나온다.
+  // - 프롬프트 없는 `input()`은 화면 신호가 없다. 화면만으로는 읽기 시작을 알 수 없다.
+  // - 그래서 첫 글자를 한 번만 치고, 그 에코(재생 시점 = 읽기 시작)가 나타날 때까지 기다린다.
+  // - 재시도하지 않는다. 첫 글자가 쌓여 있으므로 다시 치면 중복된다(`x: `에 `abc` → `aabc`).
+  // 나머지 글자는 에코 뒤에 친다.
   async function typeWhenReading(text, { timeoutMs = 15000 } = {}) {
     const before = await snapshot();
     await page.keyboard.type(text[0]);
     await waitFor(async () => (await snapshot()) !== before, "첫 글자 에코(쌓인 키가 읽기 시작에서 재생됨)", timeoutMs);
     if (text.length > 1) await type(text.slice(1));
   }
-  /** 화면(행 + 커서 행)이 `quietMs` 동안 바뀌지 않을 때까지 기다린다. 긴 프롬프트의 재그리기가 끝난 뒤 행을 읽을 때 쓴다. */
+  // 화면(행 + 커서 행)이 `quietMs` 동안 바뀌지 않을 때까지 기다린다. 긴 프롬프트의 재그리기가 끝난 뒤 행을 읽을 때 쓴다.
+  // 부재 확인 부류라 제품 쪽 완료 신호가 있으면 그것을 쓴다(9.7 5항).
   async function settled(quietMs = 200, timeoutMs = 5000) {
     let last = await snapshot();
     let since = Date.now();
@@ -382,24 +392,21 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     throw new Error("화면이 안정되지 않았다");
   }
 
-  /**
-   * 페이지 시계(`performance.now()`) 마크: `pattern`을 포함하고 `exclude`는 포함하지 않는 행이 화면에 **처음** 나타난
-   * 시각을 페이지 안 `MutationObserver`로 기록한다. Node↔페이지 CDP 왕복(폴링 1회에 수 ms~수십 ms, 감속 시 더 커진다)이
-   * 측정값에 섞이지 않게 하려는 것이다(TRP-022). `armMeasurement()`/`readElapsed()`는 `>>>` 프롬프트 복귀만 감지하므로
-   * 다른 문구(예: `KeyboardInterrupt` 출현)를 잴 때 이 쌍을 쓴다.
-   *
-   * - `exclude`: 이 문자열을 포함한 행은 대상이 아니다. 제출한 소스 줄(`>>> print('X')`)이 대상 문자열을 그대로 담아
-   *   호출 즉시 참이 되는 함정(TRP-011)을 피하려고 입력 줄에만 있는 부분(예: `>>>`)을 준다.
-   * - 무장 시점에 화면에 이미 있는 행도 검사한다. 이전 출력이 남아 있으면 `exclude`나 `clear()`로 거른다.
-   * - 한 번에 하나만 무장한다. 다시 부르면 이전 마크와 시작 기준이 초기화된다.
-   * - 시작 기준(`startedAt`)은 세 가지 중 하나다.
-   *   1. 기본: 이 함수를 부른 페이지 시각.
-   *   2. `startOnKey: { key, ctrlKey = false }`: 무장 뒤 **처음** 눌린 그 키의 `keydown`(캡처 단계) 페이지 시각. 예: Enter를
-   *      누른 시각(`{ key: "Enter" }`)·Ctrl+C를 누른 시각(`{ key: "c", ctrlKey: true }`). 키 입력이 CDP를 거쳐 들어오는
-   *      지연이 시작에 섞이지 않는다. 이 옵션을 주면 키가 눌리기 전에는 `startedAt`이 `null`이고, 키 없이 마크가
-   *      찍히면 `readMark()`가 던진다.
-   *   3. `markStart()`: 호출 시각으로 다시 잡는다(키가 아닌 동작 기준일 때).
-   */
+  // 페이지 시계(`performance.now()`) 마크. `pattern`을 포함하고 `exclude`를 포함하지 않는 행이 처음 나타난 시각을 기록한다.
+  // 페이지 안 `MutationObserver`가 기록한다. Node↔페이지 CDP 왕복이 측정값에 섞이지 않는다(TRP-022).
+  // `armMeasurement()`·`readElapsed()`는 `>>>` 프롬프트 복귀만 감지한다. 다른 문구(예: `KeyboardInterrupt`)는 이 쌍으로 잰다.
+  //
+  // - `exclude`: 이 문자열을 포함한 행은 대상이 아니다.
+  //   제출한 소스 줄(`>>> print('X')`)이 대상 문자열을 담아 즉시 참이 되는 함정을 피한다(TRP-011). 입력 줄에만 있는 부분(예: `>>>`)을 준다.
+  // - 무장 시점에 화면에 있는 행도 검사한다. 이전 출력이 남아 있으면 `exclude`나 `clear()`로 거른다.
+  // - 한 번에 하나만 무장한다. 다시 부르면 이전 마크와 시작 기준이 초기화된다.
+  // - 시작 기준(`startedAt`)은 셋 중 하나다.
+  //   1. 기본: 이 함수를 부른 페이지 시각.
+  //   2. `startOnKey: { key, ctrlKey = false }`: 무장 뒤 처음 눌린 그 키의 `keydown`(캡처 단계) 페이지 시각.
+  //      - 예: Enter는 `{ key: "Enter" }`, Ctrl+C는 `{ key: "c", ctrlKey: true }`.
+  //      - 키 입력이 CDP를 거쳐 들어오는 지연이 시작에 섞이지 않는다.
+  //      - 키가 눌리기 전에는 `startedAt`이 `null`이다. 키 없이 마크가 찍히면 `readMark()`가 던진다.
+  //   3. `markStart()`: 호출 시각으로 다시 잡는다. 키가 아닌 동작이 기준일 때 쓴다.
   async function markText(pattern, { exclude, startOnKey } = {}) {
     await page.evaluate(
       ([pat, excl, keySpec]) => {
@@ -430,11 +437,9 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
       [pattern, exclude ?? null, startOnKey ? { key: startOnKey.key, ctrlKey: startOnKey.ctrlKey ?? false } : null],
     );
   }
-  /**
-   * `markText()`의 시작 기준을 지금(페이지 시각)으로 다시 잡는다. 반환값은 그 페이지 시각(ms). 키 입력 기준은
-   * `markText`의 `startOnKey`가 더 정확하다. 이 함수는 키가 아닌 동작(예: `page.evaluate`로 발행한 이벤트) 직전에 쓴다.
-   * `markText()` 뒤에 불러야 한다.
-   */
+  // `markText()`의 시작 기준을 지금의 페이지 시각으로 다시 잡고 그 값(ms)을 돌려준다.
+  // 키 입력이 기준이면 `startOnKey`가 더 정확하다. 키가 아닌 동작(예: `page.evaluate`로 발행한 이벤트) 직전에 쓴다.
+  // `markText()` 뒤에 불러야 한다.
   async function markStart() {
     return page.evaluate(() => {
       if (!window.__mark) throw new Error("markStart: markText()로 먼저 무장해야 한다");
@@ -442,11 +447,11 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
       return window.__mark.startedAt;
     });
   }
-  /**
-   * 마크가 찍힐 때까지 기다려(`timeoutMs`는 정지 감지용이며 판정선이 아니다, 9.7 4항) `{ markedAt, startedAt, elapsedMs }`
-   * (모두 페이지 시계 ms, `elapsedMs = markedAt - startedAt`)를 돌려준다. 시간 초과면 던진다. `startOnKey`를 줬는데
-   * 키가 눌리지 않았으면 던진다. `markStart()`를 마크가 찍힌 뒤에 부르면 `elapsedMs`가 음수가 되므로 호출 순서를 지킨다.
-   */
+  // 마크가 찍힐 때까지 기다린 뒤 `{ markedAt, startedAt, elapsedMs }`를 돌려준다.
+  // - 값은 모두 페이지 시계 ms이고 `elapsedMs = markedAt - startedAt`이다.
+  // - `timeoutMs`는 정지 감지용이다. 판정선이 아니다(9.7 4항). 시간 초과면 던진다.
+  // - `startOnKey`를 줬는데 키가 눌리지 않았으면 던진다.
+  // - `markStart()`를 마크가 찍힌 뒤에 부르면 `elapsedMs`가 음수가 된다. 호출 순서를 지킨다.
   async function readMark({ timeoutMs = 15000 } = {}) {
     await waitFor(
       async () => {
@@ -462,23 +467,19 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     return { ...m, elapsedMs: m.markedAt - m.startedAt };
   }
 
-  /**
-   * 복합문 한 줄(`while True: pass`)을 제출해 실행을 시작한다. 3.14 REPL처럼 첫 Enter는 `... `를 내고
-   * 빈 줄 Enter가 있어야 블록이 끝나 실행이 시작된다. 이 단계를 빼면 Ctrl+C가 활성 읽기(프롬프트)로 가
-   * 벤더 경로에서 `... ^C`만 찍힌다.
-   */
+  // 복합문 한 줄(`while True: pass`)을 제출해 실행을 시작한다.
+  // 3.14 REPL처럼 첫 Enter는 `... `를 내고, 빈 줄 Enter가 있어야 블록이 끝나 실행이 시작된다.
+  // 이 단계를 빼면 Ctrl+C가 활성 읽기로 가서 벤더 경로에서 `... ^C`만 찍힌다.
   async function startBlockLine(code) {
     await type(code);
     await enter();
     await waitPrompt("...");
     await enter();
   }
-  /** Ctrl+C 한 번. 실행 중이면 `^C` 에코 + SIGINT 전송, 활성 읽기 중이면 벤더가 같은 프롬프트를 다시 그린다. */
+  // Ctrl+C 한 번. 실행 중이면 `^C` 에코와 SIGINT 전송이다. 활성 읽기 중이면 벤더가 같은 프롬프트를 다시 그린다.
   const ctrlC = () => page.keyboard.press("Control+c");
-  /**
-   * Ctrl을 누른 채 `c`를 `count`번 친다(키 반복·연타). `gapMs`가 0이면 브라우저가 낼 수 있는 최속으로,
-   * `leadMs`는 첫 타와 나머지 사이의 간격이다(OS 키 반복의 첫 지연을 흉내낸다).
-   */
+  // Ctrl을 누른 채 `c`를 `count`번 친다(키 반복·연타).
+  // `gapMs`가 0이면 브라우저가 낼 수 있는 최속이다. `leadMs`는 첫 타와 둘째 타 사이의 간격이다(OS 키 반복의 첫 지연).
   async function holdCtrlC(count, { gapMs = 0, leadMs = 0 } = {}) {
     await page.keyboard.down("Control");
     try {
@@ -492,10 +493,8 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
       await page.keyboard.up("Control");
     }
   }
-  /**
-   * 마지막 텍스트 행이 프롬프트로 끝날 때까지 기다린다. 중단 직후의 프롬프트 행은 앞에 `^C`가 붙을 수 있고
-   * (`^C>>> `, 연타면 여러 개) 꼬리가 남아 있을 수도 있다.
-   */
+  // 마지막 텍스트 행이 프롬프트로 끝날 때까지 기다린다.
+  // 중단 직후의 프롬프트 행은 앞에 `^C`가 붙을 수 있다(`^C>>> `, 연타면 여러 개). 꼬리가 남을 수도 있다.
   async function waitPromptTail(timeoutMs = 15000) {
     await waitFor(
       async () => {
@@ -508,38 +507,34 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
       timeoutMs,
     );
   }
-  /**
-   * stdin 읽기가 열린 것을 첫 글자 에코로 확인한 뒤 Ctrl+C를 누른다. 읽기가 열리기 전의 Ctrl+C는 쌓이지 않고
-   * 쌓인 키를 비운 채 `ctrlCHandler`로 가 게이트에 막혀 버려진다(TRP-005, RD-019). 그러면 다음에 열리는 읽기가
-   * 취소되지 않고, 글자를 쳐 둔 경우 그 글자도 함께 사라진다. 인자 없는 `input()`은 프롬프트 글자가 없어 화면만으로는 읽기
-   * 시작을 알 수 없으므로, 글자 하나를 **한 번** 쳐서 에코를 확인한 뒤(`typeWhenReading`, 재시도 없음) Ctrl+C를 누른다.
-   * `text`는 최소 한 글자이어야 한다(그 글자가 읽기 확인용이다).
-   */
+  // stdin 읽기가 열린 것을 첫 글자 에코로 확인한 뒤 Ctrl+C를 누른다.
+  // - 읽기가 열리기 전의 Ctrl+C는 쌓이지 않는다. 쌓인 키를 비운 채 `ctrlCHandler`로 가서 게이트에 막혀 버려진다(TRP-005, RD-019).
+  // - 그러면 다음에 열리는 읽기가 취소되지 않는다. 쳐 둔 글자도 함께 사라진다.
+  // - 인자 없는 `input()`은 화면 신호가 없다. 글자 하나를 한 번 쳐서 에코를 확인한다(`typeWhenReading`, 재시도 없음).
+  // `text`는 최소 한 글자다. 그 글자가 읽기 확인용이다.
   async function cancelWhenReading(text) {
     if (!text) throw new Error("cancelWhenReading에는 읽기를 확인할 글자가 최소 하나 필요하다");
     await typeWhenReading(text);
     await ctrlC();
   }
-  /** Ctrl+C를 `count`번 따로 누른다(누른 채 반복하는 `holdCtrlC`와 달리 매번 Control을 떼고 다시 누른다). */
+  // Ctrl+C를 `count`번 따로 누른다. 누른 채 반복하는 `holdCtrlC`와 달리 매번 Control을 떼고 다시 누른다.
   async function ctrlCBurst(count, gapMs = 0) {
     for (let i = 0; i < count; i += 1) {
       if (i > 0 && gapMs > 0) await page.waitForTimeout(gapMs);
       await ctrlC();
     }
   }
-  /** 화면 전체의 `^C` 개수. 행이 감겨도 놓치지 않게 이어붙여 센다. */
+  // 화면 전체의 `^C` 개수. 행이 감겨도 놓치지 않게 이어붙여 센다.
   const caretCount = async () => (await rows()).join("").split("^C").length - 1;
-  /** 화면의 `KeyboardInterrupt` 개수. 프롬프트 취소는 눌림을 몇 번 하든 1이어야 한다. */
+  // 화면의 `KeyboardInterrupt` 개수. 프롬프트 취소는 눌림 횟수와 무관하게 1이어야 한다.
   const interruptCount = async () => (await rows()).join("").split("KeyboardInterrupt").length - 1;
 
-  /**
-   * 화면의 트레이스백 머리글 수. 정상 중단은 정확히 1이어야 한다(연타가 여러 번 중단하면 늘어난다).
-   * 행 단위가 아니라 이어붙인 화면에서 센다: 꼬리(`^C` 30개 = 60칸)에 머리글이 붙으면 80칸을 넘어 행이
-   * 감기고(`Traceback (most rece` / `nt call last):`) 행 단위 검사는 0을 센다.
-   */
+  // 화면의 트레이스백 머리글 수. 정상 중단은 정확히 1이다. 연타가 여러 번 중단하면 늘어난다.
+  // 이어붙인 화면에서 센다. 꼬리(`^C` 30개 = 60칸)에 머리글이 붙으면 80칸을 넘어 행이 감긴다
+  // (`Traceback (most rece` / `nt call last):`). 행 단위 검사는 0을 센다.
   const countTracebacks = async () =>
     (await rows()).join("").split("Traceback (most recent call last):").length - 1;
-  /** 화면에 핸들러 내부가 샜는지(절단 실패). 정상이면 빈 배열이다. 감긴 행을 놓치지 않게 이어붙여서도 본다. */
+  // 핸들러 내부가 화면에 샜는지(절단 실패). 정상이면 빈 배열이다. 감긴 행을 놓치지 않게 이어붙인 화면도 본다.
   const handlerLeaks = async () => {
     const all = await rows();
     const joined = all.join("");
@@ -550,11 +545,12 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
   };
 
   const checks = {};
-  // 두 환경변수 값은 기본값(1)이어도 항상 남긴다. 값이 다른 실행의 결과를 섞어 비교하지 않으려는 것이다.
+  // 두 환경변수 값은 기본값이어도 항상 남긴다. 값이 다른 실행의 결과를 섞어 비교하지 않으려는 것이다.
   const notes = { E2E_CPU_THROTTLE: cpuThrottle, E2E_TIME_SCALE: timeScale };
-  /** 확인 하나를 실행해 통과·실패와 사유를 기록한다(하나가 실패해도 뒤 확인을 계속한다). */
+  // 확인 하나를 실행해 통과·실패와 사유를 기록한다. 하나가 실패해도 뒤 확인을 계속한다.
   async function step(name, fn) {
-    // ONLY=W4,T1 처럼 이름이 그 접두어로 시작하는 확인만 실행한다(양성 대조에서 확인을 분리해 볼 때 쓴다). "초기"는 항상 실행한다.
+    // `ONLY=W4,T1`처럼 이름이 그 접두어로 시작하는 확인만 실행한다. 양성 대조에서 확인을 분리해 볼 때 쓴다.
+    // "초기"로 시작하는 확인은 항상 실행한다.
     const only = (process.env.ONLY ?? "").split(",").filter(Boolean);
     if (only.length > 0 && !name.startsWith("초기") && !only.some((prefix) => name.startsWith(prefix))) return;
     try {
@@ -568,28 +564,22 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
     }
   }
   const problemLogs = () => logs.filter((l) => l.type === "warning" || l.type === "error");
-  /**
-   * webloop 재보고인지. 정상 중단·`exit()`마다 asyncio Task가 `KeyboardInterrupt`·`SystemExit`을 다시 던져
-   * `run_handle`에서 JS unhandled rejection이 된다(설계 2.8, `webloop-reraise` 억제가 있으면 나지 않는다).
-   */
+  // webloop 재보고인지. 정상 중단·`exit()`마다 asyncio Task가 `KeyboardInterrupt`·`SystemExit`을 다시 던진다.
+  // `run_handle`에서 JS unhandled rejection이 된다. 억제(`webloop-reraise`)가 있으면 나지 않는다(docs/design/03-ctrl-c.md 2.8).
   const isWebLoopReraise = (text) =>
     /webloop\.py/.test(text) && /(KeyboardInterrupt|SystemExit)/.test(text);
-  /** 재보고를 뺀 pageerror. 진단용(판정은 `pageErrors` 총계로 한다). */
+  // 재보고를 뺀 pageerror. 진단용이다. 판정은 `pageErrors` 총계로 한다.
   const otherPageErrors = () => pageErrors.filter((e) => !isWebLoopReraise(e));
 
-  /**
-   * 결과를 JSON으로 출력하고 브라우저를 닫는다. 종료 코드는 호출자가 정한다.
-   * `ok`는 `pageErrors`(전체, 재보고 포함) 0도 요구한다. `webLoopReraises`는 진단용으로만 남긴다.
-   *
-   * RD-018: `label`(기본 `"dev"`)은 stdout에는 찍히지 않고, 결과 파일 이름(`<호출 스크립트
-   * 파일명>-<label>.json`, `resultFileName` 참고)에만 쓰인다. stdout JSON 자체는 이전과 같은 모양이고
-   * (기존 호출자가 `label` 없이 부르면 파일은 `dev`로 저장돼 호환된다), 파일 내용은 그 stdout JSON과
-   * 동일하다(`checks` 전체 맵도 함께 담아 실행기(`run.mjs`)가 ID 단위로 대조할 수 있게 한다).
-   */
+  // 결과를 JSON으로 출력하고 브라우저를 닫는다. 종료 코드는 호출자가 정한다.
+  // - `ok`는 모든 확인 통과에 더해 `pageErrors`(재보고 포함) 0을 요구한다.
+  // - `webLoopReraises`는 진단용으로만 남긴다.
+  // - `label`(기본 `"dev"`)은 결과 파일 이름(`<호출 스크립트 파일명>-<label>.json`, `resultFileName` 참고)에만 쓰인다(RD-018).
+  // - 파일 내용은 stdout JSON과 같다. `checks` 전체 맵을 담아 실행기(`run.mjs`)가 ID 단위로 대조한다.
   async function finish({ label = "dev", ...extra } = {}) {
     const finalRows = (await rows()).filter((r) => r !== "");
-    // Playwright 1.63의 `connectOverCDP` browser.close()는 transport만 끊고 원격 페이지는 안 닫는다
-    // (legacy-smoke.mjs가 h.finish() 대신 page.close()+browser.close()를 수동으로 부르는 이유와 동일).
+    // `connectOverCDP`의 `browser.close()`는 transport만 끊고 원격 페이지를 닫지 않는다(Playwright 1.63).
+    // `legacy-smoke.mjs`가 `h.finish()` 대신 `page.close()`·`browser.close()`를 직접 부르는 이유도 같다.
     if (cdpEndpoint) await page.close();
     await browser.close();
     const ok = Object.values(checks).every(Boolean) && pageErrors.length === 0;
@@ -675,26 +665,27 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
   };
 }
 
-// RD-017: 선택 복사 도우미. `open()`이 반환하는 핸들의 클로저가 아니라 `page`를 인자로 받는 독립 함수다
-// (`open` 자체와 같은 형태). 좌표는 실제 마우스 이벤트로 드래그를 만들기 위해
-// `.xterm-rows > div`의 `getBoundingClientRect()`를 쓴다(데모에 `window.__term`이 없다).
+// RD-017: 선택 복사 도우미. `open()` 핸들의 클로저가 아니라 `page`를 인자로 받는 독립 함수다.
+// 실제 마우스 이벤트로 드래그하려고 `.xterm-rows > div`의 `getBoundingClientRect()`로 좌표를 잡는다.
+// 데모에 `window.__term`이 없다.
 
 /**
- * `endOutside`용 x좌표: `.xterm` 요소 오른쪽 바깥, 뷰포트 안쪽 중간. `.xterm-screen`보다 오른쪽이라 터미널
- * 요소 밖에서 mouseup이 일어나 document 리스너 경로를 탄다(실측). 같은 행 y를 유지해야
- * 한다 — 터미널 위쪽(y가 작은 곳)으로 떼면 xterm이 선택 방향을 뒤집어 드래그한 텍스트 자체가 선택에서
- * 빠지고 스크롤 위치에 따라 클립보드가 달라진다.
+ * `endOutside`용 x좌표. `.xterm` 요소 오른쪽 바깥, 뷰포트 안쪽 중간이다.
+ * `.xterm-screen`보다 오른쪽이라 mouseup이 터미널 밖에서 일어난다. document 리스너 경로를 탄다(실측).
+ * 같은 행 y를 유지해야 한다. 터미널 위쪽(y가 작은 곳)으로 떼면 xterm이 선택 방향을 뒤집는다.
+ * 그러면 드래그한 텍스트가 선택에서 빠지고 스크롤 위치에 따라 클립보드가 달라진다.
  *
- * 주의("선택 범위를 안 건드린다"는 최초 서술은 틀렸다): 이 x좌표로 마우스를 이동하면
- * xterm은 **열 좌표를 그 행 끝으로 clamp**한다. 즉 `toCol`은 무시되고 "`fromCol`부터 그 행 끝까지"가
- * 선택된다(실측 반례: `hello world` 행에서 `selectRows(r,0,r,5)`가 `endOutside:false`면 `"hello"`,
- * `endOutside:true`면 `"hello world"`). `toCol`이 그 행의 마지막 글자가 아닌 한 이 옵션으로 정확한 부분
- * 문자열을 검증할 수 없다 — "행 전체" 또는 "그 행 끝까지"를 확인하고 싶을 때만 `endOutside: true`를 써라.
+ * 주의: 이 x좌표로 마우스를 옮기면 xterm이 열 좌표를 그 행 끝으로 clamp한다.
+ * - `toCol`은 무시된다. `fromCol`부터 그 행 끝까지가 선택된다.
+ * - 실측: `hello world` 행에서 `selectRows(r,0,r,5)`는 `endOutside:false`면 `"hello"`, `true`면 `"hello world"`.
+ * - `toCol`이 그 행의 마지막 글자가 아니면 정확한 부분 문자열을 검증할 수 없다.
+ * - "행 전체"나 "그 행 끝까지"를 확인할 때만 `endOutside: true`를 쓴다.
  *
- * 전제: 뷰포트 폭이 `.xterm-screen`의 오른쪽 경계(80열 고정, body 기본 여백 8px 기준 대략 735px)보다
- * 충분히 넓어야 한다. 좁으면 mouseup이 `.xterm` 요소 **안**(`.xterm-screen` 위)에서 일어나 버려 document
- * 리스너 경로가 검증되지 않는다(조용한 거짓 양성 — clamp 때문에 클립보드 값 자체는 우연히 맞을 수 있다).
- * `selectRows`는 이 경우를 `elementFromPoint`로 확인해 에러를 던진다. 기본 뷰포트(1280×720)에서는 안전하다.
+ * 전제: 뷰포트 폭이 `.xterm-screen` 오른쪽 경계보다 충분히 넓다.
+ * - 경계는 80열 고정, body 기본 여백 8px 기준 대략 735px이다.
+ * - 좁으면 mouseup이 `.xterm` 안(`.xterm-screen` 위)에서 일어나 document 리스너 경로를 검증하지 못한다.
+ * - clamp 때문에 클립보드 값은 우연히 맞을 수 있다. 조용한 거짓 양성이다.
+ * - `selectRows`는 이 경우를 `elementFromPoint`로 확인해 던진다. 기본 뷰포트(1280×720)는 안전하다.
  */
 async function xtermOutsideRightX(page) {
   return page.evaluate(() => {
@@ -705,7 +696,7 @@ async function xtermOutsideRightX(page) {
   });
 }
 
-/** `.xterm-rows > div`의 `row`번째 행에서 `col`번째 칸 중심 좌표(px). 셀 폭 = 행 폭 / 80(xterm 기본 cols, `ReplView` 참고). */
+/** `.xterm-rows > div`의 `row`번째 행에서 `col`번째 칸의 중심 좌표(px). 셀 폭은 행 폭 / 80이다(xterm 기본 cols, `ReplView` 참고). */
 async function cellCenter(page, row, col) {
   const box = await page.evaluate((r) => {
     const el = document.querySelectorAll(".xterm-rows > div")[r];
@@ -719,13 +710,13 @@ async function cellCenter(page, row, col) {
 }
 
 /**
- * `fromRow`행 `fromCol`열에서 `toRow`행 `toCol`열까지 마우스로 드래그해 선택을 만든다(`mouse.move → down →
- * move(steps: 5) → up`). `endOutside`가 참이면 같은 행의 y를 유지한 채 `.xterm` 요소 오른쪽 바깥(뷰포트
- * 안)에서 뗀다 — xterm의 드래그 종료 리스너는 `document`에 걸려 있어 터미널 밖에서 떼도 선택이 확정된다
- * (S11). 단, 이 좌표에서는 xterm이 열 좌표를 그 행 끝으로 **clamp**한다 — `toCol`은 무시되고 `fromCol`부터
- * 그 행 끝까지가 선택된다(`xtermOutsideRightX` 참고). "행 전체/행 끝까지"를 확인하고
- * 싶을 때만 `endOutside: true`를 써라. 뷰포트가 좁아 mouseup이 실제로 `.xterm` 안에서 일어나면(전제:
- * `xtermOutsideRightX` 참고) 조용히 넘어가지 않고 에러를 던진다.
+ * `fromRow`행 `fromCol`열에서 `toRow`행 `toCol`열까지 마우스로 드래그해 선택을 만든다(`move → down → move(steps: 5) → up`).
+ *
+ * `endOutside`가 참이면 같은 행의 y를 유지한 채 `.xterm` 요소 오른쪽 바깥(뷰포트 안)에서 뗀다.
+ * - xterm의 드래그 종료 리스너는 `document`에 걸려 있다. 터미널 밖에서 떼도 선택이 확정된다(S11).
+ * - 이 좌표에서는 xterm이 열 좌표를 행 끝으로 clamp한다. `toCol`은 무시된다(`xtermOutsideRightX` 참고).
+ * - "행 전체"나 "행 끝까지"를 확인할 때만 쓴다.
+ * - 뷰포트가 좁아 mouseup이 `.xterm` 안에서 일어나면 던진다.
  */
 export async function selectRows(page, fromRow, fromCol, toRow, toCol, { endOutside = false } = {}) {
   const from = await cellCenter(page, fromRow, fromCol);
@@ -754,23 +745,23 @@ export async function selectRows(page, fromRow, fromCol, toRow, toCol, { endOuts
   await page.mouse.up();
 }
 
-/** `row`행 `col`열 칸을 더블클릭한다(xterm의 단어 선택, S06). */
+/** `row`행 `col`열 칸을 더블클릭한다. xterm의 단어 선택이다(S06). */
 export async function dblclickCell(page, row, col) {
   const { x, y } = await cellCenter(page, row, col);
   await page.mouse.dblclick(x, y);
 }
 
-/** 클립보드 텍스트를 읽는다(`open()`이 이미 `clipboard-read` 권한을 받아 둔다). */
+/** 클립보드 텍스트를 읽는다. `open()`이 `clipboard-read` 권한을 받아 둔다. */
 export const readClipboard = (page) => page.evaluate(() => navigator.clipboard.readText());
 
-/** 시험 전 클립보드에 사전 값을 넣는다(복사가 안 일어났음을 대조하는 시나리오용, 예: S07). */
+/** 클립보드에 사전 값을 넣는다. 복사가 일어나지 않았음을 대조하는 시나리오에 쓴다(예: S07). */
 export const seedClipboard = (page, text) =>
   page.evaluate((t) => navigator.clipboard.writeText(t), text);
 
 /**
- * "선택 시 자동 복사" 체크박스(`data-testid=copy-on-select`)를 `on`에 맞춘다. `setTopLevelAwait`와 달리
- * 이 체크박스는 세션을 리셋하지 않으므로 상태 전환을 기다릴 필요가 없다 — 이미 같으면 무동작, 다르면
- * 클릭만 한다. 클릭이 xterm의 숨은 textarea에서 포커스를 가져가므로 끝에 되돌린다.
+ * "선택 시 자동 복사" 체크박스(`data-testid=copy-on-select`)를 `on`에 맞춘다.
+ * `setTopLevelAwait`와 달리 세션을 리셋하지 않는다. 상태 전환을 기다리지 않는다.
+ * 이미 같으면 클릭하지 않는다. 클릭이 xterm 숨은 textarea의 포커스를 가져가므로 끝에 되돌린다.
  */
 export async function setCopyOnSelect(page, on) {
   const checkbox = page.locator('[data-testid="copy-on-select"]');
@@ -780,25 +771,28 @@ export async function setCopyOnSelect(page, on) {
 }
 
 /**
- * 토스트(`data-testid=copy-toast`) 텍스트. 떠 있지 않으면 `null`. Locator로 존재 확인(`count()`)과 텍스트
- * 읽기(`textContent()`)를 나눠 부르면(정정 전 구현) 그 사이에 토스트가 1초 자동 소멸 타이머로
- * 사라져 `textContent()`가 요소를 못 찾고 기본 타임아웃까지 기다리다 던지는 경쟁 조건이 있었다(재현: 6회
- * 반복 중 1회, locator timeout 30000ms). `page.evaluate`로 존재 확인과 텍스트 읽기를 같은 DOM 스냅샷 안에서
- * 동기로 끝내 경쟁 조건을 없앤다.
+ * 토스트(`data-testid=copy-toast`) 텍스트. 떠 있지 않으면 `null`.
+ * 존재 확인과 텍스트 읽기를 한 번의 `page.evaluate`로 끝낸다.
+ * Locator로 나눠 부르면 그 사이에 토스트가 1초 자동 소멸 타이머로 사라진다.
+ * 그러면 `textContent()`가 요소를 못 찾고 기본 타임아웃(30000ms)까지 기다리다 던진다(6회 반복 중 1회 재현).
  */
 export async function toastText(page) {
   return page.evaluate(() => document.querySelector('[data-testid="copy-toast"]')?.textContent ?? null);
 }
 
-// RD-022b: main 쪽 RPC 알림 관찰·주입. 화면에 신호가 없는 제품 이벤트(배경 `input()`의 `readInput` 알림이 main에
-// 도착해 처리됨)를 조건 대기로 기다리고(9.7 "판정은 이벤트·상태로"), worker가 낼 수 없는 시점의 출력(`input()` 대기 중 worker는
-// 메일박스 `Atomics.wait`에 멈춰 있다)을 main 경로 그대로 흉내 낸다. 알림 모양은 `packages/pyodide-core/src/protocol/rpc.ts`
-// (`{ kind: "ntf", name, args }`)와 `CORE_MAIN_HANDLER_NAMES`(`write`·`readInput` 등)를 따른다.
+// RD-022b: main 쪽 RPC 알림 관찰·주입.
+// - 화면에 신호가 없는 제품 이벤트를 조건 대기로 기다린다(9.7 1항). 예: 배경 `input()`의 `readInput` 알림이 main에 도착해 처리됨.
+// - worker가 낼 수 없는 시점의 출력을 main 경로 그대로 흉내 낸다. `input()` 대기 중 worker는 메일박스 `Atomics.wait`에 멈춰 있다.
+// - 알림 모양은 `packages/pyodide-core/src/protocol/rpc.ts`의 `{ kind: "ntf", name, args }`를 따른다.
+// - 알림 이름은 `CORE_MAIN_HANDLER_NAMES`(`write`·`readInput` 등)를 따른다.
 
 /**
- * `open(url, { before: installRpcTap })`로 부른다(문서 스크립트보다 먼저 실행돼야 한다). `MessagePort.prototype.onmessage`
- * 설정자를 감싸 모든 포트 핸들러가 **처리를 마친 뒤**(동기 부분) RPC 알림 이름을 `window.__rpcTap.notices`에 쌓고, 마지막으로
- * 알림을 받은 포트를 `window.__rpcTap.port`에 둔다. RPC가 아닌 메시지(React 스케줄러의 `MessageChannel` 등)는 건드리지 않는다.
+ * RPC 알림 관찰기를 설치한다. `open(url, { before: installRpcTap })`로 부른다. 문서 스크립트보다 먼저 실행돼야 한다.
+ *
+ * `MessagePort.prototype.onmessage` 설정자를 감싼다.
+ * - 포트 핸들러가 처리를 마친 뒤(동기 부분) RPC 알림 이름을 `window.__rpcTap.notices`에 쌓는다.
+ * - 마지막으로 알림을 받은 포트를 `window.__rpcTap.port`에 둔다.
+ * - RPC가 아닌 메시지(React 스케줄러의 `MessageChannel` 등)는 건드리지 않는다.
  */
 export async function installRpcTap(page) {
   await page.addInitScript(() => {
@@ -837,8 +831,8 @@ export const rpcNoticeCount = (page, name) =>
   page.evaluate((n) => (window.__rpcTap?.notices ?? []).filter((x) => x === n).length, name);
 
 /**
- * `installRpcTap` 뒤: 마지막으로 RPC 알림을 받은 포트에 worker → main 알림 하나를 합성해 보낸다(`dispatchEvent`, 실제 알림과 같은
- * `onmessage` 핸들러를 지난다). 알림을 받은 포트가 아직 없으면 던진다.
+ * `installRpcTap` 뒤: 마지막으로 알림을 받은 포트에 worker → main 알림 하나를 합성해 보낸다.
+ * `dispatchEvent`로 보내 실제 알림과 같은 `onmessage` 핸들러를 지난다. 알림을 받은 포트가 없으면 던진다.
  */
 export async function injectRpcNotice(page, name, ...args) {
   await page.evaluate(
@@ -851,6 +845,9 @@ export async function injectRpcNotice(page, name, ...args) {
   );
 }
 
+/** 클래스 목록에 `xterm-fg-N`(전경색 N번)이 있는지. */
 export const hasFg = (classes, n) => classes.includes(`xterm-fg-${n}`);
+/** 두 값이 JSON 직렬화로 같은지. */
 export const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/** 실패 사유·설명에 넣을 값 표기(JSON). */
 export const show = (v) => JSON.stringify(v);

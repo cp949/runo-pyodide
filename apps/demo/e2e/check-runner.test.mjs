@@ -1,6 +1,7 @@
-// check-runner.mjs 진입 규약(K1~K7) 단위 시험. 가짜 argv·env로 순수 함수만 확인한다(브라우저 없음).
-// 판정 규칙 정의는 `docs/design/09-testing.md` 9.6.5(K1~K7).
-// 실패해야 하는 입력(양성 대조)도 함께 둔다 — 항상 통과하는 판정이면 아래 시험이 잡는다. `pnpm --filter demo test`가 실행한다.
+// check-runner.mjs 진입 규약(K1~K7) 단위 시험. 가짜 argv·env로 확인한다. 브라우저는 없다.
+// 규칙은 `docs/design/09-testing.md` 9.6.5(K1~K7)다.
+// 통과 입력과 실패해야 하는 입력(양성 대조)을 함께 둔다. 판정이 항상 통과하면 실패 시험이 잡는다.
+// `pnpm --filter demo test`가 실행한다.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DEV_URL,

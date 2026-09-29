@@ -1,25 +1,29 @@
-// RD-017 브라우저 검증. 출처 RD-017에서 이관(RD-018).
-// 시나리오 S01~S12를 그대로 자동화하고, Ctrl+Shift+C
-// 변형(S03b)과 "새로고침 후 드래그 → 클립보드 불변" 확인을 S08b로 추가한다.
+// RD-017(선택 영역 복사)을 실제 브라우저로 검증한다. 규칙은 docs/design/06-editing.md 6.6.
 //
-// "배너 행"(S02·S03·S04) 판단: 각 시나리오는 `h.clear()`로 화면을 지운 뒤 시작하므로, Ctrl+L 직후의
-// 첫 행(row 0)이 항상 그 시나리오의 명령 에코 행이다 — S02는 `>>> while True: pass`, S03은
-// `>>> abc`(입력 중이라 프롬프트와 같은 행), S04는 `>>> input("x: ")`. 이 row 0을 드래그 대상으로
-// 쓴다(실측).
+// 시나리오 S01~S12를 자동화한다. S03b(Ctrl+Shift+C 변형)와 S08b(새로고침 뒤 드래그해도 클립보드 불변)는 추가한 것이다.
 //
-// 선택 해제 관찰: 계획서는 `.xterm-selection-layer`를 가정했으나 실제 xterm 6 DOM 렌더러는
-// `.xterm-selection`(레이어 접미사 없음)을 쓴다(실측, xterm.mjs 소스 확인). `window.getSelection()`
-// 대체안은 이 렌더러에서 쓸모가 없다(내부 폭 측정용 숨은 div를 가리키는 무관한 값을 돌려준다, 실측).
-// 그래서 선택 해제는 `.xterm-selection`의 자식 개수로만 관찰한다.
+// 실행 순서: 초기, S01, S02, S03, S03b, S04, S05, S06, S07, S08, S08b, S09, S10, S11, S12. 한 세션에서 이어 돈다.
+// - 각 시나리오는 `h.clear()`로 화면을 지우고 시작한다.
+// - S07·S08b는 체크박스를 끄고 끝에서 다시 켠다. 뒤 시나리오가 켜진 상태를 전제하기 때문이다.
+// - S08·S08b는 페이지를 새로고침한다.
+// - S12는 이 페이지의 `navigator.clipboard.writeText`를 영구히 깨뜨린다. 그래서 마지막이다.
 //
-// 사용: node selection-copy-check.mjs [devURL] [previewURL]
-//   previewURL이 있으면 S01·S02·S05·S07(+초기)만 그 URL에서 재실행한다(RD-044 K6).
-// ONLY=<ID,...>로 절을 거른다(양성 대조용): 초기,S01,S02,S03,S03b,S04,S05,S06,S07,S08,S08b,S09,S10,S11,S12
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
-// RD-018 갱신: 자기 results 경로 상수 + `writeFileSync`를 없애고 `lib.mjs`의 `finish({ label, ...})`로
-// 통일했다(옛 `results/dev.json`·`results/preview.json` 직접 쓰기 제거). `ok`·`passed`·`total`·`failed`는
-// `cells`(S01~S12, "초기" 제외) 기준 판정 로직을 그대로 `finish()`의 extra로 넘겨 덮어쓴다(판정 불변 —
-// `finish()` 기본값은 "초기" 스텝까지 센다).
+// 드래그 대상: S02·S03·S04는 row 0을 드래그한다(실측).
+// - Ctrl+L 직후 첫 행이 항상 그 시나리오의 명령 에코 행이다.
+// - S02는 `>>> while True: pass`.
+// - S03은 `>>> abc`. 입력 중이라 프롬프트와 같은 행이다.
+// - S04는 `>>> input("x: ")`.
+//
+// 선택 해제 관찰: xterm 6 DOM 렌더러는 `.xterm-selection`(레이어 접미사 없음)을 쓴다(실측, xterm.mjs 소스 확인).
+// - `window.getSelection()`은 이 렌더러에서 쓸모가 없다. 내부 폭 측정용 숨은 div를 가리키는 무관한 값을 돌려준다(실측).
+// - 그래서 선택 해제는 `.xterm-selection`의 자식 개수로만 관찰한다.
+//
+// 결과 JSON: `finish()`의 `ok`·`passed`·`total`·`failed`를 `cells`(S01~S12, 초기 제외) 기준 값으로 덮어쓴다.
+// `finish()` 기본값은 초기 확인까지 센다.
+//
+// dev와 preview를 한 프로세스에서 돈다. preview는 초기·S01·S02·S05·S07만 돈다(RD-044 K6).
+// 사용법·`ONLY`·결과 파일 이름은 apps/demo/e2e/README.md.
+// - `ONLY`는 확인 이름의 접두어로 거른다. `S03`은 `S03b`도, `S08`은 `S08b`도 켠다.
 import {
   open,
   selectRows,
@@ -32,12 +36,17 @@ import {
 } from "../lib.mjs";
 import { checkEntry, exitWith, runDevPreview, serverLabel } from "../check-runner.mjs";
 
+/**
+ * 서버 하나(dev 또는 preview)에서 `ONLY`로 고른 시나리오를 위 순서대로 실행하고 결과 JSON을 남긴다.
+ * 초기 프롬프트는 항상 실행한다.
+ */
 async function run(url) {
   const h = await open(url);
   const { page } = h;
 
+  // `cell()`이 실행한 시나리오 결과. 마지막에 `finish()`가 이 배열로 통과 여부를 낸다.
   const cells = [];
-  /** 시나리오 하나(checklist 표의 한 행)를 실행하고 `{ id, pass, detail }`로 기록한다. */
+  // 시나리오 하나를 실행하고 `{ id, pass, detail }`로 `cells`에 기록한다. `ONLY`로 건너뛴 시나리오는 기록하지 않는다.
   async function cell(id, label, fn) {
     const name = `${id} ${label}`;
     await h.step(name, fn);
@@ -45,7 +54,7 @@ async function run(url) {
       cells.push({ id, pass: h.checks[name], detail: h.checks[name] ? "ok" : h.notes[name] });
     }
   }
-  /** `.xterm-selection`의 자식 개수(선택 중이면 >0, 해제되면 0). 요소 자체가 없으면 -1(비정상). */
+  // `.xterm-selection`의 자식 개수를 돌려준다. 선택 중이면 0보다 크고 해제되면 0이다. 요소 자체가 없으면 -1(비정상)이다.
   const selectionChildCount = () =>
     page.evaluate(() => document.querySelector(".xterm-selection")?.children.length ?? -1);
 
@@ -74,7 +83,8 @@ async function run(url) {
     if (text !== "hello") throw new Error(`클립보드 불일치: ${show(text)}`);
     const toast = await toastText(page);
     if (toast !== "copied 5 chars to clipboard") throw new Error(`토스트 불일치: ${show(toast)}`);
-    // TRP-022: 표시 확인은 즉시, 소멸 확인은 1.5초보다 넉넉히(2.8초) 뒤 1회만.
+    // 토스트 소멸 타이머는 1초다(apps/demo/src/ReplView.tsx `showToast`).
+    // 표시 확인은 즉시 하고, 소멸 확인은 그보다 넉넉히(2.8초) 기다린 뒤 1회만 한다(TRP-022).
     await page.waitForTimeout(2800);
     const gone = await toastText(page);
     if (gone !== null) throw new Error(`토스트가 소멸하지 않음: ${show(gone)}`);
@@ -218,8 +228,8 @@ async function run(url) {
     if (text !== "a") throw new Error(`클립보드 불일치: ${show(text)}`);
     const toast = await toastText(page);
     if (toast === null) throw new Error("토스트가 뜨지 않음");
-    // 다음 절(S07)이 "토스트가 뜨면 안 된다"를 단언하므로, 이 절의 토스트가 1초 자동 소멸 타이머로
-    // 사라질 때까지 기다린 뒤 넘어간다(같은 종류의 경쟁을 실측으로 확인했다).
+    // 다음 절(S07)이 "토스트가 뜨면 안 된다"를 단언한다.
+    // 이 절의 토스트가 1초 자동 소멸 타이머로 사라질 때까지 기다린 뒤 넘어간다(같은 종류의 경쟁을 실측으로 확인했다).
     await h.waitFor(async () => (await toastText(page)) === null, "S06 토스트 소멸", 2000);
   });
 
@@ -248,12 +258,13 @@ async function run(url) {
       3000,
     );
     if (copied !== "hello") throw new Error(`Ctrl+C 복사 실패: ${show(copied)}`);
-    await setCopyOnSelect(page, true); // 다음 시나리오를 위해 원복
+    await setCopyOnSelect(page, true); // 다음 시나리오를 위해 원복한다.
   });
 
   // ══════════════════ S08 localStorage 저장(양방향) ══════════════════
   await cell("S08", "체크박스 해제 → 새로고침 유지; 체크 → 새로고침 → 켜짐", async () => {
     await setCopyOnSelect(page, false);
+    // 키는 apps/demo/src/ReplView.tsx `COPY_ON_SELECT_KEY`다. 끄면 "0"을 저장한다.
     const stored = await page.evaluate(() => localStorage.getItem("runo-repl.copyOnSelect"));
     if (stored !== "0") throw new Error(`localStorage 값 불일치: ${show(stored)}`);
     await page.reload({ waitUntil: "load" });
@@ -283,14 +294,14 @@ async function run(url) {
     await page.waitForTimeout(300);
     const unchanged = await readClipboard(page);
     if (unchanged !== "seed") throw new Error(`새로고침 뒤에도 클립보드가 바뀜: ${show(unchanged)}`);
-    await setCopyOnSelect(page, true); // 다음 시나리오를 위해 원복
+    await setCopyOnSelect(page, true); // 다음 시나리오를 위해 원복한다.
   });
 
   // ══════════════════ S09 두 행 출력(이모지) 드래그 → 클립보드·토스트(4자) ══════════════════
   await cell("S09", "두 행 출력(이모지) 드래그 → 클립보드·토스트(4자)", async () => {
     await h.clear();
-    // 두 print를 한 줄(세미콜론)로 제출해야 두 출력 행이 바로 인접한다(중간에 두 번째 명령의 에코
-    // 행이 끼지 않는다) — 실측.
+    // 두 print를 한 줄(세미콜론)로 제출해야 두 출력 행이 바로 인접한다(실측).
+    // 따로 제출하면 두 번째 명령의 에코 행이 사이에 낀다.
     await h.submit('print("\u{1F600}x"); print("y")');
     const rows = await h.trimmedRows();
     const r1 = rows.findIndex((r) => r.includes("x") && !r.startsWith(">>>"));
@@ -345,7 +356,7 @@ async function run(url) {
     const rowIndex = rows.findIndex((r) => r === "edge");
     if (rowIndex < 0) throw new Error(`edge 행을 못 찾음: ${show(rows)}`);
     await seedClipboard(page, "seed");
-    // endOutside는 열 좌표를 행 끝으로 clamp한다("edge"는 행 전체라 clamp와 무관하게 유효).
+    // `endOutside`는 열 좌표를 행 끝으로 clamp한다. "edge"는 행 전체라 clamp와 무관하게 유효하다.
     await selectRows(page, rowIndex, 0, rowIndex, 4, { endOutside: true });
     const text = await h.waitFor(
       async () => {
@@ -359,7 +370,7 @@ async function run(url) {
   });
 
   // ══════════════════ S12 writeText 거부 → copy failed 토스트, pageerror 0 ══════════════════
-  // 클립보드 함수를 이 페이지 컨텍스트에서 영구히 깨뜨리므로 반드시 마지막에 실행한다.
+  // 이 페이지 컨텍스트의 클립보드 함수를 영구히 깨뜨린다. 그래서 반드시 마지막에 실행한다.
   await cell("S12", "writeText 거부 → copy failed 토스트, pageerror 0", async () => {
     await h.clear();
     await page.evaluate(() => {
@@ -394,7 +405,7 @@ async function run(url) {
 
 const { url: devUrl, previewUrl } = checkEntry();
 
-// preview는 S01·S02·S05·S07(+초기)만 돈다(계획, K6 선언 목록).
+// preview는 아래 절만 돈다. 사용자 `ONLY`가 있으면 이 목록과의 교집합만 돈다(RD-044 K6).
 const ok = await runDevPreview({
   url: devUrl,
   previewUrl,

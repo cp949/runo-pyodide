@@ -1,7 +1,10 @@
-// RD-048 브라우저 확인: 빈 입력줄 Ctrl+D를 EOF로(REPL `>>>` 세션 종료, `input()`·`sys.stdin` 읽기는
-// `EOFError`/루프 종료, 실행창은 `EOFError` 결과). pty 3.14.4 실측(`pty/rd-048/results.md`)의 H3 네 항목과
-// 화면 기대값을 맞춘다. 트레이스백 프레임 모양(`File "<console>"` 한 줄, `_pyrepl` 내부 프레임 없음)은 기존 편차(35 계열)로
-// 흡수돼 이 스크립트는 대조하지 않는다(입력-취소 확인 스크립트 `input-cancel-check.mjs`와 같은 `TRACEBACK_HEAD`·`CONSOLE_FRAME`).
+// RD-048 브라우저 확인: 빈 입력줄 Ctrl+D를 EOF로 처리한다. 규칙은 `docs/design/06-editing.md` 6.9.
+// - REPL `>>>`: 세션 종료.
+// - `input()`·`sys.stdin` 읽기: `EOFError` 또는 루프 종료.
+// - 실행창: `EOFError` 결과.
+// 화면 기대값은 pty 3.14.4 실측(`apps/demo/e2e/pty/rd-048/results.md`)의 H3 네 항목과 맞춘다.
+// 트레이스백 프레임 모양(`File "<console>"` 한 줄, `_pyrepl` 내부 프레임 없음)은 기존 편차(35 계열)로 흡수돼 대조하지 않는다.
+// `TRACEBACK_HEAD`·`CONSOLE_FRAME`은 `input-cancel-check.mjs`와 같은 값이다.
 //
 // 셀:
 //   D02 `if True:` Enter → `...`에서 빈 줄 Ctrl+D → 입력줄·프롬프트 불변(무동작), `pass` Enter Enter → 블록 생존·`>>>`
@@ -10,16 +13,20 @@
 //   D05 `for line in sys.stdin: print(line, end="")` 블록 → `a` Enter `b` Enter → 빈 줄 Ctrl+D → 루프 종료·`>>>`
 //   D06 `import time; time.sleep(1)` 실행 중 Ctrl+D → `>>>` 복귀 뒤 세션 유지(`1+1` → `2`)
 //   D07 실행창(`/?view=runner`): `input()` 실행 중 빈 줄 Ctrl+D → 결과·화면 모두 `EOFError`, 실행 종료
-//   D01(맨 나중에 실행) 빈 `>>>`에서 Ctrl+D → 데모 종료 안내("Python session terminated.", `ReplView.tsx`) → 리셋 버튼 →
-//     새 `>>>`에서 `1+1` → `2`
+//   D01 맨 나중에 실행한다. 빈 `>>>`에서 Ctrl+D → 종료 안내("Python session terminated.", `ReplView.tsx`)
+//       → 리셋 버튼 → 새 `>>>`에서 `1+1` → `2`
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기 뒤 부재 확인을 쓰지 않는다. 무동작 셀(D02·D04)은 Ctrl+D 직후
-// 스냅샷을 즉시 비교하고, 뒤이어 정상 입력(`pass` 실행·`print(x)`)이 성립하는 것을 마커로 삼아 상태가 깨지지 않았음을 확인한다.
-// EOF로 끝낼 빈 버퍼 읽기는 프롬프트 문자열 신호가 없거나(무인자 `input()`·`sys.stdin`) 신호가 읽기 시작보다 먼저 그려질 수 있어
-// (RD-006 TRP-005), 글자 하나를 쳐 에코로 읽기 시작을 확인한 뒤(`typeWhenReading`) Backspace로 지워 실제로 열린 빈 버퍼를 만든다
-// (`openEmptyRead`). REPL 자체가 그리는 `>>>`·`...` 프롬프트는 `read()` 호출과 함께 동기로 그려지므로 이 확인이 필요 없다.
+// 시간 판정은 `docs/design/09-testing.md` 9.7을 따른다.
+// - 무동작 셀(D02·D04)은 Ctrl+D 직후 스냅샷을 즉시 비교한다.
+// - 이어서 정상 입력(`pass` 실행·`print(x)`)이 성립하는 것을 마커로 삼아 상태가 깨지지 않았음을 확인한다.
 //
-// 사용: node ctrl-d-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=D03,D07 node ctrl-d-check.mjs
+// 빈 버퍼 읽기를 EOF로 끝내려면 읽기가 실제로 열려 있어야 한다.
+// - 무인자 `input()`·`sys.stdin`에는 프롬프트 문자열 신호가 없다.
+// - 신호가 있어도 읽기 시작보다 먼저 그려질 수 있다(TRP-005).
+// - 그래서 글자 하나를 쳐 에코로 읽기 시작을 확인한 뒤(`typeWhenReading`) Backspace로 지운다(`openEmptyRead`).
+// - REPL이 그리는 `>>>`·`...` 프롬프트는 `read()` 호출과 함께 동기로 그려져 이 확인이 필요 없다.
+//
+// 사용: `node ctrl-d-check.mjs [url]`. `ONLY=D03,D07`로 셀을 고른다.
 // 결과 파일: `ctrl-d-check-dev.json`(REPL 셀 D01~D06)·`ctrl-d-check-runner-dev.json`(D07, 실행창).
 import { checkEntry, currentOnly, exitWith, pageSelected } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
@@ -27,12 +34,17 @@ import { open, same, show } from "../lib.mjs";
 const { url } = checkEntry();
 const only = currentOnly();
 
+/** 트레이스백 첫 행. `input-cancel-check.mjs`와 같다. */
 const TRACEBACK_HEAD = "Traceback (most recent call last):";
+/** 트레이스백 프레임 행. `<console>` 컴파일이라 한 줄이다. */
 const CONSOLE_FRAME = '  File "<console>", line 1, in <module>';
 /** worker 부팅 대기용 정지 감지 timeout(판정선이 아니다). */
 const BOOT_TIMEOUT_MS = 90000;
 
+/** REPL 화면에서 도는 셀. D07은 실행창이라 뺀다. */
 const REPL_CELLS = ["D01", "D02", "D03", "D04", "D05", "D06"];
+
+/** REPL 화면에서 D01~D06을 돌리고 `finish()`의 ok를 돌려준다. */
 
 async function runRepl(baseUrl) {
   const h = await open(baseUrl);
@@ -59,17 +71,16 @@ async function runRepl(baseUrl) {
   } = h;
 
   const pressCtrlD = () => press("Control+d");
-  /**
-   * stdin 읽기가 실제로 열린 빈 버퍼를 만든다: 글자 하나를 쳐 에코로 읽기 시작을 확인한 뒤(TRP-005, RD-019는 읽기 전 키를
-   * 버리지 않고 쌓아 재생하지만 그 재생은 origin이 "replay"라 EOF를 내지 않는다 — 실제로 친 키(origin "live")를 확인해야 한다)
-   * Backspace로 지운다.
-   */
+  // stdin 읽기가 실제로 열린 빈 버퍼를 만든다.
+  // 글자 하나를 쳐 에코로 읽기 시작을 확인한 뒤(TRP-005) Backspace로 지운다.
+  // RD-019는 읽기 전 키를 쌓았다가 재생하지만 그 재생은 origin이 "replay"라 EOF를 내지 않는다.
+  // 실제로 친 키(origin "live")여야 EOF가 된다.
   async function openEmptyRead() {
     await typeWhenReading("z");
     await press("Backspace");
     await settled();
   }
-  /** 화면을 지우고 문장을 제출해 stdin 읽기가 시작될 때까지 기다린다(`stdin-input-check.mjs`의 `startInput`과 같은 모양). */
+  // 화면을 지우고 문장을 제출해 stdin 읽기가 시작될 때까지 기다린다(`stdin-input-check.mjs`의 `startInput`과 같은 모양).
   async function startInput(code, promptSuffix) {
     await clear();
     await type(code);
@@ -77,19 +88,19 @@ async function runRepl(baseUrl) {
     if (promptSuffix) await waitLastEndsWith(promptSuffix);
     await settled(150);
   }
-  /** stdin 읽기에 입력한 줄을 Enter로 끝내고 REPL 프롬프트가 돌아올 때까지 기다린다. */
+  // stdin 읽기에 입력한 줄을 Enter로 끝내고 REPL 프롬프트가 돌아올 때까지 기다린다.
   async function finishRead() {
     await enter();
     await waitPrompt(">>>");
   }
-  /** `>>>`에서 문장을 실행하고 다음 프롬프트까지 기다린다. */
+  // `>>>`에서 문장을 실행하고 다음 프롬프트까지 기다린다.
   async function run(code) {
     await type(code);
     await enter();
     await waitPrompt(">>>");
   }
   const screenText = async () => (await rows()).join("\n");
-  /** 확인이 실패해 읽기가 열린 채 남았으면 Enter로 끝내 다음 확인이 이어지게 한다. */
+  // 확인이 실패해 읽기가 열린 채 남았으면 Enter로 끝내 다음 확인이 이어지게 한다.
   async function recover() {
     for (let i = 0; i < 8; i += 1) {
       const all = await rows();
@@ -111,7 +122,7 @@ async function runRepl(baseUrl) {
     await page.click(`[data-testid="${testid}"]`);
     await focus();
   };
-  /** 리셋 버튼 클릭 → `loading` → `ready`/`load-failed` → 새 프롬프트까지 기다린다(`session-reset-check.mjs`와 같은 모양). */
+  // 리셋 버튼 클릭 → `loading` → `ready`/`load-failed` → 새 프롬프트까지 기다린다(`session-reset-check.mjs`와 같은 모양).
   async function resetAndWait() {
     await click("reset");
     await waitFor(async () => (await statusText()) === "loading", "reset: loading 상태");
@@ -200,9 +211,10 @@ async function runRepl(baseUrl) {
     await clear();
     await type("import time; time.sleep(1)");
     await enter();
-    // 활성 읽기가 없는 구간(실행 중)에 친 Ctrl+D는 type-ahead로 쌓였다가 다음 읽기(`>>>`)에서 origin="replay"로
-    // 재생돼 EOF를 내지 않는다([V5], `xterm-readline` origin 판정). sleep(1) 안에 확실히 들어가도록 Enter 직후
-    // 곧바로 누른다(추가 대기 없음).
+    // 활성 읽기가 없는 구간(실행 중)에 친 Ctrl+D는 type-ahead로 쌓인다.
+    // 다음 읽기(`>>>`)에서 origin="replay"로 재생되어 EOF를 내지 않는다.
+    // 같은 규칙을 `packages/xterm-readline/test/ctrl-d-eof.test.ts`의 [V5]가 고정한다.
+    // sleep(1) 안에 확실히 들어가도록 Enter 직후 곧바로 누른다. 추가 대기는 없다.
     await pressCtrlD();
     await waitPrompt(">>>", 5000);
     await run("1+1");
@@ -236,12 +248,14 @@ async function runRepl(baseUrl) {
   return h.finish({ label: "dev" });
 }
 
+/** 실행창 화면(`/?view=runner`)에서 D07을 돌리고 `finish()`의 ok를 돌려준다. */
 async function runRunner(baseUrl) {
   const runnerUrl = new URL("/?view=runner", baseUrl).href;
   const h = await open(runnerUrl);
   const { page, step, waitFor, waitStatus, typeWhenReading, press, focus, settled, tail } = h;
   const pressCtrlD = () => press("Control+d");
   const resultText = () => page.locator('[data-testid="result"]').textContent();
+  // 결과 칸(`result`)이 채워지면 JSON으로 파싱해 돌려준다.
   async function waitResult(description, timeoutMs = 30000) {
     await waitFor(async () => (await resultText()) !== "", `result: ${description}`, timeoutMs);
     return JSON.parse(await resultText());
@@ -258,7 +272,8 @@ async function runRunner(baseUrl) {
     await page.click('[data-testid="run"]');
     await waitStatus(["waiting-input"], "입력 대기 상태");
     await focus();
-    // 인자 없는 input()은 프롬프트 문자 신호가 없다(RD-006 L1과 같은 사정) — 글자 하나로 읽기 시작을 확인한 뒤 지운다.
+    // 인자 없는 `input()`은 프롬프트 문자 신호가 없다(`stdin-input-check.mjs` L1과 같다).
+    // 글자 하나로 읽기 시작을 확인한 뒤 지운다.
     await typeWhenReading("z");
     await press("Backspace");
     await settled();

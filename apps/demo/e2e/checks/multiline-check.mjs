@@ -1,22 +1,24 @@
-// RD-011 브라우저 확인. ROADMAP 시나리오 + 이월 S03·S07 + 확정 14의 절 8개.
-// 출처 RD-011에서 이관(RD-018).
+// RD-011 브라우저 확인: 붙여넣기·Shift+Enter·히스토리 재호출로 여러 줄을 한 번에 제출·실행한다.
+// 규칙은 `docs/design/06-editing.md` 6.5. RD-011에서 이관했다(RD-018).
+// RD-011 시나리오와 이월 S03·S07을 절 8개로 나눈다: paste·tab·parse·stop·block·shift·recall·input.
 //
-// 사용법(dev, `pnpm --filter demo dev`가 떠 있어야 함):
-//   node multiline-check.mjs [devURL] [previewURL]
-// ONLY=<절 이름,…>로 절만 분리 실행할 수 있다(paste·tab·parse·stop·block·shift·recall·input) —
-// preview에도 그대로 적용된다(이 스크립트는 preview 전용 절 목록을 선언하지 않는다, RD-044 K6).
-// preview는 devURL·previewURL 둘 다 있을 때만 돈다(`pnpm --filter demo build && pnpm --filter demo preview`).
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// 실행:
+// - dev에서 절 8개를 모두 돈다.
+// - preview는 devURL·previewURL이 둘 다 있을 때만 돈다. paste·tab·parse 대표 3건이다.
+// - `ONLY=<절 이름,…>`는 preview에도 그대로 적용된다. preview 전용 절 목록은 선언하지 않는다(RD-044 K6).
 //
-// RD-018 갱신: "shift:" 절은 원래 Shift+Enter가 자동 들여쓰기 프리필 없이 개행만 넣는다고
-// 가정해 `print(i)` 앞에 공백 4칸을 직접 쳤다. RD-013(2026-09-23 dev 병합) 뒤에는 `06-editing.md` 6.3대로
-// Shift+Enter도 `onKey`가 `nextIndentation`으로 프리필을 계산해 넣는다(`for i in range(2):` 뒤 콜론이라
-// 한 단위 늘어난 4칸이 이미 채워진다) — 수동 4칸을 더 치면 8칸이 돼 `auto-indent-check.mjs`의
-// `multiline-shift` 절(같은 시나리오를 RD-013 프리필에 맞게 다시 검증)과 같은 패턴으로 고쳤다: 프리필
-// 위에 `print(i)`만 친다(판정 문자열 "0"·"1"은 들여쓰기 폭을 보지 않으므로 불변).
+// shift 절은 RD-013 자동 들여쓰기 프리필을 그대로 쓴다.
+// - Shift+Enter도 `onKey`가 `nextIndentation`으로 프리필을 계산해 넣는다. `for i in range(2):` 뒤에 4칸이 채워진다(6.3).
+// - 프리필 위에 `print(i)`만 친다. 수동 4칸을 더 치면 8칸이 된다.
+// - 판정 문자열 "0"·"1"은 들여쓰기 폭을 보지 않는다.
+// - `auto-indent-check.mjs`의 `multiline-shift` 절이 같은 시나리오를 프리필 기준으로 다시 확인한다.
+//
+// 사용: `node multiline-check.mjs [devURL] [previewURL]`
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { open, same, show } from "../lib.mjs";
 import { checkEntry, exitWith, runDevPreview, serverLabel } from "../check-runner.mjs";
 
+/** dev 화면에서 절 8개를 돌리고 모든 확인이 통과했는지 돌려준다. */
 async function runDev(url) {
   const h = await open(url);
   const { page, rows, tail, cursorRow, waitPrompt, type, press, paste, enter, submit, focus, waitFor, typeWhenReading, step } = h;
@@ -26,6 +28,7 @@ async function runDev(url) {
     await page.click(`[data-testid="${testid}"]`);
     await focus();
   };
+  // 리셋 버튼 클릭 → `loading` → `ready`/`load-failed` → 새 프롬프트까지 기다린다.
   async function resetAndWait() {
     await click("reset");
     await waitFor(async () => (await statusText()) === "loading", "reset: loading 상태");
@@ -36,9 +39,9 @@ async function runDev(url) {
     );
     await waitPrompt(">>>", 30000);
   }
-  /** 화면(이어붙인 문자열)에서 needle 개수. 행이 감겨도 놓치지 않는다. */
+  // 화면(이어붙인 문자열)에서 needle 개수. 행이 감겨도 놓치지 않는다.
   const count = async (needle) => (await rows()).join("\n").split(needle).length - 1;
-  /** 마지막 텍스트 행에 커서가 있고 프롬프트로 끝날 때까지 기다린 뒤 tail(n)을 돌려준다. */
+  // 프롬프트가 보일 때까지 기다린 뒤 `tail(n)`을 돌려준다.
   async function tailAfterPrompt(n, prompt = ">>>") {
     await waitPrompt(prompt, 15000);
     return tail(n);
@@ -48,7 +51,7 @@ async function runDev(url) {
     await waitPrompt(">>>");
   });
 
-  // ── paste: ROADMAP 시나리오 + S03 + 무동작 + 기존 한 줄/빈 줄 동작 ──
+  // ── paste: RD-011 시나리오 + S03 + 무동작 + 기존 한 줄/빈 줄 동작 ──
   await step("paste: def add… 붙여넣기 Enter 1회 → 3, SyntaxError 없음", async () => {
     const r = await paste("def add(a, b):\n    return a + b\n\nprint(add(1, 2))");
     await enter();
@@ -151,7 +154,8 @@ async function runDev(url) {
     await paste("print(1)\nexit()\nprint(2)");
     await enter();
     await waitFor(async () => (await statusText()) === "terminated", "status = terminated", 10000);
-    // 상태 DOM 갱신이 xterm의 `1` 행 렌더보다 먼저 보일 수 있어 `1` 행도 조건 대기한다(09-testing.md 9.7). 종료 처리 중 출력이 버려지는 결함이면 여기서 시간 초과로 실패한다.
+    // 상태 DOM 갱신이 xterm의 `1` 행 렌더보다 먼저 보일 수 있다. 그래서 `1` 행도 조건 대기한다(`docs/design/09-testing.md` 9.7).
+    // 종료 처리 중 출력이 버려지는 결함이면 여기서 시간 초과로 실패한다.
     await waitFor(async () => (await tail(6)).some((r) => r === "1"), '"1" 출력 행(terminated 뒤)', 5000);
     // terminated 뒤에는 더 실행되지 않으므로 "2" 부재는 이 시점에 판정해도 된다.
     const t = await tail(6);
@@ -221,7 +225,7 @@ async function runDev(url) {
     const t = await tailAfterPrompt(6);
     h.notes["input: 관찰 결과"] = show(t);
     h.notes["input: paste route"] = r.usedFallback ? "fallback" : "실제 클립보드";
-    // 판정 없이 기록만 한다(확정 완료 기준: 관찰 기록).
+    // 판정 없이 기록만 한다.
   });
 
   const label = serverLabel(url);
@@ -229,6 +233,7 @@ async function runDev(url) {
   return Object.values(h.checks).every(Boolean);
 }
 
+/** preview 화면에서 대표 3건(paste·tab·parse)만 돌리고 모든 확인이 통과했는지 돌려준다. */
 async function runPreview(url) {
   const h = await open(url);
   const { rows, tail, waitPrompt, paste, enter, submit, step } = h;

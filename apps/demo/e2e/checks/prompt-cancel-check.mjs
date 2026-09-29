@@ -1,17 +1,27 @@
-// RD-008 브라우저 검증 ①: 입력줄(REPL 프롬프트) Ctrl+C 취소. 출처 RD-008에서 이관(RD-018).
-// 이전 구현 RD-012b의 브라우저 ID를 새 데모(하니스 lib.mjs)로 이식하고, 건너뛴 ID(RD-011a S14, RD-006b G3·W2)를
-// 복원하고, 빈 프롬프트 취소(B0)를 새로 넣었다. 건너뛰는 ID는 G1(→ RD-013), J1·J2(→ RD-010).
-// 기대 바이트는 3.14.4 pty 재측정(`pty/results.md` ①②③④)과 같은 형태다: `\r\n` + 빨간 `KeyboardInterrupt` 한 줄,
-// `^C` 없음, 빈 줄 없음.
-// 규칙(TRP-005·006·008·011): 확인마다 Ctrl+L로 시작하고, 새 프롬프트가 보인 뒤 입력하며, 정확한 행 목록으로 단언한다.
-// 이식 시 고친 기대값:
-//   - E1·E2는 `input()` 취소가 생겨 트레이스백 + `NameError`로 바뀌었다(RD-012b 시절엔 취소가 없었다).
-// RD-018 갱신(RD-013 자동 들여쓰기가 이식 뒤에 데모에 들어왔다):
-//   - C1의 본문 줄은 더 이상 수동으로 `    print(2)`를 치지 않는다 — `... ` 프리필(4칸)을 그대로 쓴다(화면 문자열 불변).
-//   - D1·D3의 Shift+Enter 둘째 줄도 같은 프리필(4칸)을 받으므로 기대 행이 `print(3)`에서 `    print(3)`로 바뀐다
-//     (D2는 화면 문자열을 보지 않아 영향 없음).
-// 사용: node prompt-cancel-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=RM1,B0 node prompt-cancel-check.mjs <url>
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
+// RD-008 브라우저 확인 ①: 입력줄(REPL 프롬프트) Ctrl+C 취소. RD-008에서 이관했다(RD-018).
+//
+// 셀 출처:
+// - 이전 구현 RD-012b의 브라우저 ID를 새 데모(하니스 `lib.mjs`)로 옮겼다.
+// - 건너뛰었던 ID(RD-011a S14, RD-006b G3·W2)를 복원했다.
+// - 빈 프롬프트 취소(B0)를 새로 넣었다.
+// - 건너뛴 ID는 G1(RD-013 몫), J1·J2(RD-010 몫)다.
+//
+// 기대 바이트는 3.14.4 pty 재측정(`pty/rd-008/results.md` ①②③④)과 같은 형태다.
+// `\r\n` + 빨간 `KeyboardInterrupt` 한 줄. `^C` 없음, 빈 줄 없음.
+//
+// 규칙(TRP-005·006·008·011):
+// - 확인마다 Ctrl+L로 시작한다.
+// - 새 프롬프트가 보인 뒤 입력한다.
+// - 정확한 행 목록으로 단언한다.
+//
+// 옮기며 바뀐 기대값:
+// - E1·E2: `input()` 취소가 생겨 트레이스백 + `NameError`가 됐다. RD-012b 시절에는 취소가 없었다.
+// - C1 본문 줄: `... ` 프리필(4칸, RD-013)을 그대로 쓴다. 수동 들여쓰기를 치지 않는다. 화면 문자열은 같다.
+// - D1·D3: Shift+Enter 둘째 줄도 같은 프리필을 받는다. 기대 행이 `print(3)`이 아니라 `    print(3)`이다.
+// - D2는 화면 문자열을 보지 않아 영향이 없다.
+//
+// 사용: `node prompt-cancel-check.mjs [url]`. `ONLY=RM1,B0`로 셀을 고른다.
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 
@@ -25,7 +35,11 @@ const {
   cancelWhenReading, startBlockLine, countTracebacks, page,
 } = h;
 
-/** 실패해 남은 상태를 깨끗한 `>>> `로 되돌린다(RD-007 `recover`와 같은 규칙). */
+/**
+ * 실패해 남은 상태를 깨끗한 `>>> `로 되돌린다. 최대 10바퀴 돈다.
+ * - 커서가 마지막 텍스트 행에 있다: Ctrl+U로 입력을 지우고 Enter.
+ * - 커서가 그 아래에 있다(실행 중): Ctrl+C.
+ */
 async function recover() {
   for (let i = 0; i < 10; i += 1) {
     const all = await rows();
@@ -44,6 +58,7 @@ async function recover() {
     await page.waitForTimeout(500);
   }
 }
+/** 확인을 실행하고, 실패하면 `recover()`로 프롬프트를 되돌린다. */
 async function check(name, fn) {
   await step(name, fn);
   if (h.checks[name] === false) await recover();
@@ -66,7 +81,7 @@ await check("초기: 프롬프트가 뜬다", async () => {
   await focus();
 });
 
-// ── A(RD-012b) + RM1(ROADMAP) + S14(RD-011a): `... `에서 취소
+// ── A(RD-012b) + RM1(RD-008 시나리오) + S14(RD-011a): `... `에서 취소
 await check("RM1/A1/S14 `... ` Ctrl+C는 다음 줄에 KeyboardInterrupt를 내고 `>>> `로 돌아온다", async () => {
   await clear();
   await openBlock();
@@ -181,7 +196,7 @@ await check("D3 커서가 버퍼 앞쪽이어도 마지막 줄 아래에 Keyboar
   if (!same(t, [">>> if True:", "    print(3)", "KeyboardInterrupt", ">>>"])) throw new Error(show(t));
 });
 
-// ── E(RD-012b, 갱신): `input()` 중 Ctrl+C는 이제 취소다
+// ── E(RD-012b): `input()` 중 Ctrl+C는 취소다
 await check("E1 `input()` 중 Ctrl+C는 호출 지점의 트레이스백을 낸다(RD-012b 기대값 갱신)", async () => {
   await clear();
   await type("ans_e = input()");
@@ -243,7 +258,9 @@ await check("H1 취소한 abc는 history에 없다(↑ 30회 동안 한 번도 �
 });
 
 // ── I(RD-012b): 취소 직후 연타. `^C` 0이 `cancelSettling`의 판정이고, 이어지는 실행이 죽지 않아야 한다.
+/** 연타 셀의 수치 기록. 결과 JSON의 `burstNotes`로 나간다. */
 const burstNotes = {};
+/** 취소 직후 연타(`fire`)를 넣는 셀을 돌린다. `^C`가 0이고 뒤이은 실행이 죽지 않아야 통과한다. */
 async function storm(id, label2, fire) {
   await check(`${id} ${label2}: \`^C\` 0이고 뒤이은 실행이 죽지 않는다`, async () => {
     await clear();

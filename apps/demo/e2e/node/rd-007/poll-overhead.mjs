@@ -1,19 +1,31 @@
 /**
- * 폴링 비용(TRAP-23). pyodide는 바이트코드 약 50개마다 interrupt buffer의 [0]을 읽는다. 그 경로에 접근자·
- * Proxy가 끼면 Python 실행이 통째로 느려진다. 우리 배선(`createInterruptBuffer` + `attachRuntime`)이 진짜
- * `Int32Array`를 그대로 넘기는지 실행 시간으로 확인한다. 출처 RD-007에서 이관(RD-018).
+ * 폴링 비용(TRAP-23).
+ * - pyodide는 바이트코드 약 50개마다 interrupt buffer의 [0]을 읽는다.
+ * - 그 경로에 접근자·Proxy가 끼면 Python 실행이 통째로 느려진다.
+ * - 우리 배선(`createInterruptBuffer` + `attachRuntime`)이 진짜 `Int32Array`를 그대로 넘기는지 실행 시간으로 확인한다.
  *
- * 모드: `plain`(맨 `Int32Array`를 `setInterruptBuffer`) · `plain2`(같은 것, 잡음 대조) · `repo`(저장소 배선 전체).
- * 워밍업 뒤 ABAB로 교차 측정해 중앙값 비율을 낸다. 통과: `repo`의 두 비율이 1.03 이내.
+ * 모드:
+ * - `plain`: 맨 `Int32Array`를 `setInterruptBuffer`로 붙인다.
+ * - `plain2`: `plain`과 같다. 측정 잡음의 크기를 재는 대조다.
+ * - `repo`: 저장소 배선 전체.
  *
- * 사용(레포 루트에서):
- *   node --import packages/pyodide-testkit/src/ts-resolve-hook.mjs apps/demo/e2e/node/rd-007/poll-overhead.mjs [--rounds 10]
+ * 측정 방법:
+ * - 모드마다 워밍업을 한 번 하고 그 결과는 버린다.
+ * - 라운드마다 모드 순서를 뒤집어(정순·역순) 교차 측정한다.
+ * - 모드별 중앙값의 비율을 낸다.
+ *
+ * 통과 조건: `repo`의 두 비율(`loop`·`str`)이 `plain` 대비 1.03 이하다. 결과 JSON의 `pass`에 기록한다.
+ * 종료 코드는 판정과 무관하다.
+ *
+ * 출처 RD-007에서 이관(RD-018).
+ * 실행법은 `README.md`다.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+/** `packages/pyodide-repl/` 폴더 URL. 소스 모듈 import의 기준이며 pyodide도 이 패키지의 `node_modules`에서 가져온다. */
 const REPO = new URL("../../../../../packages/pyodide-repl/", import.meta.url);
 const RESULTS_DIR = process.env.E2E_RESULTS_DIR ?? path.join(scriptDir, "..", "..", "results");
 
@@ -46,7 +58,7 @@ const LOOP_N = 3_000_000;
 const STR_N = 300_000;
 
 const pyodide = await loadPyodide();
-// 콘솔은 연결에 필요하다(핸들러가 `console.filename`·`formattraceback`을 쓴다). 측정은 `runPython`으로 한다.
+// 콘솔은 interrupt 핸들러 연결에 필요하다(핸들러가 `console.filename`·`formattraceback`을 쓴다). 측정은 `runPython`으로 한다.
 const repl = createConsole(
   pyodide,
   { write() {}, writeErrorRaw() {} },
@@ -67,17 +79,18 @@ def str_loop(n):
     return total
 `);
 
+/** interrupt buffer를 뗀다. */
 const detach = () =>
   pyodide.setInterruptBuffer(
     /** @type {never} */ (/** @type {unknown} */ (undefined)),
   );
 
-/** 모드마다 interrupt buffer를 붙이는 방식이 다르다. `repo`만 저장소 배선을 전부 지난다. */
+/** 모드에 맞게 interrupt buffer를 붙이고 그 버퍼를 돌려준다. `repo`만 저장소 배선을 전부 지난다. */
 function attach(mode) {
   detach();
   if (mode === "repo") {
     const buffer = createInterruptBuffer();
-    // attachRuntime은 WebLoop 재보고 억제도 한다(연결 자체는 이전과 같다). 이 측정은 재보고 여부와 무관하다.
+    // attachRuntime은 WebLoop 재보고 억제도 함께 건다. 이 측정은 재보고 여부와 무관하다.
     attachRuntime(pyodide, repl.pyconsole, {
       interruptBuffer: buffer,
       stdin: { requestInput: () => {}, wait: () => null },
@@ -90,6 +103,7 @@ function attach(mode) {
   return buffer;
 }
 
+/** Python 식을 `runPython`으로 실행하고 걸린 시간(ms)을 돌려준다. */
 function measure(call) {
   const started = process.hrtime.bigint();
   pyodide.runPython(call);
@@ -104,10 +118,11 @@ const median = (values) => {
     : sorted[middle];
 };
 
+/** 측정 모드. 정순·역순으로 교차한다. */
 const MODES = ["plain", "plain2", "repo"];
 const samples = Object.fromEntries(MODES.map((mode) => [mode, { loop: [], str: [] }]));
 
-// 워밍업(JIT·캐시). 결과는 버린다.
+// 워밍업. 결과는 버린다.
 for (const mode of MODES) {
   attach(mode);
   measure(`loop_i(${LOOP_N})`);
@@ -115,7 +130,7 @@ for (const mode of MODES) {
 }
 
 for (let round = 0; round < rounds; round += 1) {
-  // 교차 순서: 시간에 따라 드리프트하는 잡음이 한 모드에 몰리지 않게 한다.
+  // 라운드마다 순서를 뒤집는다. 시간에 따라 드리프트하는 잡음이 한 모드에 몰리지 않게 한다.
   const order = round % 2 === 0 ? MODES : [...MODES].reverse();
   for (const mode of order) {
     attach(mode);
@@ -138,7 +153,7 @@ const report = {
   strN: STR_N,
   medianMs: medians,
   ratios: {
-    // 잡음 대조: 같은 배선끼리의 비율. 1에서 얼마나 벗어나는지가 측정 잡음의 크기다.
+    // 잡음 대조. 같은 배선끼리의 비율이며 1에서 벗어난 정도가 측정 잡음의 크기다.
     plain2: {
       loop: Number((medians.plain2.loop / medians.plain.loop).toFixed(4)),
       str: Number((medians.plain2.str / medians.plain.str).toFixed(4)),

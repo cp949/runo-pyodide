@@ -1,39 +1,53 @@
-// RD-022b 브라우저 확인: 열린 읽기(REPL `>>> `, REPL `input()`) 위 배경 출력 조율. 실제 xterm 6 + 실제 브라우저 + 실제 CDN
-// pyodide. 열린 읽기 중 배경 출력은 입력줄을 지우고 출력을 쓴 뒤 프롬프트·입력·커서를 그 아래에 다시 그린다. 개행 없는 조각은 프롬프트
-// 앞 접두가 된다(checklist 확정 1·4). 화면은 xterm 행(`.xterm-rows > div`)으로 판정한다.
+// RD-022b 브라우저 확인: 열린 읽기(REPL `>>> `, REPL `input()`) 위 배경 출력 조율.
+// 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide. 규칙은 `docs/design/05-output.md` 4.4.
+// 화면은 xterm 행(`.xterm-rows > div`)으로 판정한다.
 //
-// 배경 출력 만들기: 초기 단계에서 Python에 BroadcastChannel(`bgout`) 수신기를 두고, 수신한 문자열을 asyncio 콜백(`loop.call_soon`)에서
-// `print(d, end="", flush=True)`로 낸다. 페이지가 같은 이름 채널로 문자열을 보내면(`emit`) 입력이 화면에 그려진 **뒤에** 배경 출력이
-// 난다 — `call_later(지연)`은 입력 전에 출력이 올 수 있어(느린 장비) 시간에 기대지 않으려고 바꿨다(9.7).
-// REPL `input()` 대기 중에는 worker가 메일박스(`Atomics.wait`)에 멈춰 배경 출력을 낼 수 없으므로, B04만 main 포트에 `write` 알림을
-// 합성해 넣는다(`injectRpcNotice`, 실제 알림과 같은 핸들러 경로).
+// 규칙 요약:
+// - 열린 읽기 중 배경 출력은 입력줄을 지운다. 출력을 쓴 뒤 프롬프트·입력·커서를 그 아래에 다시 그린다.
+// - 개행 없는 조각은 프롬프트 앞 접두가 된다.
+//
+// 배경 출력 만들기:
+// - 초기 단계에서 Python에 BroadcastChannel(`bgout`) 수신기를 둔다.
+// - 수신기는 받은 문자열을 asyncio 콜백(`loop.call_soon`)에서 `print(d, end="", flush=True)`로 낸다.
+// - 페이지가 같은 이름 채널로 문자열을 보내면(`emit`) 입력이 화면에 그려진 뒤에 배경 출력이 난다.
+// - `call_later(지연)`은 쓰지 않는다. 느린 장비에서 입력보다 출력이 먼저 올 수 있다(9.7).
+// - REPL `input()` 대기 중에는 worker가 메일박스(`Atomics.wait`)에 멈춰 배경 출력을 낼 수 없다.
+// - 그래서 B04만 main 포트에 `write` 알림을 합성한다(`injectRpcNotice`). 실제 알림과 같은 핸들러 경로를 지난다.
 //
 // 셀:
 //   B01 `pri` 입력 중 배경 `B01T\n` → 행 `B01T`, 마지막 행 `>>> pri`(커서 열 7), `>>> priB01T` 행 없음
 //   B02 같은 상태(`B02T\n`) 뒤 Backspace 2회 → `B02T` 행 보존, 마지막 행 `>>> p`(커서 열 5)
-//   B03 개행 없는 `B03T` → `B03T>>> pri`(커서 열 11), Backspace → `B03T>>> pr`(조각 유실 없음), `int(3)` 입력 → Enter →
-//       `B03T>>> print(3)` / `3` / `>>>`(다음 프롬프트에 접두 중복 없음)
-//   B04 `input("x: ")`에 `ab`를 친 상태에서 배경 `B04T\n`(합성 `write` 알림) → 행 `B04T` 아래 `x: ab`(커서 열 5), Enter → `got ab`
-//   B05 `pri` 입력 중 배경 `B05T\n` 뒤 `runSource("print(5)")` → `B05T` / `5` / `>>> pri`, 옛 `>>> pri`·`>>> priB05T` 흔적 없음
-//   B06 맨 아래 행(24행째) 프롬프트에서 배경 1행·2행 출력(스크롤) → 입력줄이 맨 아래 행에 한 번만, 출력 행 순서 보존, 이어 편집·Enter
-//       (checklist 멈추는 지점 3)
-//   B07 `pri` 입력 중 `\r`로 끝나는 진행률 조각 `B07 50%\r`·`B07 100%\r` → `B07 100%>>> pri`(제자리 갱신, 커서 열 15), 이어 `\n` →
-//       `B07 100%` / `>>> pri`(`\r` 끝 조각이 사라지지 않고 그 행이 남는다, RD-022b 리뷰 SO-T1)
-//   B08 `pri` 입력 중 커서 숨김 진행률 조각 `\x1b[?25lB08 50%\r` → `B08 50%>>> pri`, 커서 열 14(실제 글자 끝). 벤더 폭 계산이 CSI 사설
-//       접두(`\x1b[?25l`)를 글자로 세면 `25l`이 3칸이 되어 커서가 열 17로 어긋난다(이슈 15). 이어 Backspace → 열 13, `\n` → `B08 50%` / `>>> pr`(열 6)
-//   B09 (`FIT=1`일 때만) `?fit=1`에서 `pri` 입력 중 아주 긴 배경 출력(재그리기 write 콜백이 오래 걸린다)을 합성 알림으로 넣고 곧바로 창
-//       너비를 줄인다 → 리사이즈가 재그리기 대기 중에 들어와도 입력줄 흔적 행이 남지 않는다(`>>> pri` 행 1개, 커서 열 7, 이슈 10). 수정 전에는
-//       `onResize`가 화면에 없는 입력줄을 콜백보다 먼저 그렸다. 기본 모드(`FIT` 미설정)에서는 B01~B08만, `FIT=1`에서는 B09만 실행한다.
-//       **양성 대조 미검출**: 수정 전 코드에서도 통과했다(창 크기 변경이 재그리기 대기 창에 들었는지 셀이 기록하지 않는다). 결함 10의 판정은
-//       jsdom 시험(벤더 `print-above-raw.test.ts`·`take-read.test.ts`)이 하고 이 셀은 `BASELINE.md`의 기대에 넣지 않는다
+//   B03 개행 없는 `B03T` → `B03T>>> pri`(커서 열 11)
+//       Backspace → `B03T>>> pr`(조각 유실 없음)
+//       `int(3)` 입력 → Enter → `B03T>>> print(3)` / `3` / `>>>`(다음 프롬프트에 접두 중복 없음)
+//   B04 `input("x: ")`에 `ab`를 친 상태에서 배경 `B04T\n`(합성 `write` 알림) → 행 `B04T` 아래 `x: ab`(커서 열 5)
+//       Enter → `got ab`
+//   B05 `pri` 입력 중 배경 `B05T\n` 뒤 `runSource("print(5)")` → `B05T` / `5` / `>>> pri`
+//       옛 `>>> pri`·`>>> priB05T` 흔적 없음
+//   B06 맨 아래 행(24행째) 프롬프트에서 배경 1행·2행 출력(스크롤) → 입력줄이 맨 아래 행에 한 번만, 출력 행 순서 보존
+//       이어서 편집·Enter
+//   B07 `pri` 입력 중 `\r`로 끝나는 진행률 조각 `B07 50%\r`·`B07 100%\r` → `B07 100%>>> pri`(제자리 갱신, 커서 열 15)
+//       이어서 `\n` → `B07 100%` / `>>> pri`(`\r` 끝 조각이 사라지지 않고 그 행이 남는다)
+//   B08 `pri` 입력 중 커서 숨김 진행률 조각 `\x1b[?25lB08 50%\r` → `B08 50%>>> pri`, 커서 열 14(실제 글자 끝)
+//       벤더 폭 계산이 CSI 사설 접두(`\x1b[?25l`)를 글자로 세면 `25l`이 3칸이 되어 커서가 열 17로 어긋난다.
+//       이어서 Backspace → 열 13, `\n` → `B08 50%` / `>>> pr`(열 6)
+//   B09 `FIT=1`일 때만. `?fit=1`에서 `pri` 입력 중 아주 긴 배경 출력(재그리기 write 콜백이 오래 걸린다)을 합성 알림으로 넣는다.
+//       곧바로 창 너비를 줄인다. 리사이즈가 재그리기 대기 중에 들어와도 입력줄 흔적 행이 남지 않는다(`>>> pri` 행 1개, 커서 열 7).
+//       수정 전에는 `onResize`가 화면에 없는 입력줄을 콜백보다 먼저 그렸다.
+//       기본 모드(`FIT` 미설정)는 B01~B08만, `FIT=1`은 B09만 실행한다.
+//       **양성 대조 미검출**: 수정 전 코드에서도 통과했다. 창 크기 변경이 재그리기 대기 창에 들었는지 셀이 기록하지 않는다.
+//       이 결함의 판정은 jsdom 시험(벤더 `print-above-raw.test.ts`·`take-read.test.ts`)이 한다.
+//       그래서 이 셀은 `BASELINE.md`의 기대에 넣지 않는다.
 //   끝  콘솔 경고·오류·pageerror 0
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기·ms 상한을 쓰지 않는다. 배경 출력은 조건 대기(`waitTail`·`waitLineWithCursor`)로
-// 기다리고, 입력한 코드 행과 출력 행은 행 정확일치로 구별한다(TRP-011). 셀은 Ctrl+L로 시작해 전체 행 목록을 단언한다(TRP-008).
+// 시간 판정은 `docs/design/09-testing.md` 9.7을 따른다.
+// - 배경 출력은 조건 대기(`waitTail`·`waitLineWithCursor`)로 기다린다.
+// - 입력한 코드 행과 출력 행은 행 정확일치로 구별한다(TRP-011).
+// - 셀은 Ctrl+L로 시작해 전체 행 목록을 단언한다(TRP-008).
 //
-// 사용: node bg-output-check.mjs [url](생략 시 http://localhost:5173)     ONLY=B01,B04 node bg-output-check.mjs
-//       FIT=1 node bg-output-check.mjs   (B09: 페이지를 `/?fit=1`로 열고 창 크기를 바꾼다. 초기·끝 확인은 함께 돈다)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙). `FIT=1`이면 앞에 `fit-`을 붙인다.
+// 사용: `node bg-output-check.mjs [url]`. `ONLY=B01,B04`로 셀을 고른다.
+// `FIT=1`이면 페이지를 `/?fit=1`로 열고 창 크기를 바꾼다. 초기·끝 확인은 함께 돈다.
+// 결과 파일 label은 `serverLabel`이고 `FIT=1`이면 앞에 `fit-`을 붙인다.
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { injectRpcNotice, installRpcTap, open, same, show } from "../lib.mjs";
 
@@ -89,7 +103,7 @@ async function waitTail(expected, description, timeoutMs = 15000) {
 async function waitScreen(expected, description, timeoutMs = 15000) {
   await waitFor(async () => same(await trimmedRows(), expected), `${description}: 화면 = ${show(expected)}`, timeoutMs);
 }
-/** 마지막 텍스트 행과 커서가 그 행에 있는지. */
+/** 마지막 텍스트 행의 텍스트·행 번호와, 그 행에 커서가 있는지 돌려준다. */
 async function lastRowInfo() {
   const all = await rows();
   let last = all.length - 1;
@@ -119,6 +133,7 @@ async function freshCell() {
   await clear();
 }
 
+/** 결과 칸(`source-result`)의 텍스트. */
 const resultText = () => page.locator('[data-testid="source-result"]').textContent();
 /** 코드를 `textarea`에 넣고 `run-source`를 누른 뒤 결과 칸의 JSON을 기다린다(클릭이 가져간 포커스는 터미널로 되돌린다). */
 async function callSource(code, timeoutMs = 30000) {
@@ -130,8 +145,9 @@ async function callSource(code, timeoutMs = 30000) {
 }
 
 /**
- * Python 쪽 배경 출력 수신기를 둔다. 각 줄은 한 행(80열) 안에 들어가게 짧게 나눴다(`submit`이 커서 행 끝 글자로 입력 완료를 본다).
- * 루프는 최상위에서 한 번 잡아 둔다(JS 콜백 안의 `get_event_loop()` 경고를 피한다).
+ * Python 쪽 배경 출력 수신기를 둔다.
+ * - 각 줄은 한 행(80열) 안에 들어가게 짧게 나눴다. `submit`이 커서 행 끝 글자로 입력 완료를 본다.
+ * - 루프는 최상위에서 한 번 잡아 둔다. JS 콜백 안의 `get_event_loop()` 경고를 피한다.
  */
 async function setupReceiver() {
   await submit("import asyncio, js; from pyodide.ffi import create_proxy");
@@ -140,7 +156,7 @@ async function setupReceiver() {
   await submit(`bgc = js.BroadcastChannel.new("${CHANNEL}")`);
   await submit("bgc.onmessage = create_proxy(lambda e: bgl.call_soon(bgp, e.data))");
 }
-/** 실패한 셀 뒤 복구: `reset`으로 새 세션을 열고 수신기를 다시 둔다(새 세션에는 이전 전역이 없다). */
+/** 실패한 셀 뒤 복구: `reset`으로 새 세션을 열고 수신기를 다시 둔다. 새 세션에는 이전 전역이 없다. */
 async function recover() {
   await page.click('[data-testid="reset"]');
   await waitStatus(["ready", "load-failed"], "복구: 리셋 뒤 ready", BOOT_TIMEOUT_MS);
@@ -148,6 +164,7 @@ async function recover() {
   await waitPrompt(">>>", BOOT_TIMEOUT_MS);
   await setupReceiver();
 }
+/** 셀을 실행한다. 실패하면 `recover()`로 새 세션을 열어 다음 셀이 깨끗하게 시작하게 한다. */
 async function bgStep(name, fn) {
   await step(name, fn);
   if (h.checks[name] === false) await recover().catch((e) => console.log(`복구 실패: ${e.message}`));
@@ -209,13 +226,13 @@ await baseStep("B03 개행 없는 배경 `B03T` → `B03T>>> pri`, Backspace·�
   await emit("B03T");
   await waitScreen(["B03T>>> pri"], "개행 없는 배경 출력 뒤");
   await waitLineWithCursor("B03T>>> pri", 11, "접두 붙은 입력줄");
-  // 프로브 P2(Backspace가 조각을 지움)의 회귀 확인: 재그리기가 접두를 함께 그린다.
+  // Backspace가 접두 조각을 지우지 않는다: 재그리기가 접두를 함께 그린다.
   await press("Backspace");
   await waitLineWithCursor("B03T>>> pr", 10, "Backspace 뒤");
   await type("int(3)");
   await waitLineWithCursor("B03T>>> print(3)", 16, "편집 뒤");
   await waitScreen(["B03T>>> print(3)"], "편집 뒤 화면");
-  // 프로브 P7(Enter가 조각을 지움)의 회귀 확인: 접두는 그 행과 함께 남고 다음 프롬프트에는 붙지 않는다.
+  // Enter가 접두 조각을 지우지 않는다: 접두는 그 행과 함께 남고 다음 프롬프트에는 붙지 않는다.
   await enter();
   await waitPrompt(">>>");
   await waitScreen(["B03T>>> print(3)", "3", ">>>"], "Enter 뒤");
@@ -229,7 +246,8 @@ await baseStep("B04 `input(\"x: \")`에 `ab` 입력 중 배경 `B04T` 행 → `B
   await waitLastEndsWith("x:");
   await typeWhenReading("ab");
   await waitLineWithCursor("x: ab", 5, "stdin 입력");
-  // worker는 `input()` 대기 중 메일박스에 멈춰 있어 배경 출력을 낼 수 없다 — main 포트에 `write` 알림을 합성한다.
+  // worker는 `input()` 대기 중 메일박스에 멈춰 있어 배경 출력을 낼 수 없다.
+  // main 포트에 `write` 알림을 합성한다.
   await injectRpcNotice(page, "write", "B04T\n");
   await waitScreen(['>>> print("got", input("x: "))', "B04T", "x: ab"], "배경 출력 뒤");
   await waitLineWithCursor("x: ab", 5, "다시 그린 stdin 입력줄");
@@ -304,7 +322,8 @@ await baseStep("B08 커서 숨김 진행률 조각 `\\x1b[?25lB08 50%\\r` → `B
   // 뒤이은 편집 재그리기도 같은 폭으로 커서를 놓는다.
   await press("Backspace");
   await waitLineWithCursor("B08 50%>>> pr", 13, "Backspace 뒤 입력줄");
-  // 접두가 남은 채로는 `wipeInput`의 빈 `>>>` 대기가 통과하지 못하므로 `\n`으로 접두 행을 확정한 뒤 정리한다(B07과 같다).
+  // 접두가 남은 채로는 `wipeInput`의 빈 `>>>` 대기가 통과하지 못한다.
+  // `\n`으로 접두 행을 확정한 뒤 정리한다(B07과 같다).
   await emit("\n");
   await waitScreen(["B08 50%", ">>> pr"], "접두 확정 개행 뒤");
   await waitLineWithCursor(">>> pr", 6, "접두 없는 입력줄");
@@ -316,8 +335,9 @@ await fitStep("B09 `?fit=1`에서 긴 배경 출력의 재그리기 대기 중 �
   await type("pri");
   await waitLineWithCursor(">>> pri", 7, "배경 출력 전 입력");
   const before = await screenCols();
-  // 긴 출력은 xterm이 여러 조각으로 나눠 해석하므로 그 뒤 재그리기 write 콜백이 수십 ms 뒤에 온다. 그 사이에 창 크기 리사이즈가 들어오게
-  // 하려는 것이다(짧은 출력은 콜백이 창 리사이즈의 `requestAnimationFrame`보다 먼저 온다). 합성 알림은 실제 `write` 알림과 같은 핸들러를 지난다.
+  // 긴 출력은 xterm이 여러 조각으로 나눠 해석한다. 그 뒤 재그리기 write 콜백이 수십 ms 뒤에 온다.
+  // 그 사이에 창 리사이즈가 들어오게 한다. 짧은 출력은 콜백이 리사이즈의 `requestAnimationFrame`보다 먼저 온다.
+  // 합성 알림은 실제 `write` 알림과 같은 핸들러를 지난다.
   const LINES = 200000;
   await page.evaluate((count) => {
     const port = window.__rpcTap?.port;

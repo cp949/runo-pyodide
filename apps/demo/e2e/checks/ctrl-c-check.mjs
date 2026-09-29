@@ -1,19 +1,23 @@
-// RD-007 브라우저 검증(실행 중 Ctrl+C). 출처 RD-007에서
-// 이관(RD-018). ROADMAP 시나리오와 이전 구현 브라우저 ID 중
-// 이 RD가 맡는 것(G1·G2·S1·S08)을 새 데모(하니스 lib.mjs)에 맞춰 옮겼다.
-// 기대 바이트는 node 시험에서 고정한 것과 같다:
+// RD-007 브라우저 확인: 실행 중 Ctrl+C. RD-007에서 이관했다(RD-018).
+// RD-007 시나리오와 이전 구현 브라우저 ID 중 이 RD가 맡는 것(G1·G2·S1·S08)을 하니스 `lib.mjs`에 맞춰 옮겼다.
+// 기대 바이트는 node 시험에서 고정한 것과 같다.
 //   'Traceback (most recent call last):\n  File "<console>", line 1, in <module>\nKeyboardInterrupt\n'
-// 규칙(TRP-005·006·008·011): 각 확인은 Ctrl+L로 시작하고, 새 프롬프트가 보인 뒤 입력하며, 정확한 행 목록으로 단언한다.
-// RD-018 갱신: S1a·S1·RM2는 다단 중첩(try/while/except/pass)이라 RD-013 자동 들여쓰기 프리필과 수동 들여쓰기가
-// 겹치면 실제로 IndentationError/SyntaxError가 난다. dev 서버 프로브(cursorCol 실측, 이 DELTA)로 확인한 규칙:
-//   - `:`로 끝나는 줄을 제출하면 다음 줄 프리필이 한 단위(4칸) 늘어난다. `:`로 끝나지 않는 줄(인라인 복합문 등)은 같은
-//     레벨을 유지한다.
-//   - 프리필이 이미 그 레벨의 들여쓰기이므로 본문 줄은 들여쓰기 없이 그대로 친다(`type("print(1)")`).
-//   - 레벨을 한 단계 낮춰야 하면(예: `except`를 `try`보다 얕게) Backspace 한 번으로 한 단위(4칸)가 통째로 지워진다
-//     (프리필 끝에서, 추가로 친 문자가 없을 때).
-// 화면 기대값 자체는 원래 스크립트가 4칸 단위로 손으로 들여썼던 것과 우연히 같아 문자열은 바뀌지 않는다.
-// 사용: node ctrl-c-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=RM1,S1 node ctrl-c-check.mjs <url>
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
+//
+// 규칙(TRP-005·006·008·011):
+// - 각 확인은 Ctrl+L로 시작한다.
+// - 새 프롬프트가 보인 뒤 입력한다.
+// - 정확한 행 목록으로 단언한다.
+//
+// 다단 중첩(S1a·S1·RM2의 try/while/except/pass)은 RD-013 자동 들여쓰기 프리필을 그대로 쓴다.
+// 프리필 위에 수동 들여쓰기를 겹치면 실제로 IndentationError/SyntaxError가 난다.
+// 규칙은 `docs/design/06-editing.md` 6.3이고, 이 스크립트가 쓰는 부분은 dev 서버에서 `cursorCol`로 실측했다.
+// - `:`로 끝나는 줄을 제출하면 다음 줄 프리필이 한 단위(4칸) 늘어난다.
+// - `:`로 끝나지 않는 줄(인라인 복합문 등)은 같은 레벨을 유지한다.
+// - 프리필이 이미 그 레벨의 들여쓰기다. 본문 줄은 들여쓰기 없이 친다(`type("print(1)")`).
+// - 레벨을 한 단계 낮추려면 Backspace를 한 번 누른다. 프리필 끝에서 추가로 친 문자가 없으면 한 단위(4칸)가 통째로 지워진다.
+//
+// 사용: `node ctrl-c-check.mjs [url]`. `ONLY=RM1,S1`로 셀을 고른다.
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 
@@ -33,8 +37,9 @@ async function interruptAfter(ms) {
   await ctrlC();
 }
 /**
- * 화면을 지우고 `while True: pass`를 실행한다. 복합문 한 줄이라 `... `가 뜨고 빈 줄 Enter로 실행이 시작된다
- * (3.14 REPL과 같다). 그래서 화면에는 코드 행과 `...` 행이 남는다.
+ * 화면을 지우고 복합문 한 줄(`code`)을 제출해 실행을 시작한다.
+ * `... `가 뜨고 빈 줄 Enter로 실행이 시작된다(3.14 REPL과 같다).
+ * 화면에는 코드 행과 `...` 행이 남는다.
  */
 async function start(code) {
   await clear();
@@ -47,9 +52,11 @@ async function run(code) {
   await waitPrompt(">>>");
 }
 /**
- * 확인이 실패해 남은 상태를 `>>> `로 되돌린다. 세 가지를 구분한다:
- * `... `(블록 입력 중) → Enter로 끝낸다(실행이 시작되면 다음 바퀴가 Ctrl+C로 끊는다),
- * 꼬리가 붙은 프롬프트(`^C>>> `) → Enter로 깨끗한 프롬프트를 만든다, 그 밖(실행 중) → Ctrl+C.
+ * 확인이 실패해 남은 상태를 `>>> `로 되돌린다. 최대 10바퀴 돈다.
+ * 커서 위치로 읽는 중인지 실행 중인지 가른다.
+ * - 커서가 마지막 텍스트 행에 있다: `... ` 블록 입력, 꼬리가 붙은 프롬프트(`^C>>> `), stdin 읽기 중이다. Enter로 끝낸다.
+ *   블록 Enter로 실행이 시작되면 다음 바퀴가 Ctrl+C로 끊는다.
+ * - 커서가 그 아래에 있다: 실행 중이다. Ctrl+C로 끊는다.
  */
 async function recover() {
   for (let i = 0; i < 10; i += 1) {
@@ -59,8 +66,6 @@ async function recover() {
     const line = last >= 0 ? all[last] : "";
     const atCursor = last >= 0 && (await cursorRow()) === last;
     if (line === ">>>" && atCursor) return;
-    // 커서가 마지막 텍스트 행에 있으면 무언가를 읽는 중이다(`... ` 블록, 꼬리 프롬프트, stdin 읽기).
-    // Enter로 끝낸다. 커서가 그 아래에 있으면 실행 중이므로 Ctrl+C로 끊는다.
     if (atCursor) {
       await press("Enter");
       await page.waitForTimeout(400);
@@ -70,6 +75,7 @@ async function recover() {
     await page.waitForTimeout(500);
   }
 }
+/** 확인을 실행하고, 실패하면 `recover()`로 프롬프트를 되돌린다. */
 async function ctrlCStep(name, fn) {
   await step(name, fn);
   if (h.checks[name] === false) await recover();
@@ -157,8 +163,9 @@ await ctrlCStep("S1a except로 잡은 중단 뒤 프롬프트는 트레이스백
   await waitPrompt(">>>");
 });
 
-// `t^Cx: `가 한 행이 되려면 출력·중단·`input()`이 한 번의 실행 안에서 이어져야 한다. 제출을 나누면 그 사이에
-// REPL 프롬프트가 그려지며 꼬리가 리셋돼(`promptRow.read`, RD-027) `^C`가 프롬프트에 흡수된다(위 S1a가 그 형태다).
+// `t^Cx: `가 한 행이 되려면 출력·중단·`input()`이 한 번의 실행 안에서 이어져야 한다.
+// 제출을 나누면 그 사이에 REPL 프롬프트가 그려져 꼬리가 리셋되고(`promptRow.read`, RD-027) `^C`가 프롬프트에 흡수된다.
+// 위 S1a가 그 형태다.
 await ctrlCStep("S1 한 실행 안에서 출력 → 중단(except) → input()이 이어지면 프롬프트가 t^Cx: 로 이어진다", async () => {
   await clear();
   await submit("def s1():", "...");

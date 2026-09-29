@@ -1,22 +1,26 @@
 // RD-049 브라우저 확인: `?completionPopover=1`의 completion popover(DOM 오버레이, `role=listbox`).
-// 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide. 규칙 정의: `docs/design/07-tab-completion.md` 7.6(규칙 ID K1~K5·M1~M3·C1~C6·L1~L3).
+// 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
+// 규칙 ID(K1~K5·M1~M3·C1~C6·L1~L3)는 `docs/design/07-tab-completion.md` 7.6이 정의한다.
+// H1~H3은 셀 제목에 쓰는 가설 라벨이다.
+// - H1(P3): Esc가 `\x1b` 한 바이트다.
+// - H2(P6): 휠 스크롤이 listbox를 닫는다.
+// - H3: 연 listbox가 다음 키 전까지 유지된다.
 //
-// 화면 둘을 각각 새 브라우저로 연다(RD-024 `react-fit-check.mjs`와 같은 구조): POP(`/?completionPopover=1`,
-// P1~P7·H3)·OFF(`/`, P8 회귀 — 옵션 꺼짐은 지금 텍스트 목록 그대로).
+// 화면 둘을 각각 새 브라우저로 연다(`react-fit-check.mjs`와 같은 구조).
+// - POP: `/?completionPopover=1`. 셀 P1~P7·H3.
+// - OFF: `/`. 셀 P8. 옵션 꺼짐 회귀이며 텍스트 목록이 그대로다.
 //
 // 셀(POP):
-//   P1  `os.pa` + Tab·Tab → `[role=listbox]` 보임(`os.path` 포함), 첫 항목 `aria-selected="true"`,
+//   P1  `os.pa` + Tab·Tab → `[role=listbox]` 보임(`os.path` 포함), 첫 항목 `aria-selected="true"`
 //       스크롤백에 텍스트 목록(`os.pardir` 등) 없음
-//   H3  (가설) 배경 출력 없이 연 뒤 다음 키(↓) 전까지 listbox가 유지된다 — 연속 폴링으로 확인한다(9.7,
-//       "마커 배리어"가 없는 자리라 고정 대기 뒤 단발 확인 대신 짧은 창 동안 계속 존재를 샘플링한다.
-//       "## 결정" 참고)
-//   P2a K1·K2(Enter): ↓ → 두 번째 항목 선택 → Enter → 입력줄 `>>> <두 번째 후보>`, 행 수 불변(미제출),
-//       listbox 없음
+//   H3  배경 출력 없이 연 뒤 다음 키(↓) 전까지 listbox가 유지된다(연속 폴링으로 확인, `assertStaysOpen`)
+//   P2a K1·K2(Enter): ↓ → 두 번째 항목 선택 → Enter → 입력줄 `>>> <두 번째 후보>`
+//       행 수 불변(미제출), listbox 없음
 //   P2b K2(Tab): 다시 연 뒤 Tab → 첫 항목 적용, 행 수 불변(미제출), listbox 없음
-//   P3  K3·H1: 연 뒤 Esc → listbox 없음, 입력줄 완전 불변(`>>> os.pa`), 화면에 `^[` 없음, 이어지는 `t` 입력이
-//       깨끗이 삽입됨(buffer 오염 간접 확인, "## 결정" 참고)
+//   P3  K3·H1: 연 뒤 Esc → listbox 없음, 입력줄 완전 불변(`>>> os.pa`), 화면에 `^[` 없음
+//       이어지는 `t` 입력이 깨끗이 삽입됨(buffer 오염을 간접 확인)
 //   P4  K4: 연 뒤 `t` → listbox 없음, 입력줄에 `t`가 그대로 삽입(`>>> os.pat`, 벤더로 전달)
-//   P5  C2: 배경 출력 수신기(BroadcastChannel `popbg`) 설치 뒤 연 상태에서 배경 `P5T\n` → listbox 없음,
+//   P5  C2: 배경 출력 수신기(BroadcastChannel `popbg`)를 설치한다. 연 상태에서 배경 `P5T\n` → listbox 없음
 //       `P5T` 행 아래 입력줄 `>>> os.pa` 보존
 //   P6  C3·H2: 스크롤백을 만들고(`print("\n" * 30)`) 연 뒤 `.xterm-viewport` 휠(popover와 안 겹치는 좌표) → listbox 없음
 //   P7  M1·M2: 연 뒤 두 번째 항목 클릭 → 적용·닫힘(행 수 불변), `document.activeElement`가 xterm textarea
@@ -25,12 +29,13 @@
 //   P8  `os.pa` + Tab·Tab → 텍스트 목록(`os.pardir`·`os.path` 포함), `[role=listbox]` 없음
 //   끝  콘솔 경고·오류·pageerror 0
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기·ms 상한을 쓰지 않는다. listbox 존재·행 텍스트는
-// `waitFor` 조건 대기, H3만 예외적으로 연속 폴링(아래 `assertStaysOpen`, "## 결정")을 쓴다.
+// 시간 판정은 `docs/design/09-testing.md` 9.7을 따른다.
+// - listbox 존재·행 텍스트는 `waitFor` 조건 대기다.
+// - H3만 예외로 연속 폴링을 쓴다(`assertStaysOpen`).
 //
-// 사용: node completion-popover-check.mjs [devURL](생략 시 http://localhost:5173)
-//   ONLY=POP 또는 ONLY=OFF로 화면 하나만, ONLY=P1,P3처럼 셀 접두어로도 거른다("초기"는 항상 실행).
-// 결과 파일: `completion-popover-check-pop-dev.json`·`completion-popover-check-off-dev.json`.
+// 사용: `node completion-popover-check.mjs [devURL]`
+// - `ONLY=POP` 또는 `ONLY=OFF`로 화면 하나만 돈다. `ONLY=P1,P3`처럼 셀 접두어로도 거른다. "초기"는 항상 실행한다.
+// - 결과 파일: `completion-popover-check-pop-dev.json`·`completion-popover-check-off-dev.json`.
 import { checkEntry, exitWith, pageSelected } from "../check-runner.mjs";
 import { open, show } from "../lib.mjs";
 
@@ -41,6 +46,7 @@ const BOOT_TIMEOUT_MS = 90000;
 /** 배경 출력 채널 이름(P5). bg-output-check.mjs의 `bgout`과 겹치지 않게 다른 이름을 쓴다. */
 const CHANNEL = "popbg";
 
+/** 돌릴 화면. `ONLY`로 거른다. */
 const VIEWS = [
   { name: "POP", path: "/?completionPopover=1", label: "pop-dev" },
   { name: "OFF", path: "/", label: "off-dev" },
@@ -81,20 +87,24 @@ for (const view of VIEWS) {
     await waitPrompt(">>>", BOOT_TIMEOUT_MS);
     await clear();
   }
-  /** `os.pa` + Tab·Tab으로 completion popover를 연다(공통 접두 없음 — `os.pardir`·`os.path`·`os.pathsep` 3개가
-   * 갈라지므로 첫 Tab은 무동작, 둘째 Tab이 연다, `tab-check.mjs` C3f와 같은 픽스처). */
+  /**
+   * `os.pa` + Tab·Tab으로 completion popover를 연다.
+   * 공통 접두가 없다. 후보 `os.pardir`·`os.path`·`os.pathsep`이 갈라져 첫 Tab은 무동작이고 둘째 Tab이 연다.
+   * `tab-check.mjs` C3f와 같은 픽스처다.
+   */
   async function openPopover() {
     await type("os.pa");
     await press("Tab");
     await press("Tab");
     await waitListboxVisible("os.pa 두 번째 Tab");
   }
-  /** H3: 배경 출력·스크롤·리사이즈 같은 닫기 신호가 전혀 없는 동안 listbox가 스스로 닫히지 않는지, `windowMs` 동안
-   * 짧은 간격으로 계속 관찰한다(9.7 "## 결정" — 단발 확인이 아니라 창 전체를 샘플링해 도중에 닫히면 그 자리에서 잡는다).
-   * 상수 근거(리뷰 지적: 숫자 자체의 근거가 없었다): 두 번째 Tab이 여는 completion 왕복(popover가 열리는 그 동작)의
-   * 실측 지연은 `tab-check.mjs` C12 기록(`BASELINE.md`, a. 속성 후보 중앙값 25.2·최대 35.8ms)과 같은 worker 왕복
-   * 경로다. 샘플 간격 30ms는 그 왕복 1회 정도, 창 300ms는 그 최댓값의 약 8배 — H3가 실패한다면(연 직후 지연 파싱
-   * 대기 쓰기로 곧장 닫힘) 왕복 시간 안에 드러날 결함이라 이 배율이면 충분히 여유 있게 잡는다. */
+  /**
+   * 열린 listbox가 `windowMs` 동안 스스로 닫히지 않는지 30ms 간격으로 계속 확인한다(H3).
+   * 배경 출력·스크롤·리사이즈 같은 닫기 신호가 없는 구간이다. 도중에 사라지면 그 자리에서 실패한다.
+   * 마커 배리어를 둘 자리가 없어 단발 확인 대신 창 전체를 샘플링한다.
+   * 30ms·300ms는 판정선이 아니라 관찰 밀도다.
+   * 열린 직후 지연 쓰기로 곧장 닫히는 결함이 있다면 Tab 완성 worker 왕복(`tab-check.mjs` C12가 기록) 시간 안에 드러난다.
+   */
   async function assertStaysOpen(windowMs, description) {
     const deadline = Date.now() + windowMs;
     while (Date.now() < deadline) {
@@ -132,7 +142,7 @@ for (const view of VIEWS) {
     });
 
     await step("H3 배경 출력 없이 연 상태가 다음 키 전까지 유지된다", async () => {
-      // 위 P1이 이미 열어 둔 상태를 이어 쓴다(재호출 없이 이 시점의 listbox가 P1이 연 것과 같은지가 판정 대상).
+      // P1이 연 listbox를 이어 쓴다. 다시 열지 않는다.
       await assertStaysOpen(300, "P1 직후");
     });
 
@@ -179,10 +189,10 @@ for (const view of VIEWS) {
       if ((await rows()).some((r) => r.includes("^["))) {
         throw new Error("화면에 ^[가 남았다(H1 반증 — Esc가 \\x1b 한 바이트가 아니었을 가능성)");
       }
-      // xterm은 실제 VT 파서라 제어문자를 `^[` 글리프로 렌더링하지 않는다 — 위 화면 검사만으로는
-      // `\x1b`가 buffer에 조용히 섞여 들어갔는지 잡지 못한다(리뷰 지적). K3가 Esc를 온전히 삼키지
-      // 못하고 buffer가 오염됐다면, 바로 뒤 정상 글자 입력이 그 오염된 지점에서부터 어긋난 자리에
-      // 붙는다 — 이어지는 삽입이 P4와 똑같이 깨끗한지(`>>> os.pat`)로 buffer 상태를 간접 확인한다.
+      // xterm은 실제 VT 파서라 제어문자를 `^[` 글리프로 렌더링하지 않는다.
+      // 위 화면 검사만으로는 `\x1b`가 buffer에 조용히 섞였는지 잡지 못한다.
+      // K3가 Esc를 삼키지 못해 buffer가 오염됐다면 바로 뒤 글자 입력이 어긋난 자리에 붙는다.
+      // 그래서 이어지는 삽입이 P4와 같이 깨끗한지(`>>> os.pat`)로 buffer 상태를 간접 확인한다.
       await type("t");
       await waitInputLine(">>> os.pat", "Esc 뒤 이어지는 입력도 정상 삽입");
       await wipeInput();
@@ -217,8 +227,8 @@ for (const view of VIEWS) {
       await openPopover();
       const box = await page.locator(".xterm-viewport").boundingBox();
       if (!box) throw new Error(".xterm-viewport bounding box 없음");
-      // 휠 좌표가 popover 위라면 휠이 M3(목록 안쪽 스크롤)로 먹혀 C3(뷰포트 스크롤)를 시험하지 못한다
-      // — 세로 중앙·위쪽 두 후보 중 popover `boundingBox()`와 안 겹치는 쪽을 고른다(리뷰 지적).
+      // 휠 좌표가 popover 위이면 휠이 M3(목록 안쪽 스크롤)이 되어 C3(뷰포트 스크롤)을 시험하지 못한다.
+      // 세로 중앙·위쪽 두 후보 중 popover `boundingBox()`와 겹치지 않는 쪽을 고른다.
       const popBox = await page.locator('[role="listbox"]').boundingBox();
       const overlapsPop = (y) => popBox !== null && y >= popBox.y && y <= popBox.y + popBox.height;
       const candidateYs = [box.y + box.height / 2, box.y + 10];
@@ -227,8 +237,8 @@ for (const view of VIEWS) {
       await page.mouse.move(box.x + box.width / 2, wheelY);
       await page.mouse.wheel(0, -200);
       await waitListboxGone("휠 스크롤 뒤");
-      // 다음 셀을 위해 뷰포트를 맨 아래로 되돌린다(popover 위치 계산과 무관 — DOM 판정은 스크롤 위치에
-      // 의존하지 않지만, 이어지는 셀은 `.xterm-rows`로 입력줄을 읽어야 하므로 가시 범위로 복귀한다).
+      // 다음 셀을 위해 뷰포트를 맨 아래로 되돌린다.
+      // DOM 판정은 스크롤 위치와 무관하다. 이어지는 셀은 `.xterm-rows`로 입력줄을 읽어야 하므로 가시 범위로 복귀한다.
       await page.mouse.wheel(0, 100000);
       await waitFor(async () => (await cursorRow()) >= 0, "휠 복귀 뒤 입력줄 다시 보임");
       await wipeInput();

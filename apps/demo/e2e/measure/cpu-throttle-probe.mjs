@@ -1,36 +1,48 @@
-// CPU 감속(`Emulation.setCPUThrottlingRate`)이 메인 스레드와 pyodide worker에 각각 얼마나 적용되는지 잰다(기록용 프로브).
-// 이슈 03의 미검증 가정("worker에도 걸리는가")을 수치로 확정한다.
-// 판정 스크립트가 아니다: 통과/실패 상한을 두지 않는다(`docs/design/09-testing.md` 9.7 6항). 아래 "적용 ○/×"는 콘솔·결과 JSON `notes`에
-// 남기는 기록이며 종료 코드에 영향을 주지 않는다(종료 코드는 pageErrors 0과 표본 수집 완료 여부만 본다).
-// `run.mjs`의 `SETS`·`MEASURE_SET`에는 등록하지 않는다(L2·L3 상시 비용을 만들지 않는다). `pnpm --filter demo e2e:cpu-throttle`로 손으로 돌린다.
+// CDP 감속(`Emulation.setCPUThrottlingRate`)이 메인 스레드와 pyodide worker에 각각 얼마나 적용되는지 잰다.
+// 기록용 프로브다. "worker에도 걸리는가"라는 미검증 가정을 수치로 확정한다.
+// 실측 결과의 요약은 `apps/demo/e2e/README.md`의 "환경변수" 절이다(메인만 적용, worker 미적용).
 //
-// 절차: 한 페이지 안에서 rate 1 → 2 → 4 → 8 순으로 CDP 감속 배율을 바꾸며, rate마다 4회 실행하고 첫 회(전환 뒤 워밍)는 버려
-// 표본 3회의 중앙값을 낸다. rate마다 세 경로를 잰다.
-//   1. 메인 스레드: `page.evaluate` 안의 **고정 작업량** 바쁜 루프. 반복 수는 rate 1에서 약 200ms가 되도록 보정한다.
-//   2. worker 고정 작업량: `for _ in range(n): pass`(n은 rate 1에서 약 300ms가 되도록 보정). 소요는 Enter `keydown`부터 프롬프트 복귀까지.
-//   3. worker 시간 한정: 지시받은 형태(`t=time.time()` / `while time.time()-t<0.5: pass`)에 반복 횟수 세기를 더한 것.
+// 판정 스크립트가 아니다.
+// - 통과·실패 상한을 두지 않는다(`docs/design/09-testing.md` 9.7 6항).
+// - 아래 "적용 ○/×"는 콘솔과 결과 JSON `notes`에 남기는 기록이다. 종료 코드에 영향을 주지 않는다.
+// - 종료 코드는 `R<rate>` 단계가 모두 던지지 않았는지와 pageerror 0만 본다.
+// - `sets.mjs`의 `SETS`·`MEASURE_SET`에 등록하지 않는다(L2·L3 상시 비용을 만들지 않는다). `pnpm --filter demo e2e:cpu-throttle`로 손으로 돌린다.
 //
-// 설계 결정 — 고정 작업량을 쓰는 이유: 시간에 묶인 루프(`while time.time()-t < 0.5`, `while performance.now()-t < 200`)는 CPU가
-// 느려져도 벽시계로 항상 0.5초·0.2초에 끝난다. 소요를 재면 감속이 걸려도 안 걸려도 같은 값이라 적용 여부를 못 가린다. 그래서 (a)
-// 고정 작업량의 소요와 (b) 시간 한정 루프에서 센 반복 횟수(감속되면 줄어든다)를 함께 기록한다. 3번은 (b)이며 벽시계 소요도
-// 같이 남겨 "0.5초 근처에 그대로"임을 보인다.
+// 절차: 한 페이지 안에서 rate 1 → 2 → 4 → 8 순으로 CDP 감속 배율을 바꾼다.
+// - rate마다 4회 실행하고 첫 회(전환 뒤 워밍)를 버린다. 표본 3회의 중앙값을 낸다.
+// - rate마다 세 경로를 잰다.
+//   1. 메인 스레드: `page.evaluate` 안의 고정 작업량 바쁜 루프. 반복 수는 rate 1에서 약 200ms가 되도록 보정한다.
+//   2. worker 고정 작업량: `for _ in range(n): pass`. n은 rate 1에서 약 300ms가 되도록 보정한다. 소요는 Enter `keydown`부터 프롬프트 복귀까지다.
+//   3. worker 시간 한정: `while time.time()-t<0.5: pass` 형태에 반복 횟수 세기를 더한 것.
 //
-// 시계: 소요는 **페이지 시계**(`performance.now()`: Enter `keydown` 캡처 → 프롬프트 행 출현 `MutationObserver`)로 잰다. CPU 감속은
-// 실행 속도만 늦추고 시각 자체(`performance.now()`)를 늦추지 않으며, Node↔페이지 CDP 왕복(폴링·evaluate)이 섞이지 않는다(TRP-022).
-// 참고 열로 Node 시계(`perf_hooks`, Enter 직전 ~ 복귀 감지 뒤)와 Python 쪽 `time.perf_counter()` 차(worker 안 순수 루프 시간, 메인
-// 스레드 렌더 지연이 섞이지 않는다)를 같이 남긴다. 메인 스레드는 감속되는데 worker가 아니면 페이지 시계 소요에 메인 렌더 지연이
-// 섞여 worker가 느려진 것처럼 보일 수 있으므로, 판정이 갈리면 Python 쪽 열로 교차 확인한다.
+// 고정 작업량을 쓰는 이유:
+// - 시간에 묶인 루프(`while time.time()-t < 0.5`, `while performance.now()-t < 200`)는 CPU가 느려져도 벽시계로 항상 0.5초·0.2초에 끝난다.
+// - 소요를 재면 감속이 걸려도 안 걸려도 같은 값이라 적용 여부를 가릴 수 없다.
+// - 그래서 (a) 고정 작업량의 소요와 (b) 시간 한정 루프에서 센 반복 횟수(감속되면 줄어든다)를 함께 기록한다.
+// - 3번은 (b)다. 벽시계 소요도 같이 남겨 "0.5초 근처에 그대로"임을 보인다.
 //
-// 감속 적용: 이 프로브가 rate를 스스로 바꾸므로 `lib.mjs`의 `E2E_CPU_THROTTLE` 자동 적용과 충돌하지 않게 시작 전에 그 환경변수를
-// 지운다(값이 있었으면 경고). 프로브는 자체 CDP 세션(`page.context().newCDPSession(page)`)으로 rate를 보낸다. `lib.mjs`는 수정하지 않는다.
+// 시계:
+// - 소요는 페이지 시계(`performance.now()`)로 잰다. Enter `keydown` 캡처에서 프롬프트 행 출현(`MutationObserver`)까지다.
+// - CPU 감속은 실행 속도만 늦추고 `performance.now()` 시각 자체는 늦추지 않는다.
+// - Node↔페이지 CDP 왕복(폴링·evaluate)이 섞이지 않는다(TRP-022).
+// - 참고 열 둘을 같이 남긴다.
+//   - Node 시계(`perf_hooks`): Enter 직전부터 복귀 감지 뒤까지.
+//   - Python 쪽 `time.perf_counter()` 차: worker 안 순수 루프 시간이며 메인 스레드 렌더 지연이 섞이지 않는다.
+// - 메인 스레드는 감속되는데 worker는 아니면, 페이지 시계 소요에 메인 렌더 지연이 섞여 worker가 느려진 것처럼 보일 수 있다.
+// - 판정이 갈리면 Python 쪽 열로 교차 확인한다.
 //
-// 사용: node cpu-throttle-probe.mjs <url>(생략 시 http://localhost:5173)   RUNS=<정수>(rate당 실행 수, 기본 4, 첫 회는 버림)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// 감속 적용: 이 프로브가 rate를 스스로 바꾼다.
+// - `lib.mjs`의 `E2E_CPU_THROTTLE` 자동 적용과 충돌하지 않게 시작 전에 그 환경변수를 지운다(값이 있었으면 경고).
+// - 프로브는 자체 CDP 세션(`page.context().newCDPSession(page)`)으로 rate를 보낸다.
+//
+// 사용법은 `apps/demo/e2e/README.md`. 결과 파일 label은 url에 `:4173`이 있으면 preview, 그 밖은 dev다.
 import { performance } from "node:perf_hooks";
 import { open } from "../lib.mjs";
 
 const url = process.argv[2] ?? "http://localhost:5173";
+/** 스윕하는 CDP 감속 배율. */
 const RATES = [1, 2, 4, 8];
+/** rate당 실행 수. 기본 4. 첫 회는 버리므로 2 이상이어야 한다. */
 const RUNS = Number(process.env.RUNS ?? 4);
 if (!Number.isInteger(RUNS) || RUNS < 2) throw new Error(`RUNS=${process.env.RUNS}는 2 이상의 정수여야 한다(첫 회는 버린다)`);
 const label = url.includes(":4173") ? "preview" : "dev";
@@ -48,6 +60,7 @@ await h.focus();
 const cdp = await page.context().newCDPSession(page);
 const setRate = (rate) => cdp.send("Emulation.setCPUThrottlingRate", { rate });
 
+/** 소수 첫째 자리로 반올림한다. 값이 없으면 null. */
 const r1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 /** 중앙값. 표본이 없으면 null. */
 function median(a) {
@@ -68,7 +81,10 @@ const mainBusy = (n) =>
     const t1 = performance.now();
     return { ms: t1 - t0, sink: x > 0 };
   }, n);
-/** rate 1에서 `targetMs`쯤 걸리는 반복 수를 구한다(첫 실행은 JIT 워밍이라 버린다). */
+/**
+ * rate 1에서 `targetMs`쯤 걸리는 메인 스레드 반복 수를 구한다.
+ * 실측 소요와 목표의 비로 반복 수를 세 번 다시 잡는다. 결과는 100_000 단위로 반올림한다.
+ */
 async function calibrateMain(targetMs) {
   let n = 2_000_000;
   for (let i = 0; i < 3; i += 1) {
@@ -79,22 +95,26 @@ async function calibrateMain(targetMs) {
 }
 
 // ── worker 경로(REPL 프롬프트에 소스를 제출) ──────────────────────────────────────────
-// `exec`로 함수 두 개를 한 번씩 정의한다(여러 줄 블록의 자동 들여쓰기를 피한다). 출력 행은 `PY <초>`·`PN <횟수>`이며 입력 줄은
-// `>>> `로 시작하므로 `^PY `·`^PN `에 걸리지 않는다.
-//   w(n): 고정 작업량 n번 반복한 시간(Python 쪽 시계). b(x): x초 동안 반복 횟수를 센다(지시받은 `while time.time()-t<0.5: pass` 형태).
-// 입력 줄이 터미널 열 수(80)를 넘어 감기면 `type()`이 커서 행 끝 10글자를 못 찾아 시간 초과가 난다(첫 실행 실패 원인, 실측). 그래서
-// 모든 입력 줄을 `MAX_LINE`자 이하로 유지하고 `submitLine()`이 그것을 강제한다.
+// `exec`로 함수 두 개를 한 번씩 정의한다(여러 줄 블록의 자동 들여쓰기를 피한다).
+// - `w(n)`: 고정 작업량 n번 반복한 시간을 Python 쪽 시계로 잰다. 출력 행은 `PY <초>`다.
+// - `b(x)`: x초 동안 반복 횟수를 센다(`while time.time()-t<0.5: pass` 형태). 출력 행은 `PN <횟수>`다.
+// - 입력 줄은 `>>> `로 시작하므로 `^PY `·`^PN ` 정규식에 걸리지 않는다.
+// 입력 줄이 터미널 열 수(80)를 넘어 감기면 `type()`이 커서 행 끝 10글자를 못 찾아 시간 초과가 난다(실측).
+// 그래서 모든 입력 줄을 `MAX_LINE`자 이하로 유지하고 `submitLine()`이 그것을 강제한다.
 const MAX_LINE = 70;
 const IMPORTS = "from time import time as q, perf_counter as p";
 const DEF_W = `exec("def w(n):\\n s=p()\\n for _ in range(n):pass\\n print('PY',p()-s)")`;
 const DEF_B = `exec("def b(x):\\n s=q()\\n n=0\\n while q()-s<x:n+=1\\n print('PN',n)")`;
-/** 한 줄 입력을 제출한다. 감기는 길이면 던진다(위 설명). */
+/** 한 줄 입력을 제출한다. `MAX_LINE`자를 넘으면 던진다. */
 async function submitLine(source) {
   if (source.length > MAX_LINE) throw new Error(`입력 줄 ${source.length}자 > ${MAX_LINE}자(터미널 80열에서 감긴다): ${source}`);
   await submit(source);
 }
 
-/** 페이지 안에 "Enter 키 눌림 → 프롬프트 행 복귀" 시계를 심는다(한 번). */
+/**
+ * 페이지 안에 "Enter 키 눌림 → 프롬프트 행 복귀" 시계를 심는다. 한 번만 부른다.
+ * `window.__cp`에 `{ startedAt, readyAt }`를 기록하고 `window.__cpArm()`이 이를 비운다.
+ */
 async function installPromptClock() {
   await page.evaluate(() => {
     const root = document.querySelector(".xterm-rows");
@@ -125,7 +145,7 @@ async function installPromptClock() {
 
 /**
  * 소스 한 줄을 제출하고 프롬프트 복귀까지의 소요를 잰다. 화면을 먼저 지워 이전 출력 행이 남지 않게 한다.
- * 반환: `{ pageMs, nodeMs, out }`. `out`은 `out` 정규식에 걸린 출력 행의 캡처(없으면 null).
+ * 반환: `{ pageMs, nodeMs, out }`. `out`은 `outRe`에 마지막으로 걸린 출력 행의 첫 캡처를 숫자로 바꾼 값이다(없으면 null).
  */
 async function runWorker(source, outRe) {
   await clear();
@@ -150,7 +170,7 @@ await submitLine(IMPORTS);
 await submitLine(DEF_W);
 await submitLine(DEF_B);
 const mainN = await calibrateMain(200);
-// worker 고정 작업량 보정: 워밍 1회 뒤 Python 쪽 시계로 300ms쯤 되게 한다.
+// worker 고정 작업량 보정: Python 쪽 시계로 300ms쯤 되도록 반복 수를 세 번 다시 잡는다.
 let workerN = 1_000_000;
 for (let i = 0; i < 3; i += 1) {
   const { out } = await runWorker(`w(${workerN})`, /^PY (\d+(?:\.\d+)?)$/);
@@ -160,7 +180,10 @@ for (let i = 0; i < 3; i += 1) {
 console.log(`보정: 메인 반복 수 ${mainN}(rate 1에서 ~200ms), worker 반복 수 ${workerN}(rate 1에서 ~300ms)`);
 
 // ── rate 스윕 ─────────────────────────────────────────────────────────────────
-/** rate별 원시 표본. `[rate]: { main: [ms], wFix: [ms], wFixNode: [ms], wFixPy: [ms], wBoundWall: [ms], wBoundCount: [n] }` */
+/**
+ * rate별 원시 표본. `[rate]: { main, wFix, wFixNode, wFixPy, wBoundWall, wBoundCount }`.
+ * 앞의 다섯은 ms 배열이고 `wBoundCount`는 반복 횟수 배열이다.
+ */
 const samples = {};
 try {
   for (const rate of RATES) {
@@ -217,7 +240,12 @@ for (const row of table) {
   };
 }
 const at = (rate) => table.find((row) => row.rate === rate);
-/** 판정(기록용). 메인: rate 4에서 2배 이상이면 ○(명목의 절반 이상), 각 rate가 명목의 0.5~1.5배면 "비례". worker: rate 4에서 2배 이상 ○, 1.25배 이하 ×, 사이는 불명확. */
+/**
+ * 적용 여부를 판정한다. 기록용이며 종료 코드와 무관하다.
+ * - 메인: rate 4에서 rate 1의 2배 이상이면 ○(명목 배율의 절반 이상). rate 2·4·8 모두 명목의 0.5~1.5배면 "비례"를 덧붙인다.
+ * - worker: rate 4에서 2배 이상이면 ○, 1.25배 이하면 ×, 사이는 불명확.
+ * - worker는 페이지 시계·Python 시계·시간 한정 루프 반복 횟수 세 값으로 교차 확인해 `note`에 남긴다.
+ */
 function judge() {
   const r4 = at(4);
   if (!r4) return { main: "판정 불가(rate 4 표본 없음)", worker: "판정 불가(rate 4 표본 없음)", note: "" };
@@ -249,7 +277,8 @@ for (const row of table) {
 console.log(`판정(기록, 종료 코드와 무관): ${verdict.main} / ${verdict.worker}`);
 console.log(verdict.note);
 
-// 결과 JSON `notes`에 표와 판정을 남긴다. `E2E_CPU_THROTTLE`은 lib가 1로 기록한다(프로브가 rate를 직접 바꾸므로 그 값은 의미 없다).
+// 결과 JSON `notes`에 표와 판정을 남긴다.
+// `notes.E2E_CPU_THROTTLE`은 lib가 1로 기록한다. 프로브가 rate를 직접 바꾸므로 그 값은 의미가 없다.
 h.notes.probe = {
   rates: RATES,
   runsPerRate: RUNS,

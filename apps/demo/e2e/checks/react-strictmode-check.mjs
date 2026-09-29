@@ -1,23 +1,32 @@
-// RD-024 브라우저 확인: `@cp949/runo-pyodide-repl-react` 컴포넌트(`<PythonRepl>`·`<PythonRunner>`)가 dev 서버의 `<StrictMode>`
-// 이중 마운트(mount → cleanup → mount)에서 worker·xterm을 남기지 않는지. 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
-// dev 전용: 프로덕션 빌드(preview·정적 서버)는 StrictMode 이중 마운트가 없어 이 확인이 성립하지 않는다(`bg-output-check` 선례).
+// RD-024 브라우저 확인: `@cp949/runo-pyodide-repl-react` 컴포넌트(`<PythonRepl>`·`<PythonRunner>`)가
+// dev 서버의 `<StrictMode>` 이중 마운트(mount → cleanup → mount)에서 worker·xterm을 남기지 않는다.
+// 규칙은 `docs/design/15-react.md` 15.6. 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
+// dev 전용이다. 프로덕션 빌드(preview·정적 서버)는 StrictMode 이중 마운트가 없어 이 확인이 성립하지 않는다.
 //
 // 화면 두 개를 각각 새 브라우저로 연다: `REPL`(기본 화면 `/`), `RUNNER`(`/?view=runner`).
-//   S01 `new Worker`가 2회 이상(이중 마운트가 실제로 일어났다)이고 살아 있는 worker가 1이 된다. 살아 있는 수는 Playwright
-//       `page.on('worker')` 생성·`worker.on('close')` 종료 이벤트와 페이지 안 `Worker` 계측(생성 − `terminate()` 호출) 둘 다 1이어야 하며
-//       폴링한다(옛 worker는 `terminate()` 뒤 최대 약 2초 살아 있다, TRP-049). Playwright는 생성 직후 terminate된 첫 worker를 관측하지
-//       못해(생성 이벤트 1개, `new Worker` 2회 실측) 이중 마운트 확인은 계측이 맡는다
+//   S01 `new Worker`가 2회 이상(이중 마운트가 실제로 일어났다)이고 살아 있는 worker가 1이 된다.
+//       - 살아 있는 수는 두 근거가 모두 1이어야 하며 폴링한다.
+//         (a) Playwright `page.on('worker')` 생성·`worker.on('close')` 종료 이벤트
+//         (b) 페이지 안 `Worker` 계측(생성 − `terminate()` 호출)
+//       - 옛 worker는 `terminate()` 뒤 최대 약 2초 살아 있다(TRP-049).
+//       - Playwright는 생성 직후 terminate된 첫 worker를 관측하지 못한다(TRP-061). 생성 이벤트가 1개고 `new Worker`는 2회로 실측했다.
+//       - 그래서 이중 마운트 확인은 계측이 맡는다.
 //   S02 status `ready`가 된 뒤에도 살아 있는 worker 1개·생성 수 불변(부팅 중 재생성·누수 없음, 마커 배리어)
 //   S03 `.xterm` 요소 1개(Terminal 잔재 없음)
-//   S04 콘솔 warning 중 `DisposableStore` 포함 0건(TRP-004: dispose 뒤 xterm write 콜백). 콘솔 warning 0 확인일 뿐 정리 순서 회귀는 검출하지 못한다
-//       (TRP-064: 순서를 뒤집어도 경고가 없다). 정리 순서 방어는 L0(`Terminal.dispose` 시점의 live worker 수 시험) 몫이다
+//   S04 콘솔 warning 중 `DisposableStore` 포함 0건(TRP-004: dispose 뒤 xterm write 콜백)
+//       - 콘솔 warning 0 확인일 뿐 정리 순서 회귀는 검출하지 못한다. 순서를 뒤집어도 경고가 없다(TRP-064).
+//       - 정리 순서 방어는 L0(`Terminal.dispose` 시점의 live worker 수 시험) 몫이다.
 //   S05 콘솔 warning·error 0, pageerror 0
-// 언마운트 정리는 페이지 안에서 뷰를 교체하지 않아 브라우저로 보지 않는다(L0 `python-repl.test.tsx`·`python-runner.test.tsx`가 맡는다).
+// 언마운트 정리는 페이지 안에서 뷰를 교체하지 않아 브라우저로 보지 않는다.
+// L0 `python-repl.test.tsx`·`python-runner.test.tsx`가 맡는다.
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기·ms 상한을 쓰지 않는다. worker 수는 조건 대기(`waitFor`)로 기다리고
-// `timeoutMs`는 정지 감지용이다. 판정 함수는 `../react-judge.mjs`(순수 함수, `react-judge.test.mjs`가 가짜 입력으로 시험).
+// 시간 판정은 `docs/design/09-testing.md` 9.7을 따른다.
+// - worker 수는 조건 대기(`waitFor`)이고 `timeoutMs`는 정지 감지용이다.
+// - 판정 함수는 `../react-judge.mjs`(순수 함수)다. `react-judge.test.mjs`가 가짜 입력으로 시험한다.
 //
-// 사용: node react-strictmode-check.mjs [url](생략 시 http://localhost:5173)     ONLY=REPL 또는 ONLY=RUNNER 로 화면 하나만(ONLY=REPL-S01 처럼 셀 접두어도 된다. S02는 S01이 기록한 `new Worker` 수에 의존하므로 단독 `ONLY=REPL-S02`는 실패하고 `ONLY=REPL-S01,REPL-S02`처럼 S01과 함께 실행한다)
+// 사용: `node react-strictmode-check.mjs [url]`
+// - `ONLY=REPL` 또는 `ONLY=RUNNER`로 화면 하나만 돈다. 셀 접두어(`ONLY=REPL-S01`)도 된다.
+// - S02는 S01이 기록한 `new Worker` 수에 의존한다. 단독 `ONLY=REPL-S02`는 실패한다. `ONLY=REPL-S01,REPL-S02`처럼 S01과 함께 돈다.
 // 결과 파일: `react-strictmode-check-<repl|runner>-dev.json`
 import { open } from "../lib.mjs";
 import { countWarnings, judgeStrictModeWorkers, tallyWorkerCalls, tallyWorkers } from "../react-judge.mjs";

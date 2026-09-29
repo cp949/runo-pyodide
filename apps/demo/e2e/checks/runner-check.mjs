@@ -1,25 +1,47 @@
-// RD-022 브라우저 확인: 실행창 데모(`?view=runner`, `createTerminalRunner`). 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
-// 코드를 `textarea`에 넣고 `run` 버튼으로 실행하는 데모 화면을 plain 요소(testid `code`·`run`·`stop`·`reset`·`clear`·`status`·
-// `result`·`copy-result`·`terminal`)로 조작하고 xterm 화면 행(`.xterm-rows > div`)으로 판정한다. `result`는 `run()`이 돌려준
-// 결과 유니온의 JSON 텍스트이고 거부는 `{"rejected":"<reason>"}`다.
+// RD-022(실행창 `createTerminalRunner`)를 실제 브라우저로 검증한다. 데모는 `?view=runner`다. 규칙은 docs/design/14-runner.md 14.5.
+// 실제 xterm 6, 실제 브라우저, 실제 CDN pyodide를 쓴다.
 //
-//   normal       : 5173 dev(또는 격리 서버) — 초기 4개 + R01~R13
-//     R01 `input("이름: ")` 프롬프트 뒤 입력 → 출력, R02 `while True: pass` + Ctrl+C → 트레이스백·`interrupted`,
-//     R03 같은 코드 + `stop` → `interrupted`, R04 KeyboardInterrupt를 삼키는 루프 + `stop` → `restarted`·상태 `restarting` → `ready`,
-//     R05 실행 중 `run` 두 번째 → `busy`, R06 실행 중 친 글자·붙여넣기가 화면에도 다음 `input()`에도 없음, R07 `ready`의 Ctrl+C 무동작,
-//     R08 출력 드래그 → 클립보드, R09 `sys.exit(3)` → `exit{ code: 3 }`, R10 `1/0` 트레이스백에 `main.py` 프레임과 소스 줄,
-//     R11 두 번째 run에서 이전 변수 `NameError`·`__main__`·`__file__`, R12 미종결 줄 뒤 run → 새 줄에서 시작, R13 콘솔 경고·오류 없음
-//   not-isolated : 4174 헤더 없는 정적 서버 — 경고 문구·상태 `not-isolated`·`run` → `unavailable`·worker 없음
+// 조작과 판정:
+// - 조작: `textarea`에 코드를 넣고 `run` 버튼으로 실행한다. plain 요소(testid `code`·`run`·`stop`·`reset`·`clear`·`status`·`result`·
+//   `copy-result`·`terminal`)를 쓴다.
+// - 판정: xterm 화면 행(`.xterm-rows > div`)과 `result`·`status`로 한다.
+// - `result`는 `run()`이 돌려준 결과 유니온의 JSON 텍스트다. 거부는 `{"rejected":"<reason>"}`다(14.6).
 //
-// 사용: node runner-check.mjs <normal|not-isolated> [url](생략 시 http://localhost:5173)
-//   url은 서버 루트다(스크립트가 `/?view=runner`를 붙인다). ONLY=R01,R05 처럼 이름 접두어로 셀을 거른다("초기"는 항상 실행).
-//   결과 파일 label은 `<모드>-<서버>`(서버는 url 포트 4173이면 preview, 그 밖은 dev, repl-check와 같은 규칙):
-//   `runner-check-normal-dev.json`·`runner-check-not-isolated-dev.json`.
+// 모드:
+// - normal: 5173 dev 또는 격리 서버. 초기 3개 + R01~R13.
+// - not-isolated: 4174 헤더 없는 정적 서버. N01~N05.
+//   페이지가 격리되지 않았다, 상태 `not-isolated`, 첫 행부터 노란 경고, `run`이 `unavailable`로 거부된다, worker가 없다.
 //
-// 시간 판정(`docs/design/09-testing.md` 9.7): 고정 대기·ms 상한을 쓰지 않는다. 실행이 "진행 중"임은 출력 행 마커(`go`)로 확인하고, 결말은
-// `result`·`status`·화면 행이 조건을 만족할 때까지 `waitFor`로 기다린다. "친 키가 없다"(R06)·"Ctrl+C가 무동작이다"(R07)는 뒤따르는
-// 마커(`^C`·`mark` 출력)나 다음 실행의 결과로 확인한다. 실행 중 Ctrl+C/`stop` → 중단은 "응답성" 요구지만 이 스크립트는 ms 상한을 두지
-// 않는다(정지 감지용 timeout만). 코드 텍스트는 xterm 화면에 나오지 않으므로(에코 없음) 마커 행은 출력 행만이다(TRP-011 해당 없음).
+// normal 셀:
+// - 초기: 격리, ready 빈 화면(배너·프롬프트 없음), 터미널·worker 1개.
+// - R01: `input("이름: ")` 프롬프트 뒤 입력이 출력에 반영된다.
+// - R02: `while True: pass` + Ctrl+C. 트레이스백, 결과 `interrupted`.
+// - R03: 같은 코드 + `stop`. 결과 `interrupted`.
+// - R04: KeyboardInterrupt를 삼키는 루프 + `stop`. 결과 `restarted`, 상태 `restarting` 다음 `ready`.
+// - R05: 실행 중 `run` 두 번째. 결과 `busy`.
+// - R06: 실행 중 친 글자·붙여넣기가 화면에도 다음 `input()`에도 없다.
+// - R07: `ready`의 Ctrl+C는 무동작이다.
+// - R08: 출력 드래그가 클립보드에 복사된다.
+// - R09: `sys.exit(3)`. 결과 `exit{ code: 3 }`.
+// - R10: `1/0` 트레이스백에 `main.py` 프레임과 소스 줄이 있다.
+// - R11: 두 번째 run에서 이전 변수는 `NameError`이고 `__main__`·`__file__`이 실행창 값이다.
+// - R12: 미종결 줄 뒤 run은 새 줄에서 시작한다.
+// - R13: 콘솔 경고·오류가 없다.
+//
+// 실행 순서: 초기 → R01~R13. R01~R12는 `freshCell()`로 `ready` 빈 화면에서 시작한다.
+// - R04가 `stop()` 폴백으로 worker를 재시작한다.
+// - R05·R06은 재시작한 worker에서 첫 interrupt를 보낸다. R04→R05→R06 순서에 의존한다(BASELINE.md).
+//
+// 시간 판정은 docs/design/09-testing.md 9.7을 따른다. 고정 대기·ms 상한이 없다.
+// - "진행 중"은 출력 행 마커(`go`)로 확인한다.
+// - 결말은 `result`·`status`·화면 행이 조건을 만족할 때까지 `waitFor`로 기다린다.
+// - "친 키가 없다"(R06)와 "Ctrl+C가 무동작이다"(R07)는 뒤따르는 마커(`^C`·`mark` 출력)나 다음 실행의 결과로 확인한다.
+// - 실행 중 Ctrl+C·`stop`은 응답성 요구지만 ms 상한을 두지 않는다. 정지 감지용 timeout만 있다.
+// - 코드 텍스트는 xterm 화면에 나오지 않는다(에코 없음). 마커 행은 출력 행뿐이다(TRP-011에 걸리지 않는다).
+//
+// 사용법·`ONLY`·결과 파일 이름은 apps/demo/e2e/README.md.
+// - 인자는 `<normal|not-isolated> [url]`이다. url은 서버 루트이고 스크립트가 `/?view=runner`를 붙인다.
+// - 결과 파일 label은 `<모드>-<서버>`다(`serverLabel(url, mode)`).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { hasFg, open, readClipboard, same, seedClipboard, selectRows, show } from "../lib.mjs";
 
@@ -27,6 +49,7 @@ const { mode, url: urlArg } = checkEntry({ modes: ["normal", "not-isolated"] });
 const label = serverLabel(urlArg, mode);
 const url = new URL("/?view=runner", urlArg).href;
 
+/** 격리가 꺼진 페이지의 경고 문구. 출처는 packages/pyodide-terminal/src/terminal-runner.ts다. */
 const NOT_ISOLATED_WARNING =
   "경고: cross-origin isolation이 꺼져 있어 Python 세션을 시작하지 않습니다. 서버가 COOP/COEP 헤더를 보내야 합니다.";
 /** worker 부팅(pyodide 로드)·재시작 대기용 정지 감지 timeout(판정선이 아니다). */
@@ -37,7 +60,10 @@ const { page, step, waitFor, waitStatus, statusText, rows, rowClasses, trimmedRo
 
 const resultText = () => page.locator('[data-testid="result"]').textContent();
 const copyResultText = () => page.locator('[data-testid="copy-result"]').textContent();
-/** `result`가 비어 있지 않을 때까지 기다려 JSON으로 파싱해 돌려준다(새 실행을 시작하면 앱이 이전 결과를 지운다). */
+/**
+ * `result`가 비어 있지 않을 때까지 기다려 JSON으로 파싱해 돌려준다.
+ * 새 실행을 시작하면 앱이 이전 결과를 지운다.
+ */
 async function waitResult(description, timeoutMs = 30000) {
   await waitFor(async () => (await resultText()) !== "", `result: ${description}`, timeoutMs);
   return JSON.parse(await resultText());
@@ -47,7 +73,10 @@ async function startRun(code) {
   await page.fill('[data-testid="code"]', code);
   await page.click('[data-testid="run"]');
 }
-/** `clear` 버튼을 누르고 화면이 비워질 때까지 기다린다(입력 읽기가 열려 있으면 무동작이므로 `ready`에서만 부른다). */
+/**
+ * `clear` 버튼을 누르고 화면이 비워질 때까지 기다린다.
+ * 입력 읽기가 열려 있으면 무동작이므로 `ready`에서만 부른다.
+ */
 async function clearScreen() {
   await page.click('[data-testid="clear"]');
   await waitFor(async () => (await trimmedRows()).length === 0, "clear 뒤 빈 화면", 5000);
@@ -56,8 +85,10 @@ async function clearScreen() {
 const waitRow = (text, timeoutMs = 30000) =>
   waitFor(async () => (await rows()).some((r) => r === text), `출력 행 ${show(text)}`, timeoutMs);
 /**
- * 셀 시작 상태를 만든다: 이전 셀이 실행 중이거나 입력 대기로 남았으면 `stop`으로 끝내고, 끝 상태(`crashed`·`load-failed`)면 `reset`으로 복구해
- * `ready`가 된 뒤 화면을 지운다. 앞 셀의 실패가 뒤 셀로 번지지 않게 한다.
+ * 셀 시작 상태를 만든다. `ready`가 된 뒤 화면을 지운다.
+ * - 이전 셀이 실행 중이거나 입력 대기로 남았으면 `stop`으로 끝낸다.
+ * - 끝 상태(`crashed`·`load-failed`)면 `reset`으로 복구한다.
+ * 앞 셀의 실패가 뒤 셀로 번지지 않게 한다.
  */
 async function freshCell() {
   const current = await statusText();
@@ -66,7 +97,11 @@ async function freshCell() {
   await waitStatus(["ready"], "셀 시작: status = ready", BOOT_TIMEOUT_MS);
   await clearScreen();
 }
-/** 페이지 안 status 표시가 바뀐 이력. `installStatusLog()`가 MutationObserver로 기록한다(순간 상태 `restarting`을 폴링으로 놓치지 않게). */
+/**
+ * status 표시가 바뀔 때마다 이력(`window.__statusLog`)에 덧붙이는 MutationObserver를 페이지에 심는다.
+ * 순간 상태 `restarting`을 폴링으로 놓치지 않으려는 것이다.
+ * 이력은 `statusLogLength()`·`statusLogSince()`로 읽는다.
+ */
 async function installStatusLog() {
   await page.evaluate(() => {
     const el = document.querySelector('[data-testid="status"]');
@@ -79,7 +114,10 @@ async function installStatusLog() {
 }
 const statusLogLength = () => page.evaluate(() => window.__statusLog.length);
 const statusLogSince = (index) => page.evaluate((i) => window.__statusLog.slice(i), index);
-/** 실행 중(읽기 없음)에 붙여넣기: `paste()` 헬퍼는 화면 변화를 기다리다 던지므로 합성 이벤트를 직접 보낸다(type-ahead-check와 같은 방식). */
+/**
+ * 실행 중(읽기 없음)에 붙여넣는다.
+ * `paste()` 헬퍼는 화면 변화를 기다리다 던지므로 합성 `ClipboardEvent`를 직접 보낸다(type-ahead-check.mjs와 같은 방식).
+ */
 const pasteSilently = async (text) => {
   await focus();
   await page.evaluate((t) => {
@@ -90,6 +128,7 @@ const pasteSilently = async (text) => {
   }, text);
 };
 
+/** 출력 행 `go` 뒤 무한 루프. 실행이 진행 중임을 `go`로 확인한다. */
 const SPIN = 'print("go")\nwhile True: pass';
 
 if (mode === "normal") {
@@ -116,7 +155,8 @@ if (mode === "normal") {
     await freshCell();
     await startRun('name = input("이름: ")\nprint("안녕 " + name)');
     await waitStatus(["waiting-input"], "입력 대기 상태");
-    // 프롬프트 행이 화면에 보인 뒤에 친다(읽기가 열린 뒤다 — 열리기 전 키는 버려지고 echo가 없으면 type이 던진다).
+    // 프롬프트 행이 화면에 보인 뒤에 친다. 그때는 읽기가 열려 있다.
+    // 읽기가 열리기 전의 키는 버려지고, 에코가 없으면 `type()`이 던진다.
     await h.waitPrompt("이름:", 15000);
     await focus();
     await type("kim");
@@ -233,7 +273,8 @@ if (mode === "normal") {
     await enter();
     const r2 = await waitResult("ok");
     if (r2.kind !== "ok") throw new Error(`두 번째 결과 = ${show(r2)}`);
-    // 결과(React 상태)가 화면 행(xterm DOM 렌더러의 rAF 갱신)보다 먼저 보일 수 있다: 마지막 출력 행을 조건 대기한 뒤 전체 행을 대조한다.
+    // 결과(React 상태)가 화면 행(xterm DOM 렌더러의 rAF 갱신)보다 먼저 보일 수 있다(TRP-050).
+    // 마지막 출력 행을 조건 대기한 뒤 전체 행을 대조한다.
     await waitRow("'ok'");
     const t = await trimmedRows();
     if (!same(t, ["q: ok", "'ok'"])) throw new Error(`행 = ${show(t)}`);
@@ -243,7 +284,8 @@ if (mode === "normal") {
     await freshCell();
     await focus();
     await ctrlC();
-    // 뒤따르는 run이 마커다: 이 줄이 화면에 나온 뒤에도 행이 `mark` 하나뿐이면 앞선 Ctrl+C는 화면에도 실행에도 영향이 없다.
+    // 뒤따르는 run이 마커다.
+    // 이 줄이 화면에 나온 뒤에도 행이 `mark` 하나뿐이면 앞선 Ctrl+C는 화면에도 실행에도 영향이 없다.
     await startRun('print("mark")');
     const r = await waitResult("ok");
     if (r.kind !== "ok") throw new Error(`결과 = ${show(r)}`);
@@ -360,7 +402,8 @@ if (mode === "not-isolated") {
     const all = await rows();
     const end = all.findIndex((r) => r === "");
     const warningRows = all.slice(0, end < 0 ? all.length : end);
-    // 한글은 2열이라 여러 행으로 감기고 감기는 위치의 공백이 사라질 수 있어 공백을 뺀 문자열로 비교한다.
+    // 한글은 2열이라 여러 행으로 감기고, 감기는 위치의 공백이 사라질 수 있다.
+    // 그래서 공백을 뺀 문자열로 비교한다.
     const joined = warningRows.join("").replace(/\s/g, "");
     if (joined !== NOT_ISOLATED_WARNING.replace(/\s/g, "")) throw new Error(`경고 행 = ${show(warningRows)}`);
     const classes = await rowClasses();
@@ -381,7 +424,7 @@ if (mode === "not-isolated") {
   });
 
   await step("N05 worker가 없고 콘솔 오류·pageerror가 없다", async () => {
-    // 위 N04의 거부 응답(이벤트)이 도착한 뒤다: worker 생성 이벤트는 그보다 먼저 왔어야 한다.
+    // 앞 N04의 거부 응답(이벤트)이 이미 도착했다. worker가 만들어졌다면 생성 이벤트는 그보다 먼저 왔어야 한다.
     if (page.workers().length !== 0) throw new Error(`workers().length = ${page.workers().length}`);
     const errors = h.logs.filter((l) => l.type === "error");
     if (errors.length > 0 || h.pageErrors.length > 0) {

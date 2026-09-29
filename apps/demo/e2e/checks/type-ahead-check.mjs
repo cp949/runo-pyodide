@@ -1,7 +1,8 @@
-// RD-019 브라우저 확인: 읽기가 없는 구간(실행 중·Enter 직후·부팅 중·리셋 직후)에 친 키를 벤더 Readline이
-// 쌓았다가 다음 활성 읽기에서 순서대로 재생한다(편차 32 해소). 3.14 tty 입력 큐와 같은 결과를 기대한다.
+// RD-019 브라우저 확인: 읽기가 없는 구간(실행 중·Enter 직후·부팅 중·리셋 직후)에 친 키를
+// 벤더 Readline이 쌓았다가 다음 활성 읽기에서 순서대로 재생한다. 규칙은 `docs/design/06-editing.md` 6.7.
+// 3.14 tty 입력 큐와 같은 결과를 기대한다(편차 32 해소).
 //
-// 셀(체크리스트 T01~T12):
+// 셀 T01~T12:
 //   T01 실행 중 `abc` → 종료 뒤 마지막 행 `>>> abc`, 커서가 그 끝(브라우저 양성 대조 대상)
 //   T02 실행 중 `print(...)`+Enter → 종료 뒤 제출돼 출력 행과 새 프롬프트
 //   T03 실행 중 `ab`+Enter+`cd` → 첫 줄만 제출(NameError), `>>> cd`가 남는다(읽기당 소비)
@@ -11,19 +12,25 @@
 //   T07 실행 중 붙여넣기(합성 paste 이벤트) → 낡은 State에 그려지지 않고 다음 프롬프트에 들어온다
 //   T08 부팅 중(첫 프롬프트 전) 키 → 첫 프롬프트에서 재생
 //   T09 리셋: 리셋 전에 쌓인 키는 폐기(a), 리셋 뒤 부팅 중 친 키는 유지(b)
-//   T10 상한 4096 초과 덩어리 폐기 — 브라우저 셀 없음: 벤더 단위 시험(`type-ahead.test.ts`의 상한 경계 4096 정확히·초과 덩어리
-//       폐기·앞 유지·작은 덩어리 수용)이 같은 결과를 이미 결정적으로 고정한다. 브라우저에서 4096자를 넘겨 치면 시간만 들고 새로
-//       알게 되는 것이 없다.
+//   T10 상한 4096 초과 덩어리 폐기. 브라우저 셀이 없다.
+//       - 벤더 단위 시험(`packages/xterm-readline/test/type-ahead.test.ts`)이 같은 결과를 결정적으로 고정한다.
+//       - 그 시험은 상한 경계(4096 정확히)·초과 덩어리 폐기·앞 유지·작은 덩어리 수용을 본다.
+//       - 브라우저에서 4096자를 넘겨 치면 시간만 들고 새로 아는 것이 없다.
 //   T11 실행 중 Tab 포함 입력 → Tab 리더 훅을 거쳐 재생(완성이 적용된다)
-//   T12 실행 중 `if 1:`+Shift+Enter+`pass` → 재생된 Shift+Enter가 자동 들여쓰기를 거쳐 `>>> if 1:` / `    pass`(type-ahead-shift-enter)
+//   T12 실행 중 `if 1:`+Shift+Enter+`pass` → 재생된 Shift+Enter가 자동 들여쓰기를 거쳐 `>>> if 1:` / `    pass`
 //
-// 판정은 마커 배리어·`waitFor`로만 한다(`docs/design/09-testing.md` 9.7): 실행이 "진행 중"임은 출력 행 마커(`RUNnn`)가
-// 보인 뒤에 키를 쳐 확인하고, 재생 결과는 마지막 행이 기대 프롬프트가 될 때까지 기다린다. 고정 대기 뒤 부재·존재 판정과 ms 상한은
-// 쓰지 않는다. "쌓인 키가 없다"는 판정(T06·T09a)은 프롬프트 뒤 마커 명령(`print('…M')`)을 제출해 그 입력 행에 옛 글자가 끼지
-// 않았는지로 본다. 입력 행도 마커 문자열을 포함하므로 출력 행만 센다(TRP-011).
+// 실행 순서: T08 → 초기 → T01~T07 → T09a → T09b → T11 → T12.
+// T08은 `open()` 직후(첫 프롬프트 전)에 키를 쳐야 하므로 "초기"보다 먼저 돈다.
 //
-// 사용: node type-ahead-check.mjs [url](생략 시 http://localhost:5173)     ONLY=T01,T05 node type-ahead-check.mjs
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// 시간 판정은 `docs/design/09-testing.md` 9.7을 따른다. 판정은 마커 배리어·`waitFor`로만 한다.
+// - 실행이 "진행 중"임은 출력 행 마커(`RUNnn`)가 보인 뒤에 키를 쳐 확인한다.
+// - 재생 결과는 마지막 행이 기대 프롬프트가 될 때까지 기다린다.
+// - "쌓인 키가 없다"는 판정(T06·T09a)은 프롬프트 뒤 마커 명령(`print('…M')`)을 제출해 본다.
+//   그 입력 행에 옛 글자가 끼지 않았는지가 판정이다.
+// - 입력 행도 마커 문자열을 포함하므로 출력 행만 센다(TRP-011).
+//
+// 사용: `node type-ahead-check.mjs [url]`. `ONLY=T01,T05`로 셀을 고른다.
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 
@@ -57,8 +64,9 @@ async function waitLineEnd(expected, timeoutMs = 20000) {
 const hasOutputRow = async (text) => (await rows()).some((r) => r === text);
 
 /**
- * 실행을 시작한다: `time.sleep(seconds)` 앞에 출력 마커 `marker`를 찍고, 마커 행이 보일 때까지 기다린다(실행이 진행 중이라는
- * 배리어). `tail`은 마커 뒤 같은 줄에 이어 붙일 문장이다(`; v = input()` 등).
+/**
+ * 실행을 시작한다: `time.sleep(seconds)` 앞에 출력 마커 `marker`를 찍고, 마커 행이 보일 때까지 기다린다.
+ * 마커 행이 실행이 진행 중이라는 배리어다. `after`는 마커 뒤 같은 줄에 이어 붙일 문장이다(`; v = input()` 등).
  */
 async function startRunning(marker, seconds, after = "") {
   await clear();
@@ -67,7 +75,11 @@ async function startRunning(marker, seconds, after = "") {
   await waitFor(() => hasOutputRow(marker), `실행 마커 ${marker}`, 15000);
 }
 
-/** 각 셀이 끝난 뒤(또는 실패한 뒤) 빈 프롬프트로 되돌린다. 실행 중이면 Ctrl+C로 끊는다. */
+/**
+ * 셀이 실패한 뒤 남은 상태를 빈 프롬프트로 되돌린다. `taStep`이 실패 때만 부른다. 최대 4바퀴 돈다.
+ * - 입력이 남은 프롬프트(`>>> …`, 커서가 그 행): Ctrl+U.
+ * - 그 밖: Ctrl+C.
+ */
 async function recover() {
   for (let i = 0; i < 4; i += 1) {
     const all = await rows();
@@ -91,6 +103,7 @@ async function recover() {
     ).catch(() => {});
   }
 }
+/** 셀을 실행한다. 실패하면 `recover()`로 빈 프롬프트를 되돌린다. */
 async function taStep(name, fn) {
   await step(name, fn);
   if (h.checks[name] === false) await recover();
@@ -165,8 +178,11 @@ await taStep("T03 실행 중 `ab`+Enter+`cd` → 첫 줄 `ab`만 제출(NameErro
   await clearInput();
 });
 
-// 이 셀은 Enter 직후 지연 0ms에 키 1개를 친다. 수정 전(RD-019 이전) 측정에서 0ms 유입이 1/10이었으므로(편차 32 실측) 이 셀 하나가
-// 회귀를 잡을 확률은 약 90%다 — 회귀 검출력은 (1) 벤더 단위 "콜백 대기 중 키" 시험 (2) T01의 `sleep` 셀이 결정적으로 맡는다.
+// 이 셀은 Enter 직후(지연 0ms)에 키 1개를 친다.
+// 수정 전(RD-019 이전) 측정에서 0ms 유입이 1/10이었다(편차 32 실측). 이 셀 하나가 회귀를 잡을 확률은 약 90%다.
+// 회귀 검출력은 아래 둘이 결정적으로 맡는다.
+// - 벤더 단위 "콜백 대기 중 키" 시험
+// - T01의 `sleep` 셀
 await taStep("T04 Enter 직후(지연 0ms) `z` 1회 → 다음 프롬프트 `>>> z`", async () => {
   await clear();
   await press("Enter");
@@ -193,7 +209,7 @@ await taStep("T06 실행 중 `abc` 뒤 Ctrl+C → KeyboardInterrupt, 쌓인 `abc
   await assertNoLeftover("T06M");
 });
 
-/** 실행 중 화면을 바꾸지 않고 xterm에 합성 paste 이벤트를 보낸다(`lib.mjs`의 `paste()`는 화면 변화를 기다려 실행 중에는 쓸 수 없다). */
+/** 실행 중 화면을 바꾸지 않고 xterm에 합성 paste 이벤트를 보낸다. `lib.mjs`의 `paste()`는 화면 변화를 기다려 실행 중에는 쓸 수 없다. */
 const pasteSilently = async (text) => {
   await focus();
   await page.evaluate((t) => {
@@ -236,10 +252,12 @@ await taStep("T09b 리셋 뒤 부팅 중(loading) 친 키는 새 세션 첫 프�
   await submit("import os");
 });
 
-// Tab이 **마지막 키**인 입력만 판정한다. Tab 뒤에 키가 이어지면 재생은 한 틱에 끝나 `os.getc` → Tab(worker 왕복 시작) → `(`·`)`가
-// 왕복 응답 전에 삽입되고, 응답 적용 조건(버퍼·커서가 요청 시점과 같아야 함, `tab-reader.ts` `applyResume`, RD-015 확정 3)에 걸려
-// 완성이 버려져 `>>> os.getc()`가 된다(실측). 이는 사람이 왕복(약 25ms)보다 빨리 이어 치는 경우와 같은 기존 경합 규칙이라 이
-// DELTA에서 고치지 않는다.
+// Tab이 **마지막 키**인 입력만 판정한다. Tab 뒤에 키가 이어지면 다음이 일어난다.
+// - 재생은 한 틱에 끝난다: `os.getc` → Tab(worker 왕복 시작) → `(`·`)`.
+// - `(`·`)`가 왕복 응답 전에 삽입된다.
+// - 응답 적용 조건에 걸린다. 버퍼·커서가 요청 시점과 같아야 한다(`tab-reader.ts` `applyResume`, `docs/design/07-tab-completion.md` 7.1).
+// - 완성이 버려져 `>>> os.getc()`가 된다(실측).
+// 사람이 왕복(약 25ms)보다 빨리 이어 치는 경우와 같은 기존 경합 규칙이다. 이 셀에서 고치지 않는다.
 await taStep("T11 실행 중 Tab 포함 입력 `os.getc`+Tab → Tab 리더 훅을 거쳐 `>>> os.getcwd`", async () => {
   await startRunning("RUN11", 2);
   await page.keyboard.type("os.getc");
@@ -248,9 +266,10 @@ await taStep("T11 실행 중 Tab 포함 입력 `os.getc`+Tab → Tab 리더 훅�
   await clearInput();
 });
 
-// Shift+Enter는 xterm `onData`가 아니라 벤더 `handleKeyEvent`의 `keydown`으로 들어와 `Input` 항목으로 쌓인다. 재생은 `readKey`를 거쳐
-// `onKey` 훅(자동 들여쓰기)이 개행 뒤 4칸을 넣는다(`docs/design/06-editing.md` 6.3·6.7). 단위 시험은 훅이 `ShiftEnter`를 받는 것까지만
-// 보므로 실제 들여쓰기는 이 셀이 처음 확인한다. 웹은 Enter 1회로 여러 줄을 실행하고(편차 7) 둘째 줄에 `... ` 접두사가 없다(편차 10).
+// Shift+Enter는 xterm `onData`가 아니라 벤더 `handleKeyEvent`의 `keydown`으로 들어와 `Input` 항목으로 쌓인다.
+// 재생은 `readKey`를 거치고 `onKey` 훅(자동 들여쓰기)이 개행 뒤 4칸을 넣는다(`docs/design/06-editing.md` 6.3·6.7).
+// 단위 시험은 훅이 `ShiftEnter`를 받는 것까지만 본다. 실제 들여쓰기는 이 셀이 처음 확인한다.
+// 웹은 Enter 1회로 여러 줄을 실행하고(편차 7) 둘째 줄에 `... ` 접두사가 없다(편차 10).
 await taStep("T12 실행 중 `if 1:`+Shift+Enter+`pass` → 자동 들여쓰기를 거쳐 `>>> if 1:` / `    pass`", async () => {
   await startRunning("RUN12", 2);
   await page.keyboard.type("if 1:");

@@ -1,8 +1,13 @@
-// 참고용 보조 진단(사전 확인, 채택 아님): _is_stdlib_module만 zipimporter도 stdlib로 인정하도록 오버라이드한
-// 서브클래스를 pyodide에서 lines_B.json 전체에 돌려, 네이티브 결과와 같아지는 줄/남는 차이 줄을 기록한다.
+// 참고용 보조 진단이다. 채택한 방식이 아니다.
+// - `_is_stdlib_module`만 zipimporter도 stdlib로 인정하도록 오버라이드한 서브클래스를 만든다.
+// - 그 서브클래스를 pyodide에서 `lines_B.json` 전체에 돌린다.
+// - 기록하는 줄 분류: 패치로 네이티브와 같아진 줄(`fixed_by_patch`), 패치 뒤에도 네이티브와 다른 줄(`still_differs`), 원래 같았다가 패치로 달라진 줄(`regressed`).
+//
 // 사용: node pyodide_zip_patch_check.mjs --dir <작업 폴더> [--pyodide <pyodide 패키지 폴더>]
-// 작업 폴더에 lines_B.json·native_result.json·pyodide_result.json이 먼저 있어야 하고, pyodide_zip_patch_check.json을 같은 폴더에 쓴다.
-// 서술 산출물이라 기준 대조 대상이 아니다. pyodide 해석 순서는 resolve_pyodide.mjs 상단 주석.
+// - 작업 폴더에 `lines_B.json`·`native_result.json`·`pyodide_result.json`이 먼저 있어야 한다.
+// - `pyodide_zip_patch_check.json`을 같은 폴더에 쓴다.
+// - 서술 산출물이라 기준 대조 대상이 아니다.
+// - pyodide 해석 순서는 `resolve_pyodide.mjs` 상단 주석이다.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { importPyodide, splitPyodideArg } from './resolve_pyodide.mjs'

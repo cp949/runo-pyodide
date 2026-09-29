@@ -1,18 +1,27 @@
-// RD-006b 브라우저 검증(REPL 프롬프트 이어붙임)의 RD-005 해당 시나리오 이식. 이전 구현
-// RD-006b `browser-check.mjs`(74개) 중
-//   초기 프롬프트, T1, U1, W1, W3, W4, W5, X1, Y1~Y4, Z1, Z2, AA×5, AB1, AB2, 끝 pageerror 없음
-// 을 새 데모(포트 5173, 하니스 lib.mjs)에 맞춰 옮겼다. 기대 행·입력 문장은 이전 스크립트의 것을 그대로 쓴다.
-// 이전과 달라진 입력 방식(모두 새 구현이 아직 갖지 않은 기능을 피하는 것이다):
-//   - U1: 이전은 `input("p: ")`로 꼬리 비움을 봤다(stdin은 RD-006). 같은 성질(읽기가 꼬리를 비운다)을 출력 없는 문장 `pass`로 본다.
-//   - 블록 안 줄은 자동 들여쓰기(RD-013)가 없어 공백 4칸을 직접 친다(`... ` 프롬프트 + 4칸 = 이전 화면과 같은 행).
-//   - 정리에 Ctrl+C(RD-007) 대신 Ctrl+U(줄 지우기) + 빈 Enter를 쓴다.
-//   - AB의 400토큰(스크롤백 관찰)은 판정 밖이라 옮기지 않았다. 250토큰(16행)은 24행 뷰포트 안이라 DOM 행으로 센다.
-// 건너뛴 ID → 대상 RD: A1~A5·B1·B2·C1·C2·D1·E1·E2·H1·H2·K1~K3·L1·M1·M2·N1~N3·O1·O2·P1~P9·Q1·R1·S1·J1·J3 → RD-006/008
-//   (input()·stdin), F×5·G1·G2 → RD-007(Ctrl+C·송신기), G3·W2 → RD-008(프롬프트 취소), X2·X3 → RD-014(블록 history),
-//   AC1·J2 → RD-010(세션 리셋), V·AD(관찰 항목) → 해당 RD와 함께.
-// 출처 RD-005에서 이관(RD-018).
-// 사용: node prompt-join-check.mjs <url>(생략 시 http://localhost:5173)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
+// RD-005 브라우저 확인: REPL 프롬프트가 개행 없는 출력의 꼬리 뒤에 한 줄로 이어 붙는다(`t>>> `).
+// 규칙은 `docs/design/04-stdin-input.md` 3.3. RD-005에서 이관했다(RD-018).
+//
+// 이전 구현 RD-006b `browser-check.mjs`(74개) 중 아래를 새 데모(포트 5173, 하니스 `lib.mjs`)로 옮겼다.
+//   초기 프롬프트, T1, U1, W1, W3, W4, W5, X1, Y1~Y4, Z1, Z2, AA×5, AB1, AB2, AD, 끝 pageerror 없음
+// 기대 행·입력 문장은 이전 스크립트의 것을 그대로 쓴다. AD의 기대값은 실측값이다(편차 44).
+//
+// 입력 방식이 이전과 다른 곳:
+// - U1: 이전은 `input("p: ")`로 꼬리 비움을 봤다(stdin은 RD-006). 같은 성질(읽기가 꼬리를 비운다)을 출력 없는 문장 `pass`로 본다.
+// - X1 블록 본문: `... ` 프롬프트 뒤 공백 4칸을 직접 친다. 이전 화면과 같은 행을 만들려던 입력이다.
+//   RD-013 프리필(4칸)이 이미 채워지므로 본문은 8칸이 된다. 한 줄 본문이라 문법은 유효하고 판정은 꼬리 `012>>>`만 본다.
+// - 정리: Ctrl+C(RD-007) 대신 Ctrl+U(줄 지우기) + 빈 Enter를 쓴다.
+// - AB: 400토큰(스크롤백 관찰)은 판정 밖이라 옮기지 않았다. 250토큰(16행)은 24행 뷰포트 안이라 DOM 행으로 센다.
+//
+// 건너뛴 ID와 대상 RD:
+// - A1~A5·B1·B2·C1·C2·D1·E1·E2·H1·H2·K1~K3·L1·M1·M2·N1~N3·O1·O2·P1~P9·Q1·R1·S1·J1·J3: RD-006·008(`input()`·stdin)
+// - F×5·G1·G2: RD-007(Ctrl+C·송신기)
+// - G3·W2: RD-008(프롬프트 취소)
+// - X2·X3: RD-014(블록 history)
+// - AC1·J2: RD-010(세션 리셋)
+// - V(관찰 항목): 해당 RD와 함께
+//
+// 사용: `node prompt-join-check.mjs [url]`
+// 결과 파일 규칙은 README "결과 파일 규칙".
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { hasFg, open, same, show } from "../lib.mjs";
 
@@ -131,8 +140,9 @@ await step("Z2 [편차 기록] 프롬프트보다 긴 잔여물은 지워진다(
   await resetPrompt();
 });
 
-// AA. 폭을 넘는 꼬리: 앞 행이 중복되지 않고 나머지 뒤에 프롬프트가 온다(TRAP-15). 3.14 pty 실측: 100자 → `x×80` / `x×20>>> `,
-// 정확히 80자 → 다음 행 열 0의 `>>> `.
+// AA. 폭을 넘는 꼬리: 앞 행이 중복되지 않고 나머지 뒤에 프롬프트가 온다(TRAP-15).
+// 3.14 pty 실측: 100자 → `x×80` / `x×20>>> `, 정확히 80자 → 다음 행 열 0의 `>>> `.
+/** 터미널 폭(80)을 꽉 채운 행. */
 const Q80 = "q".repeat(80);
 for (const [label2, code, fullRows, lastExpected] of [
   ["100자(2행)", 'print("q" * 100, end="")', 1, `${"q".repeat(20)}>>>`],
@@ -140,8 +150,7 @@ for (const [label2, code, fullRows, lastExpected] of [
   ["200자(3행)", 'print("q" * 200, end="")', 2, `${"q".repeat(40)}>>>`],
   ["정확히 80자", 'print("q" * 80, end="")', 1, ">>>"],
 ]) {
-  // eslint 대상 밖(e2e/**)이라 no-shadow 우려 없이 원문 그대로 둘 수 있었지만, 바깥 스코프의
-  // RD-018 label(결과 파일 label)과 이름이 겹쳐 읽기 혼동이 있어 label2로 바꿨다(판정 로직 불변).
+  // 바깥 스코프의 `label`(결과 파일 label)과 이름이 겹치지 않게 `label2`를 쓴다.
   await step(`AA 폭 초과 꼬리 ${label2}: 코드 줄 아래 ${fullRows}행이 한 번씩만 나오고 마지막 행이 ${lastExpected}이다`, async () => {
     await runTail(code, lastExpected);
     const t = await tail(fullRows + 2);
@@ -159,8 +168,10 @@ await step("AA 전각 꼬리(45자 = 90칸): 첫 행(40자)이 한 번만 나오
   await resetPrompt();
 });
 
-// AB. 뷰포트를 채우는 꼬리. 토큰(`0000 `…, 5글자)으로 중복·소실을 센다. 250토큰(16행)은 24행 뷰포트 안이라 DOM 행으로 센다.
+// AB. 뷰포트를 채우는 꼬리. 토큰(`0000 `…, 5글자)으로 중복·소실을 센다.
+// 250토큰(16행)은 24행 뷰포트 안이라 DOM 행으로 센다.
 const tokenName = (i) => String(i).padStart(4, "0");
+/** 입력 행(`{i:04d}` 포함) 뒤 화면의 토큰 `0000`~`n-1`을 세어 소실·중복 목록을 돌려준다. */
 async function tokenReport(n) {
   const all = await rows();
   const at = all.map((l, i) => (l.includes("{i:04d}") ? i : -1)).filter((i) => i >= 0).pop() ?? -1;
@@ -191,12 +202,12 @@ await step("AB2 그 프롬프트에 130자를 입력해 행이 늘어나도 소�
   if (rep.missing.length > 0 || rep.dup.length > 0) throw new Error(`소실 ${rep.missing.length} 중복 ${rep.dup.length}`);
 });
 
-// AD(RD-018 확정 8·14, docs/design/10-parity-deviations.md 편차 44): 꼬리가 든 프롬프트에서 입력 중
-// Ctrl+L을 누르면 3.14(화면 전체를 지워 `>>> foo`만 남김)와 달리 꼬리가 지워지지
-// 않고 그대로 남는다(실측). 실측값을 기대값으로 고정한다.
+// AD(편차 44, `docs/design/10-parity-deviations.md`): 꼬리가 든 프롬프트에서 입력 중 Ctrl+L을 누른다.
+// 3.14는 화면 전체를 지워 `>>> foo`만 남긴다.
+// 여기서는 꼬리가 지워지지 않고 그대로 남는다(실측). 실측값을 기대값으로 고정한다.
 await step("AD 꼬리(t>>> foo)에서 Ctrl+L은 꼬리를 지우지 않고 t>>> foo 한 행만 남긴다(편차 44)", async () => {
-  // AB2가 미제출 입력(a×130, sync:false)을 남겨 두므로(그 절의 마지막이라 원래는 정리가 필요 없었다)
-  // 먼저 제출해 깨끗한 >>> 로 돌아온다(W1 등과 같은 정리 패턴).
+  // AB2가 미제출 입력(a×130, sync:false)을 남긴다.
+  // 먼저 Ctrl+U로 지우고 빈 Enter로 깨끗한 `>>>`를 만든다(W1 등과 같은 정리 패턴).
   await killLine();
   await resetPrompt();
   await runTail('print("t", end="")', "t>>>");

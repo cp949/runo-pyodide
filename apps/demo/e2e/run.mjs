@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-// RD-018: apps/demo/e2e 묶음 실행기(node 전용, playwright 미사용). checks/·measure/ 아래의
-// 개별 스크립트가 playwright로 실제 확인을 수행하고, 이 파일은 그 스크립트들을 순서대로 부르며 서버
-// (5173 dev · 4173 preview · 4174 비격리 정적)를 관리하고 결과를 대조한다.
+// RD-018: apps/demo/e2e 묶음 실행기. node 전용이며 playwright를 쓰지 않는다.
+// - `checks/`·`measure/`의 개별 스크립트가 playwright로 실제 확인을 수행한다.
+// - 이 파일은 그 스크립트를 순서대로 부른다.
+// - 서버를 관리하고 결과를 대조한다. 서버는 5173 dev · 4173 preview · 4174 비격리 정적이다.
 //
 // 사용법: node apps/demo/e2e/run.mjs baseline|measure|check
+// - `baseline`: `SETS` 전체를 돌리고 `results/summary.json`을 쓴다.
+// - `measure`: `MEASURE_SET`을 돌린다. exit code만 본다.
+// - `check`: `checks/`·`measure/`·`node/`의 `.mjs`를 `node --check`로 검사한다.
 //
-// 서버가 이미 응답하면("기존 사용") 그대로 쓰고 이 실행기가 내리지 않는다. 이 실행기가 새로 띄운
-// 서버만 끝에 내린다. TRP-015(에이전트 세션에 딸린 nohup 백그라운드는 세션 종료로 죽어 로그만으론
-// 정상 종료와 구별이 안 됨)를 피하려고 nohup 없이 이 프로세스의 직접 자식으로 spawn하고
-// (`detached: false`), 이 프로세스가 명시적으로 SIGTERM(3초 뒤 SIGKILL)으로 끝낸다.
+// 서버 수명:
+// - 이미 응답하는 서버는 그대로 쓰고 내리지 않는다("기존 사용").
+// - 이 실행기가 띄운 서버만 끝에 내린다.
+// - nohup을 쓰지 않고 이 프로세스의 직접 자식으로 spawn한다(`detached: false`). TRP-015.
+// - 종료는 이 프로세스가 명시적으로 SIGTERM으로 한다. 3초 안에 안 끝나면 SIGKILL이다.
 import { spawn, execFile } from "node:child_process";
 import { createServer } from "node:http";
 import { readFile, readdir, rm, mkdir } from "node:fs/promises";
@@ -27,7 +32,7 @@ const repoRoot = path.resolve(demoDir, "..", ".."); // 저장소 루트
 const resultsDir = process.env.E2E_RESULTS_DIR ?? path.join(e2eDir, "results");
 const distDir = path.join(demoDir, "dist");
 
-/** url에 짧은 타임아웃으로 요청해 응답이 오는지(포트가 이미 쓰이고 있는지) 본다. 응답만 오면 상태 코드는 무관하다. */
+/** url에 짧은 타임아웃으로 요청해 응답 상태 코드를 돌려준다. 응답이 없으면 null. 포트가 쓰이는지 보는 데 쓴다. */
 async function probe(url, timeoutMs = 1000) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
@@ -37,7 +42,7 @@ async function probe(url, timeoutMs = 1000) {
   }
 }
 
-/** url이 timeoutMs 안에 응답할 때까지 폴링한다. */
+/** url이 응답할 때까지 폴링해 상태 코드를 돌려준다. `timeoutMs`를 넘기면 던진다. */
 async function waitUp(url, timeoutMs, intervalMs = 500) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -48,7 +53,7 @@ async function waitUp(url, timeoutMs, intervalMs = 500) {
   }
 }
 
-/** 명령 하나를 끝까지 실행하고 exit code가 0이 아니면 던진다(빌드처럼 완료를 기다려야 하는 단계용). */
+/** 명령 하나를 끝까지 실행한다. exit code가 0이 아니면 던진다. 빌드처럼 완료를 기다릴 단계에 쓴다. */
 function runToCompletion(cmd, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, stdio: "inherit" });
@@ -60,9 +65,11 @@ function runToCompletion(cmd, args, cwd) {
   });
 }
 
-/** tcp `port`에서 LISTEN 중인 pid 목록(없으면 빈 배열). `lsof` 의존(TRP: pnpm 버전 관리자가 자기 재실행으로
- * 중간 프로세스를 하나 더 끼워 넣어 spawn이 돌려준 `child.pid`가 실제 서버 프로세스가 아닐 수 있다 — 그래서
- * 자식 핸들이 아니라 포트를 기준으로 실제 프로세스를 찾아 끝낸다). */
+/**
+ * tcp `port`에서 LISTEN 중인 pid 목록. 없으면 빈 배열. `lsof`에 의존한다.
+ * pnpm이 자기를 다시 실행해 중간 프로세스를 끼울 수 있다(TRP-027). `spawn`이 돌려준 `child.pid`는 실제 서버가 아닐 수 있다.
+ * 그래서 자식 핸들이 아니라 포트로 실제 프로세스를 찾는다.
+ */
 async function pidsOnPort(port) {
   try {
     const { stdout } = await execFileAsync("lsof", ["-ti", `tcp:${port}`, "-sTCP:LISTEN"]);
@@ -75,7 +82,7 @@ async function pidsOnPort(port) {
   }
 }
 
-/** `port`에서 듣고 있는 프로세스를 SIGTERM으로 내리고(3초 안에 안 끝나면 SIGKILL) 완전히 비워질 때까지 기다린다. */
+/** `port`에서 듣는 프로세스에 SIGTERM을 보내고 포트가 빌 때까지 기다린다. 3초 안에 안 비면 SIGKILL을 보낸다. */
 async function killPort(port) {
   const pids = await pidsOnPort(port);
   if (pids.length === 0) return;
@@ -100,20 +107,25 @@ async function killPort(port) {
   }
 }
 
-// dev(5173)·preview(4173)는 이 저장소 스크립트를 그대로 쓴다. preview는 최신 dist가 있어야 하므로 이
-// 실행기가 띄우는 경우에만(=포트가 비어 있을 때만) 먼저 build한다. static(4174)도 같은 dist를 쓰므로
-// build는 프로세스당 한 번만(`builtPromise`로 공유) 한다.
+// dev(5173)·preview(4173)는 저장소의 pnpm 스크립트를 그대로 쓴다.
+// preview는 최신 dist가 필요하다. 이 실행기가 preview를 띄울 때(포트가 비어 있을 때)만 먼저 build한다.
+// static(4174)은 dist가 없을 때만 build한다.
+// build는 프로세스당 한 번이다. `builtPromise`로 공유한다.
 let builtPromise = null;
+
+/** `pnpm --filter demo build`를 프로세스당 한 번만 돌린다. */
 function ensureBuiltOnce() {
   if (!builtPromise) builtPromise = runToCompletion("pnpm", ["--filter", "demo", "build"], repoRoot);
   return builtPromise;
 }
 
+/** dev 서버(5173)를 띄운다. `stop`은 포트로 찾아 내린다. */
 function startDevServer() {
   spawn("pnpm", ["--filter", "demo", "dev"], { cwd: repoRoot, stdio: "ignore", detached: false });
   return { stop: () => killPort(5173) };
 }
 
+/** build 뒤 preview 서버(4173)를 띄운다. */
 async function startPreviewServer() {
   await ensureBuiltOnce();
   spawn("pnpm", ["--filter", "demo", "preview"], { cwd: repoRoot, stdio: "ignore", detached: false });
@@ -133,9 +145,8 @@ const MIME = {
 };
 
 /**
- * 4174: `apps/demo/dist`를 헤더 없이(COOP/COEP 등 교차출처 격리 헤더 없이) 서빙한다(`repl-check
- * not-isolated`용, 옛 `python3 -m http.server --directory` 대체). 이 프로세스 안의 `http.Server`라
- * child_process가 아니지만, 다른 서버와 같은 `{ stop }` 모양으로 감싼다.
+ * 4174: `apps/demo/dist`를 교차출처 격리 헤더(COOP/COEP) 없이 서빙한다. `repl-check not-isolated`·`runner-check not-isolated`용이다.
+ * 이 프로세스 안의 `http.Server`라 child_process가 아니다. 다른 서버와 같은 `{ stop }` 모양으로 돌려준다.
  */
 async function startStaticServer() {
   if (!existsSync(distDir)) await ensureBuiltOnce();
@@ -167,9 +178,9 @@ async function startStaticServer() {
 }
 
 /**
- * 서버 하나를 준비한다. 이미 떠 있으면(probe 성공) 그대로 쓰고 `owned:false`를 돌려준다(이 실행기가
- * 내리지 않는다). 아니면 startFn으로 띄우고 url이 응답할 때까지 기다린 뒤 `owned:true`와 멈추는 함수를
- * 돌려준다.
+ * 서버 하나를 준비한다.
+ * - 이미 떠 있으면(`probe` 성공) 그대로 쓰고 `owned: false`를 돌려준다. 이 실행기가 내리지 않는다.
+ * - 아니면 `startFn`으로 띄우고 url이 응답할 때까지 기다린다. `owned: true`와 `stop`을 돌려준다.
  */
 async function ensureServer(label, url, startFn, readyTimeoutMs = 60000) {
   const already = await probe(url);
@@ -199,7 +210,7 @@ const SERVER_STARTERS = {
 const SERVER_URLS = { dev: DEV_URL, preview: PREVIEW_URL, static: STATIC_URL };
 const SERVER_TIMEOUTS = { dev: 60000, preview: 180000, static: 30000 };
 
-/** names에 해당하는 서버들을 준비한다. 도중 실패하면 이미 띄운 것만 내리고 다시 던진다. */
+/** `names`의 서버들을 순서대로 준비한다. 도중에 실패하면 이미 띄운 서버만 내리고 다시 던진다. */
 async function ensureServers(names) {
   const started = [];
   try {
@@ -221,13 +232,17 @@ async function teardown(servers) {
 }
 
 /**
- * `apps/demo/e2e/baseline.json`(`BASELINE.md` 3절이 이 파일을 인용하는 원본): 허용 편차
- * 이름 접두어(`deviations`, 문자열 배열), 미실행 확인의 `{ prefix, rd }`(`unrun`), 다른 확인에 흡수된
- * 관찰 항목 `{ id, by }`(`absorbed`, 매칭에는 쓰지 않고 그대로 요약에 옮긴다 — 흡수된 항목은 애초에 독립된
- * 확인 이름으로 나타나지 않는다), 각 스크립트 자신의 판정이 이미 "의도된 forced 1건만" 확인으로 걸러낸
- * pageerror `{ file, count }`(`expectedPageErrors`, 실측한 session-reset `crash` 절·tla `sticky`
- * 절 3건). 이 개수만큼은 총 `pageerror` 집계에서 뺀다(그 이상 나오면 초과분이
- * 그대로 집계돼 회귀를 계속 잡아낸다). 파일이 없으면 전부 빈 값.
+ * `apps/demo/e2e/baseline.json`을 읽는다. `BASELINE.md` 3절이 이 파일을 인용하는 원본이다.
+ *
+ * 필드:
+ * - `deviations`: 허용 편차의 확인 이름 접두어(문자열 배열).
+ * - `unrun`: 미실행 확인 `{ prefix, rd }`.
+ * - `absorbed`: 다른 확인에 흡수된 관찰 항목 `{ id, by }`. 매칭에 쓰지 않고 요약에 그대로 옮긴다.
+ * - `expectedPageErrors`: 의도된 pageerror `{ file, count }`. 해당 스크립트 자신의 판정이 이미 확인한 건수다.
+ *   - 실측: session-reset `crash` 절과 tla `sticky` 절의 3건.
+ *   - 이 건수만큼 총 `pageerror` 집계에서 뺀다. 초과분은 그대로 집계돼 회귀를 잡는다.
+ *
+ * 파일이 없으면 모든 필드가 빈 배열이다.
  */
 function loadBaselineConfig() {
   const p = path.join(e2eDir, "baseline.json");
@@ -237,15 +252,17 @@ function loadBaselineConfig() {
 }
 
 /**
- * `results/*.json`(이 실행이 만든 것만 — `baseline` 시작 시 `results/`를 비운다)을 읽어 `failed`를
- * 모으고 `baseline.json`의 접두어와 대조해 `results/summary.json`을 쓴다. `measure/boot-press.mjs`는
- * `finish()`를 쓰지 않고 자기 `{ summary, results }` 포맷을 직접 쓴다("동작 불변" 결정). 이 스크립트를 baseline 세트에
- * 배선하면서 그 포맷도 여기서 같이 해석한다.
+ * `results/*.json`을 읽어 `failed`를 모으고 `baseline.json`의 접두어와 대조한 뒤 `results/summary.json`을 쓴다.
+ * `baseline` 시작 시 `results/`를 비우므로 이 실행이 만든 파일만 집계한다.
  *
- * `runs`(`cmdBaseline()`이 기록한 `SETS` 항목별 `{ file, args, server, only, exitCode, newFiles }`)에서
- * exit ≠ 0인데 이 항목이 만든 새 결과 파일이 없는 실행(`finish()` 전 크래시 등)은 결과 파일 집계에
- * 나타나지 않으므로 `failed`에 따로 넣는다. `file`은 결과 파일 이름 대신 스크립트 경로다. 결과 파일이
- * 하나라도 있으면(정상적인 FAIL 보고) 그 파일로 집계하고 여기서 중복 항목을 만들지 않는다.
+ * 결과 파일 형식은 둘이다.
+ * - 표준: `finish()`가 쓴다. `passed`·`total`·`ok`·`failed`·`pageErrors`를 담는다.
+ * - `measure/boot-press.mjs` 전용: `{ summary, results }`. `finish()`를 쓰지 않는다. 여기서 같이 해석한다.
+ *
+ * `runs`는 `cmdBaseline()`이 `SETS` 항목별로 기록한 `{ file, args, server, only, exitCode, newFiles }`다.
+ * - exit ≠ 0이고 새 결과 파일이 없는 실행(`finish()` 전 크래시 등)은 파일 집계에 안 나타난다. `failed`에 따로 넣는다.
+ * - 이때 `file`은 결과 파일 이름이 아니라 스크립트 경로다.
+ * - 결과 파일이 하나라도 있으면(정상적인 FAIL 보고) 그 파일로 집계한다. 중복 항목을 만들지 않는다.
  */
 async function writeSummary(runs = []) {
   const baseline = loadBaselineConfig();
@@ -305,11 +322,11 @@ async function writeSummary(runs = []) {
 }
 
 /**
- * `SETS` 항목 하나를 node 자식 프로세스로 돌린다(브라우저 자체는 각 스크립트가 playwright로 연다).
- * exit code로 흐름을 끊지 않는다 — FAIL이 있어도 스크립트는 정상적으로 exit 1을 돌려주는 게 정상이고,
- * 판정은 `finish()`가 쓴 `results/*.json`을 `writeSummary`가 나중에 모아서 한다. `spawn` 자체가 실패하면
- * (파일 없음 등) 그건 던진다. exit code(시그널로 끝나면 `null`)를 돌려주고, `cmdBaseline()`이 결과 파일
- * 없이 죽은 실행을 가리는 데 쓴다.
+ * `SETS` 항목 하나를 node 자식 프로세스로 돌린다. 브라우저는 각 스크립트가 playwright로 연다.
+ * - exit code로 흐름을 끊지 않는다. FAIL이 있으면 스크립트가 exit 1을 돌려주는 것이 정상이다.
+ * - 판정은 나중에 `writeSummary`가 `results/*.json`을 모아서 한다.
+ * - `spawn` 자체가 실패하면(파일 없음 등) 던진다.
+ * - exit code를 돌려준다. 시그널로 끝나면 `null`이다. `cmdBaseline()`이 결과 파일 없이 죽은 실행을 가리는 데 쓴다.
  */
 function runOneScript({ file, args = [], server, only }) {
   return new Promise((resolve, reject) => {
@@ -329,16 +346,20 @@ function runOneScript({ file, args = [], server, only }) {
   });
 }
 
-/** `results/`의 결과 파일 이름 집합(`summary.json` 제외). 항목 실행 전후 차이로 "이 실행이 만든 새 파일"을 가린다. */
+/** `results/`의 결과 파일 이름 집합(`summary.json` 제외). 항목 실행 전후의 차이로 그 실행이 만든 새 파일을 가린다. */
 async function listResultFiles() {
   return new Set((await readdir(resultsDir)).filter((f) => f.endsWith(".json") && f !== "summary.json"));
 }
 
+/**
+ * `baseline` 하위 명령. `results/`를 비우고 서버 3개를 준비한 뒤 `SETS`를 순서대로 돌리고 요약을 쓴다.
+ * 요약이 `ok`가 아니면 exit code를 1로 둔다.
+ */
 async function cmdBaseline() {
   await rm(resultsDir, { recursive: true, force: true });
   await mkdir(resultsDir, { recursive: true });
   const servers = await ensureServers(["dev", "preview", "static"]);
-  // SETS 항목별 exit code와 새 결과 파일. 결과 파일을 쓰기 전에 죽은 실행을 `writeSummary()`가 잡는 데 쓴다.
+  // `SETS` 항목별 exit code와 새 결과 파일. 결과 파일을 쓰기 전에 죽은 실행을 `writeSummary()`가 잡는 데 쓴다.
   const runs = [];
   try {
     for (const entry of SETS) {
@@ -361,6 +382,7 @@ async function cmdBaseline() {
   process.exitCode = summary.ok ? 0 : 1;
 }
 
+/** `measure` 하위 명령. dev 서버를 준비하고 `MEASURE_SET`을 순서대로 돌린다. 결과 JSON은 대조하지 않는다. */
 async function cmdMeasure() {
   const servers = await ensureServers(["dev"]);
   try {
@@ -373,7 +395,7 @@ async function cmdMeasure() {
   console.log(`[run.mjs] measure 완료(${MEASURE_SET.length}개 스크립트)`);
 }
 
-/** dir 아래(하위 폴더 포함)의 모든 `.mjs` 파일 경로. */
+/** `dir` 아래(하위 폴더 포함)의 모든 `.mjs` 파일 경로. `dir`이 없으면 빈 배열. */
 async function collectMjsFiles(dir) {
   if (!existsSync(dir)) return [];
   const entries = await readdir(dir, { withFileTypes: true });
@@ -386,7 +408,7 @@ async function collectMjsFiles(dir) {
   return out;
 }
 
-/** `checks/`·`measure/`·`node/`의 `.mjs`를 `node --check`로 순회한다(정적 구문 검사만, 실행하지 않는다). */
+/** `check` 하위 명령. `checks/`·`measure/`·`node/`의 `.mjs`를 `node --check`로 검사한다. 구문만 보고 실행하지 않는다. */
 async function cmdCheck() {
   const dirs = ["checks", "measure", "node"].map((d) => path.join(e2eDir, d));
   const files = (await Promise.all(dirs.map(collectMjsFiles))).flat();

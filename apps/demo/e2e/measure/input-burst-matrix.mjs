@@ -1,45 +1,56 @@
-// RD-008 취소 연타 매트릭스. RD-007 `burst-matrix.mjs` 형식.
-// `input()` 대기 중 연타(F×5)와 `... ` 프롬프트 연타(RD-012b I)를 셀별 N회 반복해 생존·형식을 본다.
+// RD-008 취소 연타 매트릭스. RD-007 `burst-matrix.mjs`와 같은 형식이다.
+// `input()` 대기 중 연타(F×5)와 `... ` 프롬프트 연타(RD-012b I)를 셀별 N회 반복해 생존과 형식을 본다.
 //
 // 셀:
-//   a    `input()` 대기 중 0ms 2회
-//   b    `input()` 대기 중 0ms 5회
-//   c    `input()` 대기 중 키 반복 20회(Control을 누른 채 c 반복)
-//   lp5  긴 프롬프트 `input("p"*70 + ": ")` + 5회
-//   sp5  짧은 프롬프트 `input("x: ")` + 5회
-//   pa   `... ` 프롬프트 0ms 2회
-//   pb   `... ` 프롬프트 0ms 5회
-//   pc   `... ` 프롬프트 키 반복 20회
+// - a: `input()` 대기 중 0ms 2회.
+// - b: `input()` 대기 중 0ms 5회.
+// - c: `input()` 대기 중 키 반복 20회(Control을 누른 채 c 반복).
+// - lp5: 긴 프롬프트 `input("p"*70 + ": ")` + 5회.
+// - sp5: 짧은 프롬프트 `input("x: ")` + 5회.
+// - pa: `... ` 프롬프트 0ms 2회.
+// - pb: `... ` 프롬프트 0ms 5회.
+// - pc: `... ` 프롬프트 키 반복 20회.
 //
-// 판정 우선순위 CRASH > HANG > DIRTY > OK
-//   CRASH  프롬프트 미복귀 + 대상 pageerror(webloop 재보고 제외)
-//   HANG   프롬프트 미복귀
-//   DIRTY  input 셀: 트레이스백이 1이 아니거나 뒤이은 `ok`가 없다
-//          프롬프트 셀: `^C`가 하나라도 있거나(게이트 항 `cancelSettling`의 판정), 취소 줄이 없거나 `ok`가 없다
-//   OK     그 밖
-// `^C` 개수는 input 셀에서는 판정이 아니라 기록이다(편차 36). `KeyboardInterrupt` 줄 수도 기록한다
-// (이전 구현 02c 한계 7의 "연타 취소가 합쳐진다"와 대조해 편차 등록 여부는 따로 판단한다).
+// 판정 우선순위: CRASH > HANG > DIRTY > OK.
+// - CRASH: 프롬프트 미복귀 + 대상 pageerror(webloop 재보고 제외). pageerror가 새로 난 실패도 CRASH로 올린다.
+// - HANG: 프롬프트 미복귀.
+// - DIRTY:
+//   - input 셀: 트레이스백이 1이 아니다.
+//   - 프롬프트 셀: `^C`가 하나라도 있다(게이트 항 `cancelSettling`의 판정). 취소 줄(`KeyboardInterrupt`)이 없다.
+//   - 두 종류 공통: 뒤이은 `ok`가 없다. 뒤이은 실행이 잔류 SIGINT로 트레이스백을 냈다.
+// - OK: 그 밖.
+// 종료 코드는 전 셀이 N/N OK이고 pageerror가 0일 때 0이다.
 //
-// 출처 RD-008에서 이관(RD-018).
-// 사용: N=20 COMBOS=a,b,c,lp5,sp5,pa,pb,pc node input-burst-matrix.mjs <url>(생략 시 http://localhost:5173)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev. 판정선은 이 DELTA에서 재측정하지 않는다(배선 확인만).
+// 기록만 하는 값:
+// - input 셀의 `^C` 개수는 판정이 아니다(편차 36).
+// - `KeyboardInterrupt` 줄 수. 프롬프트 셀에서 연타가 한 줄로 합쳐지는 것은 편차 37이다.
+//
+// 출처 RD-008에서 이관(RD-018). 사용법은 `apps/demo/e2e/README.md`.
+// 결과 파일 label은 url에 `:4173`이 있으면 preview, 그 밖은 dev다.
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { open } from "../lib.mjs";
 
 const url = process.argv[2] ?? "http://localhost:5173";
+/** 셀마다 반복하는 시행 수. 기본 20. */
 const trials = Number(process.env.N ?? 20);
+/** 돌릴 셀 이름 목록(쉼표 구분). 기본은 전 셀이다. */
 const combos = (process.env.COMBOS ?? "a,b,c,lp5,sp5,pa,pb,pc").split(",").filter(Boolean);
 
 const measureDir = path.dirname(fileURLToPath(import.meta.url));
 const resultsDir = process.env.E2E_RESULTS_DIR ?? path.join(measureDir, "..", "results");
 const label = url.includes(":4173") ? "preview" : "dev";
+/** 결과 JSON 경로. 환경변수 `OUT`으로 바꾼다. */
 const outPath = process.env.OUT ?? path.join(resultsDir, `input-burst-matrix-${label}.json`);
 
+/** `lp5` 셀의 긴 프롬프트(72자). */
 const LONG_PROMPT = 'input("p" * 70 + ": ")';
 
-/** 셀 이름 → { kind: "input"|"prompt", code?, count, hold } */
+/**
+ * 셀 이름을 연타 방식으로 바꾼다. 알 수 없는 이름이면 던진다.
+ * 반환: `{ kind: "input"|"prompt", code?, count, hold }`. `hold`가 참이면 Control을 누른 채 반복한다.
+ */
 function parseCombo(name) {
   const table = {
     a: { kind: "input", code: "burst_v = input()", count: 2, hold: false },
@@ -61,7 +72,7 @@ const started = Date.now();
 
 for (const combo of combos) {
   const spec = parseCombo(combo);
-  // 셀마다 새 페이지(cold).
+  // 셀마다 새 페이지(cold)를 연다.
   const h = await open(url);
   const {
     waitPrompt, waitPromptTail, clear, type, enter, rows, focus, ctrlCBurst, holdCtrlC,
@@ -88,9 +99,11 @@ for (const combo of combos) {
         if (before !== ">>>") await resetPrompt();
         await clear();
 
+        // 연타 전에 읽기를 연다.
         if (spec.kind === "input") {
           await type(spec.code);
           await enter();
+          // 첫 글자 에코로 읽기가 열린 것을 확인한다.
           await typeWhenReading("ab");
         } else {
           await type("if True:");
@@ -101,6 +114,7 @@ for (const combo of combos) {
         else await ctrlCBurst(spec.count);
 
         await waitPromptTail(15000);
+        // 화면이 250ms 조용해진 뒤 개수를 센다. 조용해지지 않아도 그대로 센다.
         await settled(250).catch(() => {});
         const carets = await caretCount();
         const interrupts = await interruptCount();
@@ -118,7 +132,7 @@ for (const combo of combos) {
           outcome = "DIRTY";
           detail = "취소 줄이 없다";
         } else {
-          // 잔류 SIGINT가 있으면 이 실행이 죽는다.
+          // 잔류 SIGINT가 있으면 이 실행이 중단된다.
           const last = (await rows()).filter((r) => r !== "").at(-1) ?? "";
           if (last !== ">>>") await resetPrompt();
           await clear();
@@ -144,7 +158,7 @@ for (const combo of combos) {
       bump(outcome);
       if (outcome !== "OK") cell.failures.push({ trial, outcome, detail });
       if (outcome !== "OK") {
-        // 실패한 시행 뒤 상태를 되돌린다(다음 시행이 그 잔재로 실패하지 않게).
+        // 실패한 시행의 잔재를 치운다(다음 시행이 그 잔재로 실패하지 않게).
         await resetPrompt().catch(() => {});
       }
     }

@@ -1,5 +1,6 @@
-// dom-bridge-judge.mjs 판정 함수 시험. 통과 입력뿐 아니라 실패해야 하는 입력(양성 대조)도 확인한다: 판정이 항상 통과하는 함수라면 아래 실패 시험이
-// 잡는다. `pnpm --filter demo test`가 실행한다.
+// dom-bridge-judge.mjs 판정 함수 시험. 가짜 이벤트 열·화면 행으로 확인한다. 브라우저는 없다.
+// 통과 입력과 실패해야 하는 입력(양성 대조)을 함께 둔다. 판정이 항상 통과하면 실패 시험이 잡는다.
+// `pnpm --filter demo test`가 실행한다.
 import { describe, expect, it } from "vitest";
 import {
   judgeAfterCallReturn,
