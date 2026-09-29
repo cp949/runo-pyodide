@@ -129,7 +129,6 @@ export class LineBuffer {
    *
    * - 열은 코드 포인트 수로 센다. 전각 문자의 화면 폭은 반영하지 않는다.
    * - 버퍼 0번 줄은 프롬프트 뒤에 그려진다. `promptCols`는 그 프롬프트가 차지하는 열 수다.
-   * - 도착 열이 0이면 도착 줄 처음이 아니라 도착 줄 끝으로 간다(현재 동작).
    */
   public moveLineUp(n: number, promptCols: number = 0): boolean {
     const off = this.buf.slice(0, this.pos).lastIndexOf("\n");
@@ -172,12 +171,8 @@ export class LineBuffer {
 
     const slice = [...this.buf.slice(destStart, destEnd)].slice(0, destBufCol);
 
-    let gIdx = off;
-    if (slice.length > 0) {
-      gIdx = slice.map((c) => c.length).reduce((acc, m) => acc + m, 0);
-      gIdx = destStart + gIdx;
-    }
-    this.pos = gIdx;
+    const units = slice.map((c) => c.length).reduce((acc, m) => acc + m, 0);
+    this.pos = destStart + units;
     return true;
   }
 

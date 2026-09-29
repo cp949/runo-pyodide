@@ -119,3 +119,37 @@ test("프롬프트 폭이 없으면 moveLineUp·moveLineDown은 글자 수 기�
   // 시각 열 4 = 버퍼 열 4. 커서는 0행의 'd'와 'e' 사이에 놓인다.
   expect(line.pos).toBe(4);
 });
+
+test("moveLineUp은 도착 열이 0이면 도착 줄 처음으로 간다", () => {
+  const line = new LineBuffer();
+  // 두 번째 줄 처음(열 0)에 커서를 둔다.
+  line.update("abc\nde", 4);
+  expect(line.moveLineUp(1)).toBeTruthy();
+  expect(line.pos).toBe(0);
+});
+
+test("moveLineUp은 여러 줄 위로 올라가도 도착 열 0이면 도착 줄 처음으로 간다", () => {
+  const line = new LineBuffer();
+  // 셋째 줄 처음(위치 7)에서 두 줄 올라가면 첫 줄 처음이다.
+  line.update("abc\nde\nfg", 7);
+  expect(line.moveLineUp(2)).toBeTruthy();
+  expect(line.pos).toBe(0);
+
+  // 넷째 줄 처음(위치 10)에서 두 줄 올라가면 둘째 줄 처음이다.
+  line.update("abc\nde\nfg\nhi", 10);
+  expect(line.moveLineUp(2)).toBeTruthy();
+  expect(line.pos).toBe(4);
+});
+
+test("moveLineUp은 도착 줄이 비어 있으면 그 줄에 머문다", () => {
+  const line = new LineBuffer();
+  // 둘째 줄이 비어 있다. 셋째 줄 열 1에서 한 줄 올라가면 빈 줄(위치 4)이다.
+  line.update("abc\n\nde", 6);
+  expect(line.moveLineUp(1)).toBeTruthy();
+  expect(line.pos).toBe(4);
+
+  // 빈 줄 두 개 위로 올라가도 도착 줄 처음이다.
+  line.update("\n\nde", 3);
+  expect(line.moveLineUp(2)).toBeTruthy();
+  expect(line.pos).toBe(0);
+});
