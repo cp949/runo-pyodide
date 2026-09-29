@@ -1,9 +1,10 @@
 /**
- * `usePythonRunner`(RD-024): xterm 없이 core `createRunner`를 React 수명에 붙인다. 마운트 때 만들고 언마운트(cleanup)에서
- * `dispose()`한다. StrictMode에서는 worker가 2개 만들어지고 1개가 terminate돼 살아 있는 것은 1개다(첫 worker의 pyodide 로드
- * 낭비는 수용한다, 08-session.md 8.2). 콜백(`onOutput`·`onStatus`·`onCrash`·`onLoadFailed`·`inputProvider`)은 latest-ref라
- * 인라인 람다여도 재마운트가 없고 항상 최신 함수가 불린다. 생성 옵션(`createWorker`·`pyodide`·`filename`·`topLevelAwait`)은
- * 마운트 때만 읽는다(바꾸려면 소비자가 `key`로 재마운트한다).
+ * `usePythonRunner`(RD-024): xterm 없이 core `createRunner`를 React 수명에 붙인다.
+ * - 마운트 때 만들고 언마운트(cleanup)에서 `dispose()`한다.
+ * - StrictMode에서는 worker가 2개 만들어지고 1개가 terminate된다. 살아 있는 것은 1개다.
+ * - 첫 worker의 pyodide 로드 낭비는 수용한다(08-session.md 8.2).
+ * - 콜백(`onOutput`·`onStatus`·`onCrash`·`onLoadFailed`·`inputProvider`)은 latest-ref다. 인라인 람다여도 재마운트가 없고 항상 최신 함수가 불린다.
+ * - 생성 옵션(`createWorker`·`pyodide`·`filename`·`topLevelAwait`)은 마운트 때만 읽는다. 바꾸려면 소비자가 `key`로 재마운트한다.
  */
 import {
   createRunner,
@@ -72,7 +73,7 @@ export function usePythonRunner(
       pyodide: mount.pyodide,
       filename: mount.filename,
       topLevelAwait: mount.topLevelAwait,
-      // 래퍼는 동기 재진입을 그대로 통과시킨다(TRP-051): 안에서 상태를 가두지 않고 호출만 전달한다.
+      // 래퍼는 동기 재진입을 그대로 통과시킨다(TRP-051). 안에서 상태를 가두지 않고 호출만 전달한다.
       onOutput: (chunk) => latest.current.onOutput(chunk),
       inputProvider: (prompt, signal) => {
         const provider = latest.current.inputProvider;

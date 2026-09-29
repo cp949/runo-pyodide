@@ -1,4 +1,4 @@
-// RD-019 DELTA-02 브라우저 확인: 읽기가 없는 구간(실행 중·Enter 직후·부팅 중·리셋 직후)에 친 키를 벤더 Readline이
+// RD-019 브라우저 확인: 읽기가 없는 구간(실행 중·Enter 직후·부팅 중·리셋 직후)에 친 키를 벤더 Readline이
 // 쌓았다가 다음 활성 읽기에서 순서대로 재생한다(편차 32 해소). 3.14 tty 입력 큐와 같은 결과를 기대한다.
 //
 // 셀(체크리스트 T01~T12):
@@ -23,7 +23,7 @@
 // 않았는지로 본다. 입력 행도 마커 문자열을 포함하므로 출력 행만 센다(TRP-011).
 //
 // 사용: node type-ahead-check.mjs [url](생략 시 http://localhost:5173)     ONLY=T01,T05 node type-ahead-check.mjs
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 
@@ -239,7 +239,7 @@ await taStep("T09b 리셋 뒤 부팅 중(loading) 친 키는 새 세션 첫 프�
 // Tab이 **마지막 키**인 입력만 판정한다. Tab 뒤에 키가 이어지면 재생은 한 틱에 끝나 `os.getc` → Tab(worker 왕복 시작) → `(`·`)`가
 // 왕복 응답 전에 삽입되고, 응답 적용 조건(버퍼·커서가 요청 시점과 같아야 함, `tab-reader.ts` `applyResume`, RD-015 확정 3)에 걸려
 // 완성이 버려져 `>>> os.getc()`가 된다(실측). 이는 사람이 왕복(약 25ms)보다 빨리 이어 치는 경우와 같은 기존 경합 규칙이라 이
-// DELTA에서 고치지 않는다(`pending-issues/02.md`).
+// DELTA에서 고치지 않는다.
 await taStep("T11 실행 중 Tab 포함 입력 `os.getc`+Tab → Tab 리더 훅을 거쳐 `>>> os.getcwd`", async () => {
   await startRunning("RUN11", 2);
   await page.keyboard.type("os.getc");

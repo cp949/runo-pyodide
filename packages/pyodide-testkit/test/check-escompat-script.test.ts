@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
- * 루트 `scripts/check-escompat.mjs`(빌드 floor Chrome 84 런타임 API 게이트, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`) 시험. 스크립트를 자식 프로세스로
- * 실행해 종료 코드와 메시지를 본다. 실제 패키지의 `dist`를 검사하는 것은 각 패키지의 `check-dist` 스크립트 뒤에 연결된
- * `check-escompat`이다(turbo `check-dist`가 `build` 뒤에 돌린다).
+ * 루트 `scripts/check-escompat.mjs` 시험.
+ * - 게이트: 빌드 floor Chrome 84를 넘는 런타임 API 사용을 막는다(ADR-0008).
+ * - 스크립트를 자식 프로세스로 실행해 종료 코드와 메시지를 본다.
+ * - 실제 패키지의 `dist` 검사는 각 패키지의 `check-dist` 스크립트가 `check-dist.mjs` 뒤에 이어 돌린다.
+ *   turbo `check-dist`가 `build` 뒤에 실행한다.
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -15,6 +17,7 @@ const SCRIPT = fileURLToPath(
   new URL("../../../scripts/check-escompat.mjs", import.meta.url),
 );
 
+// 시험마다 만든 임시 폴더. 끝나면 지운다.
 const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0))
@@ -33,6 +36,7 @@ function makeDist(files: Record<string, string>): string {
   return dir;
 }
 
+/** 스크립트를 자식 프로세스로 실행해 종료 코드와 stdout·stderr 합본을 돌려준다. `target`이 없으면 인자 없이 실행한다. */
 function run(target?: string) {
   const args = target === undefined ? [] : [target];
   const result = spawnSync(process.execPath, [SCRIPT, ...args], {
@@ -41,6 +45,7 @@ function run(target?: string) {
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
+/** 검사가 스스로 실패했다는 표식. 스크립트 부재로 난 종료 코드 1과 구분한다. */
 const FAIL_MARK = "check-escompat 실패";
 
 describe("check-escompat 스크립트", () => {
@@ -97,7 +102,7 @@ describe("check-escompat 스크립트", () => {
       expect(output).toContain(FAIL_MARK);
     });
 
-    test("주석 속 Web API 이름 언급은 오탐하지 않는다(2026-09-28 opus 리뷰, 문자열 리터럴은 검사하지 않는다)", () => {
+    test("주석 속 Web API 이름 언급은 오탐하지 않는다", () => {
       const dist = makeDist({
         "index.mjs":
           "// structuredClone(x)는 Chrome 98+\n/* crypto.randomUUID() 참고 */\nexport const a = 1;\n",
@@ -145,7 +150,8 @@ describe("check-escompat 스크립트", () => {
       expect(run(dist).status).toBe(0);
     });
 
-    test("이름이 Iterator helper·Set 메서드와 겹치는 배열/도메인 메서드 호출(collision 해제 회귀 시험)", () => {
+    // Iterator helper·Set 메서드 규칙을 끈 것의 회귀 시험. 켜면 이름이 겹치는 평범한 메서드 호출이 오탐된다.
+    test("Iterator helper·Set 메서드와 이름이 겹치는 배열·도메인 메서드 호출은 오탐하지 않는다", () => {
       const dist = makeDist({
         "index.mjs":
           "export const f = (a) => a.map((x) => x).filter(Boolean).forEach(() => {});\nexport const g = (receiver) => receiver.take((frame) => frame);\n",
@@ -204,7 +210,7 @@ describe("check-escompat 스크립트", () => {
     expect(status, output).toBe(0);
   });
 
-  test("growable SharedArrayBuffer는 기능 탐지 예외로 통과한다(dom-bridge canCreateGrowableSharedArrayBuffer)", () => {
+  test("growable SharedArrayBuffer는 기능 탐지 예외로 통과한다(dom-bridge의 canCreateGrowableSharedArrayBuffer)", () => {
     const dist = makeDist({
       "index.mjs":
         "export const f = () => { try { new SharedArrayBuffer(4, { maxByteLength: 8 }); return true; } catch { return false; } };\n",

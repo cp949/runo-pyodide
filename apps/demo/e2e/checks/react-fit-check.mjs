@@ -1,4 +1,4 @@
-// RD-024 DELTA-06 브라우저 확인: `?fit=1`에서 `@cp949/runo-pyodide-repl-react` 컴포넌트가 컨테이너(창) 너비를 따라 xterm `cols`를 바꾸는지.
+// RD-024 브라우저 확인: `?fit=1`에서 `@cp949/runo-pyodide-repl-react` 컴포넌트가 컨테이너(창) 너비를 따라 xterm `cols`를 바꾸는지.
 // 실제 xterm 6.0.0 + `@xterm/addon-fit` 0.11.0 + 실제 브라우저 + 실제 CDN pyodide. addon-fit이 xterm 비공개 API에 기대므로(`_core._renderService`)
 // 이 스크립트가 addon-fit + xterm 6.0.0 조합의 첫 실제 브라우저 `cols` 변화 확인이다(jsdom은 셀 크기가 0이라 fit이 no-op이다).
 // 컨테이너 높이는 auto라 창 크기로 바뀌는 것은 `cols`(너비)뿐이다. `rows`는 판정하지 않는다.

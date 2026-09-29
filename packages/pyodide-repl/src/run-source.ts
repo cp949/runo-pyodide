@@ -1,7 +1,8 @@
 /**
- * `runSource(code)`의 실행 슬롯(RD-022a, 확정 6·9). 핸들이 하나 소유하고 세션(worker)을 넘어 산다: 대기 중인 코드는 `reset()`을
- * 넘겨 새 worker의 첫 `>>> `에서 실행되기 때문이다. main driver는 세션마다 새로 만들어지므로 슬롯과는 `SourceLink`(좁은 창구)로만
- * 만난다. 코어 `createRunner`의 `active` 슬롯과 같은 역할이다(대기 중에도 슬롯을 차지한다).
+ * `runSource(code)`의 실행 슬롯(RD-022a, 확정 6·9).
+ * 핸들이 하나 소유한다. 세션(worker)을 넘어 산다. 대기 중인 코드가 `reset()`을 넘겨 새 worker의 첫 `>>> `에서 실행되기 때문이다.
+ * main driver는 세션마다 새로 만들어진다. 그래서 슬롯과는 `SourceLink`(좁은 창구)로만 만난다.
+ * 코어 `createRunner`의 `active` 슬롯과 같은 역할이다. 대기 중에도 슬롯을 차지한다.
  *
  * 단계:
  *
@@ -46,8 +47,10 @@ export function rejection(reason: RunRejectedReason): RunRejectedError {
 }
 
 /**
- * 슬롯에서 뗀 실행을 사건에 맞게 끝낸다. 결말이 이미 도착했으면(`settling`) 코드는 실행을 마쳤으므로 사건과 무관하게 그 결말로
- * resolve한다. 그 밖에는 `restarted`는 `{ kind: "restarted" }`로 resolve하고 나머지는 `RunRejectedError`로 reject한다.
+ * 슬롯에서 뗀 실행을 사건에 맞게 끝낸다.
+ * - 결말이 이미 도착했으면(`settling`) 그 결말로 resolve한다. 코드는 실행을 마쳤으므로 사건과 무관하다.
+ * - 그 밖에 `restarted`는 `{ kind: "restarted" }`로 resolve한다.
+ * - 나머지는 `RunRejectedError`로 reject한다.
  */
 export function endRun(run: SourceRun, event: SourceEnd): void {
   if (run.phase === "settling" && run.outcome !== undefined) {

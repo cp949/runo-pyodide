@@ -1,19 +1,19 @@
 /**
- * `ReadOptions.prefill` 시험. write 콜백 안에서 `new State` 직후 넣는 계약을 고정한다(설계
- * `docs/design/06-editing.md` 6.3, 확정 1). 이전 구현이 겪은 트랩(이 저장소 문서의 TRP-008과는
- * 다른 문서 — `/work/cp949/pyodide-samples/docs/repl/traps/TRP-008`): `read()`가 입력 상태를
- * write 콜백 안에서 **비동기로** 만들기 때문에, `read()` 호출 직후 동기로 `updateLine()`을 불러도
- * 콜백이 `new State`로 덮어써 사라진다. 아래 첫 시험이 그 재현이고, `prefill` 옵션은 콜백 *안에서*
- * 넣으므로 사라지지 않는다.
+ * `ReadOptions.prefill` 시험. write 콜백 안에서 `new State` 직후 넣는 계약을 고정한다
+ * (`docs/design/06-editing.md` 6.3).
+ * 트랩(TRAP-14, `docs/design/11-known-traps.md`):
+ * - `read()`는 입력 상태를 write 콜백 안에서 **비동기로** 만든다.
+ * - 그래서 `read()` 직후 동기로 `updateLine()`을 불러도 콜백의 `new State`가 덮어써 사라진다.
+ * - 첫 시험이 이를 재현한다. `prefill`은 콜백 *안에서* 넣으므로 사라지지 않는다.
  */
 import { expect, test } from "vitest";
 import { Readline } from "../src/readline";
 import { VTerm } from "../src/vterm";
 
 /**
- * `write()`의 콜백을 즉시 부르지 않고 큐에 쌓아 `flush()`로 미루는 스텁.
- * `read()`가 `term.write("", cb)`로 입력 상태를 만드는 타이밍을 재현하려면 콜백이 늦게 와야 한다
- * (기존 `StubTerminal`은 동기로 불러 이 트랩을 재현할 수 없다).
+ * `write()`의 콜백을 큐에 쌓아 `flush()`까지 미루는 스텁.
+ * `read()`가 `term.write("", cb)`로 입력 상태를 만드는 타이밍을 재현하려면 콜백이 늦게 와야 한다.
+ * `StubTerminal`은 기본이 동기라 이 트랩을 재현하지 못한다. 이 시험은 독립 스텁을 쓴다.
  */
 class DeferredStubTerminal {
   public cols: number;
@@ -74,6 +74,7 @@ class DeferredStubTerminal {
   }
 }
 
+/** `DeferredStubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 6) {
   const term = new DeferredStubTerminal(cols, rows);
   const rl = new Readline();
@@ -85,11 +86,11 @@ test("read() 직후 updateLine()으로 넣은 텍스트는 입력 상태가 만�
   const { term, rl } = setup();
 
   void rl.read(">>> ");
-  // read()의 write("", cb) 콜백이 아직 큐에 있다 — 입력 상태(State)는 아직 이전 것 그대로다.
+  // read()의 write("", cb) 콜백이 아직 큐에 있어 입력 상태(State)는 이전 것 그대로다.
   rl.updateLine("foo");
   expect(rl.getLine()).toBe("foo");
 
-  // 콜백이 이제 온다: read()가 new State(...)로 교체해 방금 넣은 텍스트가 사라진다.
+  // 콜백이 오면 read()가 new State(...)로 교체해 방금 넣은 텍스트가 사라진다.
   term.flush();
   expect(rl.getLine()).toBe("");
 });

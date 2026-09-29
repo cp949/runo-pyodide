@@ -1,8 +1,16 @@
 /**
- * worker 부팅 시퀀스(01-protocols.md 5절 S1, 00-architecture.md 3.1). 초기화 프레임을 받은 뒤
- * pyodide 로드 → interrupt 공개 API 확인 → 플러그인 `prepare` → 콘솔 생성 → 호환 탐지 → 런타임 연결(`attachRuntime`) → `ready` → driver 실행
- * 순서로 진행한다. 로더는 주입해 node에서 npm
- * `loadPyodide`로 시험하고 브라우저에서는 CDN 로더(`loadPyodideFromCdn`)를 쓴다.
+ * worker 부팅 시퀀스(01-protocols.md 5절 S1, 00-architecture.md 3.1).
+ * 초기화 프레임을 받은 뒤 아래 순서로 진행한다.
+ * - pyodide 로드
+ * - interrupt 공개 API 확인
+ * - 플러그인 `prepare`
+ * - 콘솔 생성
+ * - 호환 탐지
+ * - 런타임 연결(`attachRuntime`)
+ * - `ready`
+ * - driver 실행
+ *
+ * 로더는 주입한다. node 시험은 npm `loadPyodide`를 쓴다. 브라우저는 CDN 로더(`loadPyodideFromCdn`)를 쓴다.
  */
 import type { PyodideInterface } from "pyodide";
 import type { InitFrame } from "../protocol/init-frame";
@@ -23,27 +31,34 @@ import { startInterruptWatch } from "./interrupt-watch";
 import type { WorkerPlugin } from "./plugin";
 import { attachRuntime, type AttachedRuntime } from "./runtime-attach";
 
+/** 부팅이 주입받는 외부 의존. node 시험과 브라우저가 서로 다른 로더를 넣는다. */
 export interface BootDeps {
+  /** `indexURL`(끝 `/`)에서 pyodide를 로드한다. */
   loadPyodide(indexURL: string): Promise<PyodideInterface>;
 }
 
+/** {@link bootWorker}의 옵션 */
 export interface BootOptions extends BootDeps {
+  /** 이 worker의 driver */
   driver: WorkerDriver;
+
   /** 없으면 플러그인 단계가 없다. 배열 순서대로 하나씩 await한다(`WorkerPlugin`). */
   plugins?: readonly WorkerPlugin[];
 }
 
 /**
- * core가 worker 쪽에 등록하는 RPC 핸들러(main → worker 요청). 지금은 없다(main→worker 요청은 driver의 `complete`뿐이다).
- * 방향이 반대인 main 쪽 표(worker → main: `write`·`readInput` 등)는 `session/core-session.ts`의 `CORE_MAIN_HANDLER_NAMES`다.
- * 두 표는 서로 다른 RPC 끝점에 붙어 이름 충돌 검사도 따로 한다(각 끝점에서 core 표 + driver 표를 `composeRpcHandlers`로 합성).
+ * core가 worker 쪽에 등록하는 RPC 핸들러(main → worker 요청). 지금은 없다.
+ * - main → worker 요청은 driver 핸들러(REPL의 `complete`, 실행 driver의 `runCode`)뿐이다.
+ * - 방향이 반대인 main 쪽 표(worker → main: `write`·`readInput` 등)는 `session/core-session.ts`의 `CORE_MAIN_HANDLER_NAMES`다.
+ * - 두 표는 서로 다른 RPC 끝점에 붙는다. 이름 충돌 검사도 따로 한다.
+ * - 각 끝점에서 core 표 + driver 표를 `composeRpcHandlers`로 합성한다.
  */
 const CORE_WORKER_HANDLERS = {};
 
 /**
- * 플러그인이 던지거나 reject한 값을 `plugin "<name>": ` 뒤에 붙일 문구로 바꾼다. `String()`이 던지는 값(null 프로토타입 객체,
- * `toString`이 던지는 객체)이면 `Object.prototype.toString`(`[object Object]` 등)으로 대신한다: 변환이 catch 안에서 던지면 접두와
- * 플러그인 이름이 사라진 다른 오류가 loadFailed로 나간다.
+ * 플러그인이 던지거나 reject한 값을 `plugin "<name>": ` 뒤에 붙일 문구로 바꾼다.
+ * - `String()`이 던지는 값(null 프로토타입 객체, `toString`이 던지는 객체)은 `Object.prototype.toString`(`[object Object]` 등)으로 대신한다.
+ * - 변환이 catch 안에서 던지면 접두와 플러그인 이름이 사라진 다른 오류가 loadFailed로 나간다.
  */
 function describePluginFailure(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -55,23 +70,55 @@ function describePluginFailure(error: unknown): string {
 }
 
 /**
- * 순서: driver 옵션 검증(`parseOptions`) → driver 세션 생성 → RPC 생성(core + driver 핸들러 합성) → loadPyodide → interrupt 공개
- * API 확인 → 플러그인 `prepare`(배열 순서, 하나씩 await) → `driver.createConsole` → `driver.probe` → `attachRuntime` → ntf ready →
- * 감시 타이머 시작 → `driver.run`(00-architecture.md 3.1(5)). interrupt 공개 API(`setInterruptBuffer`·`checkInterrupt`)가 없으면
- * Ctrl+C가 성립하지 않아 콘솔을 만들기 전에 loadFailed로 시작을 거부한다. 플러그인(RD-023)은 그 확인을 통과한 pyodide를 받고, 던지거나
- * reject하면 `plugin "<name>": ` 접두를 붙여 같은 catch의 loadFailed로 간다(`attachRuntime` 전이라 정리할 설치가 없다). 비공개 API 지점(driver `probe` + core 4지점)은 부팅 중
- * 한 번 탐지해 `ready` 페이로드 `{ pyodideVersion, versionMismatch, degraded, details? }`로 알린다(RD-021). worker는 경고를
- * 내지 않고 main 세션이 문제가 있을 때만 `console.warn`을 한 번 낸다. `attachRuntime`(Python 런타임 연결, 순서·실패 처리는
- * 03-ctrl-c.md 2.6)이 부팅 중 눌림으로부터 시작 코드를 지키는 유일한 진입점이다.
- * 로드·interrupt API 확인·콘솔 생성·probe·런타임 연결 실패는 ntf loadFailed(String(error))로 알리고 돌아온다(worker는 살아 있다).
- * 감시 타이머(`startInterruptWatch`, 03-ctrl-c.md 2.5)는 driver 실행 직전에 켜고 실행이 끝나면(`exit()`) `finally`에서 끈다.
- * `ready` 알림 뒤(감시·driver 실행)의 잡히지 않은 예외는 ntf crashed({ message: String(error) })로 나간다(RD-010, worker는 살아 있을 수 있다).
+ * worker 부팅 시퀀스를 실행한다. 프레임을 받은 worker가 한 번 부른다.
+ *
+ * 순서:
+ * - driver 옵션 검증(`parseOptions`)
+ * - driver 세션 생성
+ * - RPC 생성(core + driver 핸들러 합성)
+ * - loadPyodide
+ * - interrupt 공개 API 확인
+ * - 플러그인 `prepare`(배열 순서, 하나씩 await)
+ * - `driver.createConsole`
+ * - `driver.probe`
+ * - `attachRuntime`
+ * - ntf ready
+ * - 감시 타이머 시작
+ * - `driver.run`(00-architecture.md 3.1(5))
+ *
+ * interrupt 공개 API(`setInterruptBuffer`·`checkInterrupt`):
+ * - 없으면 Ctrl+C가 성립하지 않는다.
+ * - 콘솔을 만들기 전에 loadFailed로 시작을 거부한다.
+ *
+ * 플러그인(RD-023):
+ * - 위 확인을 통과한 pyodide를 받는다.
+ * - 던지거나 reject하면 `plugin "<name>": ` 접두를 붙여 같은 catch의 loadFailed로 간다.
+ * - `attachRuntime` 전이라 정리할 설치가 없다.
+ *
+ * 호환 탐지(RD-021):
+ * - 비공개 API 지점(driver `probe` + core 4지점)을 부팅 중 한 번 탐지한다.
+ * - 결과는 `ready` 페이로드 `{ pyodideVersion, versionMismatch, degraded, details? }`로 알린다.
+ * - worker는 경고를 내지 않는다.
+ * - main 세션이 문제가 있을 때만 `console.warn`을 한 번 낸다.
+ *
+ * `attachRuntime`:
+ * - Python 런타임 연결이다. 순서·실패 처리는 03-ctrl-c.md 2.6.
+ * - 부팅 중 눌림으로부터 시작 코드를 지키는 유일한 진입점이다.
+ *
+ * 실패 처리:
+ * - 로드·interrupt API 확인·플러그인·콘솔 생성·probe·런타임 연결·`ready` 알림 실패는 ntf loadFailed(String(error))로 알리고 돌아온다(worker는 살아 있다).
+ * - `ready` 알림 뒤(감시·driver 실행)의 잡히지 않은 예외는 ntf crashed({ message: String(error) })로 나간다(RD-010, worker는 살아 있을 수 있다).
+ *
+ * 감시 타이머(`startInterruptWatch`, 03-ctrl-c.md 2.5):
+ * - driver 실행 직전에 켠다.
+ * - 실행이 끝나면(`exit()`) `finally`에서 끈다.
  */
 export async function bootWorker(
   frame: InitFrame,
   options: BootOptions,
 ): Promise<void> {
-  // 옵션이 틀리면 여기서 던진다: RPC·pyodide 로드 어느 것도 시작하기 전이다(프레임 검증 실패와 같이 `runWorker`가 로그로 남긴다).
+  // 옵션이 틀리면 여기서 던진다. RPC·pyodide 로드 어느 것도 시작하기 전이다.
+  // 던진 오류는 `runWorker`가 `console.error`로 남긴다.
   const driverOptions = options.driver.parseOptions(frame.driver);
   const session = options.driver.createSession(driverOptions);
   // driver 핸들러(`complete` 등)는 createRpc 생성 시에만 등록할 수 있다(`protocol/rpc.ts`, 나중 등록 API 없음).
@@ -90,7 +137,8 @@ export async function bootWorker(
   const collector = createDegradedCollector();
   try {
     pyodide = await options.loadPyodide(frame.pyodide.indexURL);
-    // 시작 거부: interrupt 공개 API가 없으면 중단 없이 실행하게 되므로 콘솔을 만들기 전에 끝낸다(`degraded`가 아니다).
+    // 시작 거부. interrupt 공개 API가 없으면 중단 없이 실행하게 된다.
+    // 콘솔을 만들기 전에 끝낸다(`degraded`가 아니다).
     const missingApi = findMissingInterruptApi(pyodide);
     if (missingApi.length > 0) {
       throw new Error(
@@ -102,10 +150,11 @@ export async function bootWorker(
       try {
         await plugin.prepare({ pyodide });
       } catch (error) {
-        // Error 두 번째 인자 `{ cause }`(Chrome 93+)는 빌드 floor Chrome 84를 넘는다(ADR-0008). own 속성으로 같은 결과를
-        // 만든다(전역 polyfill 없이). 한 가지 차이: 네이티브 `{ cause }`의 `cause`는 non-enumerable이지만 대입은
-        // enumerable이다(2026-09-28 리뷰 지적) — 이 저장소는 이 오류를 `String(error)`로만 소비해(`onLoadFailed` 등)
-        // 지금은 영향이 없다. `Object.keys`·JSON 직렬화로 다루는 코드가 생기면 이 차이를 다시 본다.
+        // Error 두 번째 인자 `{ cause }`(Chrome 93+)는 빌드 floor Chrome 84를 넘는다(ADR-0008).
+        // own 속성으로 같은 결과를 만든다(전역 polyfill 없이).
+        // 차이: 네이티브 `{ cause }`의 `cause`는 non-enumerable이고, 대입한 `cause`는 enumerable이다.
+        // 이 저장소는 이 오류를 `String(error)`로만 소비한다(`onLoadFailed` 등). 지금은 영향이 없다.
+        // `Object.keys`·JSON 직렬화로 다루는 코드가 생기면 이 차이를 다시 본다.
         const wrapped = new Error(
           `plugin "${plugin.name}": ${describePluginFailure(error)}`,
         );
@@ -120,9 +169,9 @@ export async function bootWorker(
       ctrl: frame.stdinCtrl,
       data: frame.stdinData,
     });
-    // Python 런타임 연결(03-ctrl-c.md 2.6). 실패는 loadFailed다. input()·sys.stdin 읽기는 알림을 먼저 올리고 Atomics.wait로
-    // 멈춘다(01-protocols.md 1.3). 콘솔에는 stdin_callback을 넘기지 않으므로(02-console-core.md) 이 전역 설정이
-    // 그대로 쓰인다.
+    // Python 런타임 연결(03-ctrl-c.md 2.6). 실패는 loadFailed다.
+    // input()·sys.stdin 읽기는 알림을 먼저 올리고 Atomics.wait로 멈춘다(01-protocols.md 1.3).
+    // 콘솔에는 stdin_callback을 넘기지 않는다(02-console-core.md). 이 전역 설정이 그대로 쓰인다.
     attached = attachRuntime(pyodide, pyconsole, {
       interruptBuffer,
       stdin: {
@@ -141,10 +190,10 @@ export async function bootWorker(
       }),
     );
   } catch (error) {
-    // `attached`는 attachRuntime이 성공했을 때만 정의된다. attachRuntime 도중 실패(핸들러 설치 뒤 단계가 던진
-    // 경우)는 attachRuntime이 스스로 interrupt_idle(PyProxy)을 destroy하고 다시 던지므로 `attached`가 여전히
-    // undefined라 아래는 no-op이다. attachRuntime 성공 뒤(ready 알림 등)의 실패면 이 한 번이 proxy를 놓는
-    // 유일한 destroy다(설치물 원복 없음).
+    // `attached`는 attachRuntime이 성공했을 때만 정의된다.
+    // - attachRuntime 도중 실패(핸들러 설치 뒤 단계가 던진 경우): attachRuntime이 스스로 interrupt_idle(PyProxy)을 destroy하고 다시 던진다.
+    //   이때 `attached`는 여전히 undefined라 아래는 no-op이다.
+    // - attachRuntime 성공 뒤(ready 알림 등)의 실패: 이 한 번이 proxy를 놓는 유일한 destroy다(설치물 원복 없음).
     attached?.destroy();
     rpc.notify("loadFailed", String(error));
     return;

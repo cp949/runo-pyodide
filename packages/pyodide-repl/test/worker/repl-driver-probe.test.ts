@@ -1,8 +1,11 @@
 // @vitest-environment node
 /**
- * REPL driver의 `probe`(RD-021, core `WorkerDriverSession.probe`) 배선 시험. `createConsole` 직후 core가 `probe({ pyodide,
- * pyconsole })`를 부르면 REPL 콘솔의 두 지점 탐지(`compiler-flags`·`incomplete-input-message`) 결과를 식별자 배열로 돌려준다.
- * 지점별 판정과 기능 저하는 `console-compat.test.ts`가 보고, 여기서는 driver 세션을 통한 경로만 본다. 시험마다 새 pyodide를 로드한다.
+ * REPL driver의 `probe`(RD-021, core `WorkerDriverSession.probe`) 배선 시험.
+ *
+ * - core는 `createConsole` 직후 `probe({ pyodide, pyconsole })`를 부른다.
+ * - REPL driver는 콘솔의 두 지점 탐지(`compiler-flags`·`incomplete-input-message`) 결과를 식별자 배열로 돌려준다.
+ * - 지점별 판정과 기능 저하는 `console-compat.test.ts`가 본다. 여기서는 driver 세션을 거치는 경로만 본다.
+ * - 시험마다 새 pyodide를 로드한다.
  */
 import { loadPyodide } from "pyodide";
 import { describe, expect, test, vi } from "vitest";
@@ -25,6 +28,10 @@ def _init(self, *args, **kwargs):
 pc.PyodideConsole.__init__ = _init
 `;
 
+/**
+ * 새 pyodide에 `mutation`(Python 소스)을 적용하고 driver 세션을 만들어 `createConsole` → `probe`를 core와 같은 순서로 부른다.
+ * 저하 식별자 배열(`degraded`)을 돌려준다.
+ */
 async function createAndProbe(mutation?: string) {
   const pyodide = await loadPyodide();
   if (mutation) pyodide.runPython(mutation);

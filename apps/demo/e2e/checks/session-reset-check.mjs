@@ -1,12 +1,12 @@
-// RD-010 DELTA-06 브라우저 확인. ROADMAP 시나리오 5종 + 이월 6건 + StrictMode + 크래시 유발 실측.
-// 출처 RD-010, `_works/_completed/20260922-11-rd-010-session-reset/verify/`에서 이관(RD-018).
+// RD-010 브라우저 확인. ROADMAP 시나리오 5종 + 이월 6건 + StrictMode + 크래시 유발 실측.
+// 출처 RD-010에서 이관(RD-018).
 //
 // 사용법(dev, `pnpm --filter demo dev`가 떠 있어야 함):
 //   node session-reset-check.mjs [devURL] [previewURL]
 // ONLY=<절 이름,…>로 절만 분리 실행할 수 있다(reset·cursor·ctrll·carry·ccreset·ccafter·exit·crash·strict) —
 // preview에도 그대로 적용된다(이 스크립트는 preview 전용 절 목록을 선언하지 않는다, RD-044 K6).
 // preview는 devURL·previewURL 둘 다 있을 때만 돈다(`pnpm --filter demo build && pnpm --filter demo preview`).
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 import { open, hasFg, same, show } from "../lib.mjs";
 import { checkEntry, currentOnly, exitWith, pageSelected, runDevPreview, serverLabel } from "../check-runner.mjs";
 
@@ -50,7 +50,7 @@ async function runDev(url) {
   const crashedText = () => page.locator('[data-testid="crashed"]').textContent();
   const crashedVisible = () => page.locator('[data-testid="crashed"]').count();
   const rawClick = (testid) => page.click(`[data-testid="${testid}"]`);
-  // 버튼 클릭은 xterm의 숨은 textarea에서 포커스를 가져간다 — 클릭 뒤 focus()로 되돌린다(DELTA-05에서 겪음).
+  // 버튼 클릭은 xterm의 숨은 textarea에서 포커스를 가져간다 — 클릭 뒤 focus()로 되돌린다.
   const click = async (testid) => {
     await rawClick(testid);
     await focus();

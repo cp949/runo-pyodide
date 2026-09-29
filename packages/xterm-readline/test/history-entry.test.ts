@@ -1,13 +1,15 @@
 /**
- * `ReadOptions.historyEntry` 훅과 `Readline.getHistory()` 시험.
- * 계약(RD-014 DELTA-01): Enter로 제출된 줄을 history에 넣기 직전에 훅을 부르고, 돌려준 문자열이
- * 기록된다. `resolve`는 원래 줄(`buffer()`)을 그대로 돌려준다. `skipBlankHistory`가 거른 공백뿐인
- * 제출과 취소(`cancelable` Ctrl+C)에는 훅을 부르지 않는다.
+ * `ReadOptions.historyEntry` 훅, `history: false` 옵션, `Readline.getHistory()` 시험.
+ * 계약:
+ * - Enter로 제출한 줄을 history에 넣기 직전에 훅을 부르고, 돌려준 문자열을 기록한다.
+ * - `read()`의 결과는 원래 줄(`buffer()`)이다.
+ * - `skipBlankHistory`가 거른 공백뿐인 제출과 취소(`cancelable` Ctrl+C)에는 훅을 부르지 않는다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { Readline } from "../src/readline";
 import { StubTerminal } from "./stub-terminal";
 
+/** `skipBlankHistory`를 켠 `Readline`을 `StubTerminal`에 활성화한다. */
 function setup(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false, skipBlankHistory: true });
@@ -15,6 +17,7 @@ function setup(cols = 20, rows = 8) {
   return { term, readline };
 }
 
+/** `StubTerminal`을 `Readline.activate`가 받는 xterm `Terminal` 타입으로 단언한다. */
 function readline_term(term: StubTerminal) {
   return term as unknown as Parameters<Readline["activate"]>[0];
 }

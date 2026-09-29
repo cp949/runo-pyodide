@@ -1,8 +1,10 @@
 /**
- * `<PythonRepl>` 시험(jsdom + React). 실제 `createRepl`·실제 `@xterm/xterm`·실제 `FitAddon`을 쓰고 worker만 가짜다
- * (공용 `@cp949/runo-pyodide-core/test-utils`). 두 컴포넌트 시험에서 본문이 같은 쌍(StrictMode 수명·정리 순서·copyOnSelect 반응형·
- * fit 배선 3건·ref handle 4건)은 `terminal-component.contract.test.tsx`로 옮겼다(DELTA-02). 여기는 repl 고유 시험(생성 옵션 무시·
- * `topLevelAwait` 전달)과 ref handle 위임 규칙(`runSource`·`reset({ topLevelAwait })`·`busy`)만 남았다.
+ * `<PythonRepl>` 고유 시험. jsdom + React.
+ * - 실제 `createRepl`·`@xterm/xterm`·`FitAddon`을 쓰고 worker만 가짜다(`@cp949/runo-pyodide-core/test-utils`).
+ * - 확인: 생성 옵션 전달·고정(`topLevelAwait`·`completionPopover`·`indexURL`), `onStatus`, 비격리 경고,
+ *   ref handle 위임 규칙(`runSource`·`reset({ topLevelAwait })`·`busy`·`crossOriginIsolated`), 타입 유도.
+ * - 다른 파일과의 분담: `PythonRunner`와 본문이 같은 시험은 `terminal-component.contract.test.tsx`가 본다.
+ *   StrictMode 수명, 정리 순서, `copyOnSelect` 반응형, fit 배선, ref handle 공통 부분이 여기에 든다.
  */
 import type { CopyResult } from "@cp949/runo-pyodide-terminal";
 import * as replModule from "@cp949/runo-pyodide-repl";
@@ -34,12 +36,15 @@ import {
 
 const HOST_ID = "repl-host";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks -- React hook이 아니다. beforeEach/afterEach를 등록하는 시험 하니스(RD-037 `useConsoleHarness` 선례).
+// eslint-disable-next-line react-hooks/rules-of-hooks -- React hook이 아니다. beforeEach/afterEach를 등록하는 시험 하니스다(`pyodide-repl`의 `useConsoleHarness`와 같은 방식).
 const { mount, props } = useComponentHarness<PythonReplHandle, PythonReplProps>(
   { Component: PythonRepl, hostId: HOST_ID },
 );
 
-/** `index`번째 worker가 부팅을 마쳐 `ready`를 알리게 하고 그 상태가 될 때까지 기다린다. */
+/**
+ * `index`번째 worker가 `ready`를 알리게 하고 `statuses`의 마지막 값이 `ready`가 될 때까지 기다린다.
+ * `probe`는 다른 helper와 시그니처를 맞추려고 받는다. 쓰지 않는다.
+ */
 async function becomeReady(
   probe: Probe<PythonReplHandle, PythonReplProps>,
   statuses: ReplStatus[],
@@ -51,8 +56,9 @@ async function becomeReady(
 }
 
 /**
- * 준비된 worker가 `>>> ` 읽기를 열어 `runSource`를 받을 수 있는 상태(`busy` 거짓)로 만든다. 읽기 promise는 `runSource`가 응답할 때까지
- * 끝나지 않으므로 객체에 담아 돌려준다(async 함수는 반환한 promise를 풀어 버린다).
+ * worker가 `>>> ` 읽기를 열게 해 `runSource`를 받을 수 있는 상태(`busy` 거짓)로 만든다.
+ * - 열린 읽기 promise는 `runSource`가 응답할 때까지 끝나지 않는다.
+ * - async 함수는 반환한 promise를 풀어 버린다. 그래서 객체에 담아 돌려준다.
  */
 async function openPrompt(
   probe: Probe<PythonReplHandle, PythonReplProps>,
@@ -61,7 +67,7 @@ async function openPrompt(
 ): Promise<{ read: Promise<unknown> }> {
   await becomeReady(probe, statuses, index);
   const read = factory.workers[index]!.readLine();
-  // 프롬프트가 화면에 그려지면 열린 읽기다.
+  // 프롬프트가 화면에 그려지면 읽기가 열린 것이다.
   await expect.poll(() => screenText(probe.terminal())).toContain(">>> ");
   return { read };
 }
@@ -90,12 +96,12 @@ describe("PythonRepl: xterm·worker 수명", () => {
     expect(openSpy).toHaveBeenCalledTimes(1);
     expect(probe.terminal().cols).toBe(100);
     expect(probe.terminal().rows).toBe(10);
-    // 값이 바뀌어도 이미 만든 세션의 프레임은 그대로다.
+    // 재렌더로 값이 바뀌어도 이미 만든 세션의 init 프레임은 그대로다.
     expect(
       (factory.workers[0]!.init()!.driver as { topLevelAwait?: unknown })
         .topLevelAwait,
     ).toBe(false);
-    // createRepl은 마운트 때 한 번만 불린다 — 그때 넘긴 completionPopover(true)가 재렌더로도 안 바뀐다.
+    // `createRepl`은 마운트 때 한 번만 불린다. 그때 넘긴 `completionPopover: true`가 재렌더로 바뀌지 않는다.
     expect(createReplSpy).toHaveBeenCalledTimes(1);
     expect(createReplSpy.mock.calls[0]![0]).toMatchObject({
       completionPopover: true,
@@ -118,7 +124,7 @@ describe("PythonRepl: xterm·worker 수명", () => {
       topLevelAwait: true,
     });
     const frame = factory.workers[0]!.init()!;
-    // repl은 끝 `/`가 없으면 붙인다.
+    // repl은 `indexURL` 끝에 `/`가 없으면 붙인다.
     expect(frame.pyodide.indexURL).toBe("https://cdn.example/pyodide/");
     expect(frame.driver).toMatchObject({ topLevelAwait: true });
   });
@@ -184,7 +190,7 @@ describe("PythonRepl: ref handle", () => {
         crossOriginIsolated: boolean;
         run: Promise<unknown>;
       }[] = [];
-      // 콜백 ref는 레이아웃 단계에 불려 passive effect의 repl 생성보다 먼저다.
+      // 콜백 ref는 레이아웃 단계에 불린다. passive effect의 repl 생성보다 먼저다.
       const ref = (handle: PythonReplHandle | null) => {
         if (!handle) return;
         const run = handle.runSource("1");
@@ -237,9 +243,9 @@ describe("PythonRepl: ref handle", () => {
     const probe = mount({ onStatus: (status) => statuses.push(status) });
     const { read } = await openPrompt(probe, statuses);
     const run = probe.ref.current!.runSource("1 + 1");
-    // 열린 읽기가 줄 대신 `{ source }`로 응답된다.
+    // 열린 읽기가 줄 대신 `{ source }`로 응답한다.
     await expect(read).resolves.toEqual({ source: "1 + 1" });
-    // worker가 실행을 마치고 다음 읽기를 열면서 결말을 싣는다.
+    // worker는 실행을 마치고 다음 읽기를 열면서 결말을 싣는다.
     void factory.workers[0]!.readLine(">>> ", { kind: "ok" });
     await expect(run).resolves.toMatchObject({ kind: "ok" });
   });
@@ -292,7 +298,7 @@ describe("PythonRepl: ref handle", () => {
     expect(() => handle.setCopyOnSelect(false)).not.toThrow();
     expect(() => handle.focus()).not.toThrow();
     expect(handle.crossOriginIsolated).toBe(true);
-    // 정리된 뒤 worker를 새로 만들지 않는다.
+    // 정리된 뒤에는 worker를 새로 만들지 않는다.
     expect(factory.workers).toHaveLength(1);
   });
 
@@ -306,7 +312,7 @@ describe("PythonRepl: ref handle", () => {
     expect(factory.workers[1]!.init()!.driver).toMatchObject({
       topLevelAwait: true,
     });
-    // 마지막 값 유지(sticky)는 core가 보관한다: 인자 없는 reset()이 같은 값을 다시 쓴다.
+    // 마지막 값은 core가 보관한다. 인자 없는 `reset()`은 같은 값을 다시 쓴다.
     act(() => probe.ref.current!.reset());
     expect(factory.workers).toHaveLength(3);
     expect(factory.workers[2]!.init()!.driver).toMatchObject({

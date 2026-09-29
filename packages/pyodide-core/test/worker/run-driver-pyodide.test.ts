@@ -1,18 +1,27 @@
 // @vitest-environment node
 /**
- * 실행 driver의 실제 pyodide(node) 시험. DELTA-01의 가설 확인(가설 1~8: `CodeRunner(mode="exec", filename)` +
- * `console.runcode(source, runner)` 경로가 SIGINT 계층(`sigint-handler.py`)을 수정 없이 재사용하는지)과 DELTA-02의 결말 분류
- * 통합(문법 오류 이름 통일·stdin 교체·재진입 거부·`atPrompt` 전이·종료 코드 범위)을 담는다. 시험마다 새 `loadPyodide()`를
- * 부르고 `bootWorker`의 실제 배선(`attachRuntime`·감시 타이머)을 그대로 쓴다. main 역할은 같은 스레드의
- * `MessageChannel` 반대편이다. 분류 분기 전수(가짜 콘솔)는 `run-driver-classify.test.ts`, 세션 단위(가짜 pyodide)는
- * `run-driver.test.ts`가 본다.
+ * 실행 driver의 실제 pyodide(node) 시험.
  *
- * 하니스 제약: Python이 스레드를 막는 동안에는 이 스레드의 이벤트 루프가 돌지 못한다. 그래서 (1) Ctrl+C는 별도 눌림 스레드
- * (`test/roles/interrupt-presser.ts`)가 interrupt buffer에 쓰고, (2) `input()`의 응답은 실행 전에 메일박스에 미리 넣어 둔다
- * (메일박스는 응답이 먼저 와 있어도 `wait()`가 바로 돌아온다). `readInput` 알림은 실행이 끝난 뒤에야 도착한다.
+ * 담는 것:
+ * - 가설 확인(가설 1~8): `CodeRunner(mode="exec", filename)` + `console.runcode(source, runner)` 경로가 SIGINT 계층(`sigint-handler.py`)을 수정 없이 재사용하는지 본다.
+ * - 결말 분류 통합: 문법 오류 이름 통일, stdin 교체, 재진입 거부, `atPrompt` 전이, 종료 코드 범위.
  *
- * 사용자 코드가 호출하는 시험 훅은 `probe` JS 모듈로 넣는다: 실행 driver는 run마다 새 globals를 만들므로 REPL 시험처럼
- * `pyodide.globals.set`으로 훅을 심을 수 없다.
+ * 구성:
+ * - 시험마다 새 `loadPyodide()`를 부른다.
+ * - `bootWorker`의 실제 배선(`attachRuntime`·감시 타이머)을 그대로 쓴다.
+ * - main 역할은 같은 스레드 `MessageChannel`의 반대편이다.
+ *
+ * 다른 파일이 보는 것:
+ * - 분류 분기 전수(가짜 콘솔): `run-driver-classify.test.ts`
+ * - 세션 단위(가짜 pyodide): `run-driver.test.ts`
+ *
+ * 하니스 제약: Python이 스레드를 막는 동안에는 이 스레드의 이벤트 루프가 돌지 못한다.
+ * - Ctrl+C는 별도 눌림 스레드(`test/roles/interrupt-presser.ts`)가 interrupt buffer에 쓴다.
+ * - `input()`의 응답은 실행 전에 메일박스에 미리 넣어 둔다. 응답이 먼저 와 있어도 `wait()`가 바로 돌아온다.
+ * - `readInput` 알림은 실행이 끝난 뒤에야 도착한다.
+ *
+ * 사용자 코드가 호출하는 시험 훅은 `probe` JS 모듈로 넣는다.
+ * 실행 driver는 run마다 새 globals를 만든다. REPL 시험처럼 `pyodide.globals.set`으로 훅을 심을 수 없다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { afterEach, describe, expect, test } from "vitest";
@@ -39,10 +48,12 @@ import {
   type RunSession,
 } from "../../src/worker/run-driver";
 
+/** Ctrl+C를 별도 스레드에서 누르는 역할 파일. */
 const INTERRUPT_PRESSER_ROLE = new URL(
   "../roles/interrupt-presser.ts",
   import.meta.url,
 );
+/** 메일박스에 줄을 넣는 역할 파일(감시 스레드로도 쓴다). */
 const MAILBOX_WRITER_ROLE = new URL(
   "../roles/mailbox-writer.ts",
   import.meta.url,
@@ -57,6 +68,7 @@ const STDIN_WATCHDOG_MS = 8000;
 /** 정지한 대기 시간(초). 깨우지 못하면 시험이 이 시간을 다 채우기 전에 vitest 시간 제한에서 실패한다. */
 const IDLE_WAIT_S = 60;
 
+/** 시험이 끝나면 `afterEach`가 역순으로 부르는 정리 함수. */
 const cleanups: (() => void | Promise<void>)[] = [];
 
 afterEach(async () => {
@@ -80,47 +92,66 @@ interface OutcomeView {
   code?: number;
 }
 
+/** `startRunner`가 돌려주는 시험 도구. main 역할의 조작과 관찰을 한데 묶는다. */
 interface Runner {
-  /** 코드 한 덩어리를 실행하고 결과를 기다린다(RPC `runCode`). */
+  /** 코드 한 덩어리를 실행하고 결과를 기다린다(RPC `runCode`) */
   run(source: string): Promise<OutcomeView>;
-  /** `runCode`를 기다리지 않고 시작한다(재진입 시험). */
+
+  /** `runCode`를 기다리지 않고 시작한다(재진입 시험) */
   runAsync(source: string): Promise<OutcomeView>;
-  /** 세션의 `atPrompt()`(감시 타이머가 읽는 값). */
+
+  /** 세션의 `atPrompt()`(감시 타이머가 읽는 값) */
   atPrompt(): boolean;
-  /** 사용자 코드가 `probe.entered()`를 부를 때까지 기다린다. */
+
+  /** 사용자 코드가 `probe.entered()`를 부를 때까지 기다린다 */
   entered(): Promise<void>;
-  /** 사용자 코드가 `await probe.gate()`로 기다리는 문을 연다. */
+
+  /** 사용자 코드가 `await probe.gate()`로 기다리는 문을 연다 */
   openGate(): void;
-  /** `probe.snap()`이 기록한 `atPrompt()` 값들. */
+
+  /** `probe.snap()`이 기록한 `atPrompt()` 값들 */
   snaps: boolean[];
-  /** worker가 낸 출력 누적(`write`·`writeErrorRaw` 알림). 응답보다 먼저 도착한다(같은 포트). */
+
+  /** worker가 낸 출력 누적(`write`·`writeErrorRaw` 알림). 응답보다 먼저 도착한다(같은 포트) */
   output: { stdout: string; stderr: string };
-  /** `readInput` 알림의 `cancelable` 인자들(도착 순서). */
+
+  /** `readInput` 알림의 `cancelable` 인자들(도착 순서) */
   readInputs: unknown[];
-  /** `probe.mark()`가 마지막으로 불린 시각(`process.hrtime.bigint()`). */
+
+  /** `probe.mark()`가 마지막으로 불린 시각(`process.hrtime.bigint()`) */
   markedAt(): bigint | undefined;
-  /** 눌림 스레드를 띄워 `probe.started()` 뒤 `offsetMs`에 누르게 한다. 보고는 `next()`로 받는다. */
+
+  /** 눌림 스레드를 띄워 `probe.started()` 뒤 `offsetMs`에 누르게 한다. 보고는 `next()`로 받는다 */
   startPresser(offsetMs: number): { next(): Promise<PresserEvent> };
-  /** 다음 `input()` 읽기에 줄을 미리 넣는다. */
+
+  /** 다음 `input()` 읽기에 줄을 미리 넣는다 */
   deliverLine(text: string): Promise<void>;
-  /** 다음 `input()` 읽기를 취소로 미리 표시한다. */
+
+  /** 다음 `input()` 읽기를 취소로 미리 표시한다 */
   cancelRead(): Promise<void>;
-  /** 이 스레드에서 새 눌림을 버퍼에 바로 쓴다(요청 번호 +1, 송신기 재전송 없음). */
+
+  /** 이 스레드에서 새 눌림을 버퍼에 바로 쓴다(요청 번호 +1, 송신기 재전송 없음) */
   pressNow(): void;
-  /** 버퍼에 전달 대기 눌림(SIGNAL 2)이 남아 있는가. */
+
+  /** 버퍼에 전달 대기 눌림(SIGNAL 2)이 남아 있는가 */
   pendingInterrupt(): boolean;
-  /** 참이면 감시 타이머에 `atPrompt()`를 거짓으로 보여 프롬프트 유휴 폐기를 막는다(틱보다 먼저 온 `runCode` 재현용). */
+
+  /** 참이면 감시 타이머에 `atPrompt()`를 거짓으로 보여 프롬프트 유휴 폐기를 막는다(틱보다 먼저 온 `runCode` 재현용) */
   holdIdleDiscard(value: boolean): void;
+
+  /** 부팅한 pyodide 인스턴스 */
   pyodide(): PyodideInterface;
 }
 
 /**
- * `bootWorker`를 이 스레드에서 돌려 `ready`까지 기다린다. `runDriver`와 같은 세션 팩토리를 쓰되 시험이 끝낼 수 있게
- * `RunSession.end()`를 잡아 둔다.
+ * `bootWorker`를 이 스레드에서 돌려 `ready`까지 기다린 뒤 `Runner`를 돌려준다.
+ * `runDriver`와 같은 세션 팩토리를 쓴다. 시험이 끝낼 수 있게 `RunSession.end()`를 잡아 둔다.
+ * `options`는 초기화 프레임의 `driver` 옵션이다.
  */
 async function startRunner(
   options: Partial<RunDriverOptions> = {},
 ): Promise<Runner> {
+  // worker 역할이 받을 초기화 프레임. 포트·버퍼·메일박스를 이 스레드가 쥔다.
   const channel = new MessageChannel();
   const mailbox = createStdinMailbox();
   const interruptBuffer = createInterruptBuffer();
@@ -132,6 +163,7 @@ async function startRunner(
     driver: options,
   });
 
+  // main 역할: 알림을 기록하고, 부팅 결과(`ready`·`loadFailed`·`crashed`)를 `outcome`으로 푼다.
   const output = { stdout: "", stderr: "" };
   const readInputs: unknown[] = [];
   type Outcome = { ok: true } | { ok: false; message: string };
@@ -155,7 +187,7 @@ async function startRunner(
       settle({ ok: false, message: `crashed: ${payload.message}` }),
   });
 
-  // 눌림 스레드와 공유하는 "Python이 시나리오에 들어갔다" 표시와 시각 기록.
+  // 시험 훅 `probe`의 상태. `ctl`은 눌림 스레드와 공유하는 "Python이 시나리오에 들어갔다" 표시다.
   const ctl = new Int32Array(new SharedArrayBuffer(4));
   let firstCallAt: number | undefined;
   let markedAt: bigint | undefined;
@@ -186,6 +218,7 @@ async function startRunner(
     },
   };
 
+  // worker 역할: 세션을 잡아 두는 driver로 부팅한다. pyodide에는 `probe` 모듈을 등록한다.
   let loaded: PyodideInterface | undefined;
   let session: RunSession | undefined;
   let idleDiscardHeld = false;
@@ -220,7 +253,8 @@ async function startRunner(
   const ready = await outcome;
   if (!ready.ok) throw new Error(`부팅 실패: ${ready.message}`);
 
-  /** 읽기가 막혀도 영구 정지하지 않게 8초 뒤 줄을 넣는 스레드. 정상 경로에서는 시험이 끝날 때 회수된다. */
+  // 읽기가 막혀도 영구 정지하지 않게 8초 뒤 줄을 넣는 스레드를 띄운다.
+  // 정상 경로에서는 시험이 끝날 때 회수된다.
   const armWatchdog = () => {
     spawnRole(MAILBOX_WRITER_ROLE, {
       mailbox,
@@ -268,8 +302,10 @@ async function startRunner(
 }
 
 /**
- * `source`를 실행하는 동안 눌림 스레드가 `probe.started()` 뒤 `offsetMs`에 누른다. `source`는 `probe.mark()`를 불러야 한다.
- * 결과와, 눌림 시각부터 실행이 끝나 응답을 받을 때까지의 ms를 돌려준다(두 시각 모두 스레드 공통의 `process.hrtime.bigint()`).
+ * `source`를 실행하는 동안 눌림 스레드가 `probe.started()` 뒤 `offsetMs`에 누른다.
+ * `source`는 `probe.mark()`를 불러야 한다.
+ * 결과(`outcome`)와, 눌림 시각부터 실행이 끝나 응답을 받을 때까지의 ms(`afterPressMs`)를 돌려준다.
+ * 두 시각 모두 스레드 공통의 `process.hrtime.bigint()`다.
  */
 async function runPressed(runner: Runner, source: string, offsetMs: number) {
   const presser = runner.startPresser(offsetMs);
@@ -329,8 +365,8 @@ describe("가설 2: time.sleep 중 Ctrl+C", () => {
     expect(outcome.kind).toBe("interrupted");
     expect(frameFiles(outcome.traceback)).toEqual(["main.py"]);
     expect(outcome.traceback).toContain("    time.sleep(10)\n");
-    // 응답성 요구라 상한 판정이 허용된다(09-testing.md 9.7 예외 2, 03-ctrl-c.md 2.4: 20ms 조각). 끊지 못하면 10초가 걸리므로
-    // 병렬 부하 여유를 둔 1초로 가른다.
+    // 응답성 요구라 상한 판정이 허용된다(09-testing.md 9.7 예외 2, 03-ctrl-c.md 2.4: 20ms 조각).
+    // 끊지 못하면 10초가 걸린다. 병렬 부하 여유를 둔 1초로 가른다.
     expect(afterPressMs).toBeLessThan(1000);
   }, 60_000);
 });
@@ -397,7 +433,8 @@ describe("가설 3: 정지한 실행 깨우기(exec 모드에도 active 추적�
     expect(runner.output.stdout).toBe("after\n");
   }, 20_000);
 
-  // 앞 run 끝에 도착한 눌림이 틱(20ms)의 유휴 폐기보다 먼저 온 다음 `runCode`에 남은 경우. 폐기 단계는 driver에 없고
+  // 앞 run 끝에 도착한 눌림이 틱(20ms)의 유휴 폐기보다 먼저 온 다음 `runCode`에 남은 경우다.
+  // driver에는 폐기 단계가 없다.
   // `<console>` 프레임 전의 driver Python(`run-driver.py` 준비·컴파일)에서 핸들러 규칙 ④가 버린다(14-runner.md 14.2.6).
   test("틱 폐기 전에 다음 실행이 들어와도 남은 눌림은 그 실행을 끊지 않는다", async () => {
     const runner = await startRunner();
@@ -578,7 +615,8 @@ describe("가설 7: 컴파일 플래그", () => {
     const outcome = await runner.run("if x:");
 
     expect(outcome.kind).toBe("error");
-    // IndentationError는 SyntaxError의 하위 클래스다: errorType은 통일하고 구체 이름은 트레이스백에 남는다(DELTA-02 결정).
+    // IndentationError는 SyntaxError의 하위 클래스다.
+    // errorType은 통일하고 구체 이름은 트레이스백에 남는다.
     expect(outcome.errorType).toBe("SyntaxError");
     expect(outcome.traceback).toContain("IndentationError");
     expect(outcome.traceback).toContain(
@@ -657,7 +695,7 @@ describe("가설 8: input()", () => {
   }, 60_000);
 });
 
-describe("DELTA-02: 문법 오류 errorType 통일", () => {
+describe("문법 오류 errorType 통일", () => {
   test.each([
     ["일반 문법 오류 `x = = 1`", "x = = 1", "SyntaxError: invalid syntax"],
     ["들여쓰기 오류 `if x:`", "if x:", "IndentationError"],
@@ -689,7 +727,7 @@ describe("DELTA-02: 문법 오류 errorType 통일", () => {
   }, 60_000);
 });
 
-describe("DELTA-02: 결말 분류(사용자 코드가 직접 만든 종료·중단)", () => {
+describe("결말 분류(사용자 코드가 직접 만든 종료·중단)", () => {
   test("사용자 코드가 올린 KeyboardInterrupt는 출처와 무관하게 interrupted다", async () => {
     const runner = await startRunner();
 
@@ -737,7 +775,7 @@ describe("DELTA-02: 결말 분류(사용자 코드가 직접 만든 종료·중�
   }, 60_000);
 });
 
-describe("DELTA-02: run 사이 sys.stdin", () => {
+describe("run 사이 sys.stdin", () => {
   test("이전 run이 sys.stdin.read(3)으로 남긴 버퍼가 다음 run의 input()에 새지 않는다", async () => {
     const runner = await startRunner();
     await runner.deliverLine("abcdef");
@@ -786,7 +824,7 @@ describe("DELTA-02: run 사이 sys.stdin", () => {
   }, 60_000);
 });
 
-describe("DELTA-02: atPrompt 전이와 재진입 거부(실제 부팅)", () => {
+describe("atPrompt 전이와 재진입 거부(실제 부팅)", () => {
   test("atPrompt는 실행 중에만 거짓이고 실행이 끝나면(오류 포함) 참으로 돌아온다", async () => {
     const runner = await startRunner();
     expect(runner.atPrompt()).toBe(true);
@@ -800,7 +838,7 @@ describe("DELTA-02: atPrompt 전이와 재진입 거부(실제 부팅)", () => {
     await runner.run("if x:");
     expect(runner.atPrompt()).toBe(true);
 
-    // 실행 중에 찍은 값: 셋 모두 거짓이다.
+    // 실행 중에 찍은 값이다. 셋 모두 거짓이다.
     expect(runner.snaps).toEqual([false, false, false]);
   }, 60_000);
 

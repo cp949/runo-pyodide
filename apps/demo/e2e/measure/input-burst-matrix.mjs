@@ -18,9 +18,9 @@
 //          프롬프트 셀: `^C`가 하나라도 있거나(게이트 항 `cancelSettling`의 판정), 취소 줄이 없거나 `ok`가 없다
 //   OK     그 밖
 // `^C` 개수는 input 셀에서는 판정이 아니라 기록이다(편차 36). `KeyboardInterrupt` 줄 수도 기록한다
-// (이전 구현 02c 한계 7의 "연타 취소가 합쳐진다"와 대조해 편차 등록은 DELTA-06이 판단한다).
+// (이전 구현 02c 한계 7의 "연타 취소가 합쳐진다"와 대조해 편차 등록 여부는 따로 판단한다).
 //
-// 출처 RD-008, `_works/_completed/20260922-08-rd-008-prompt-and-input-cancel/verify/`에서 이관(RD-018 DELTA-04).
+// 출처 RD-008에서 이관(RD-018).
 // 사용: N=20 COMBOS=a,b,c,lp5,sp5,pa,pb,pc node input-burst-matrix.mjs <url>(생략 시 http://localhost:5173)
 // 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev. 판정선은 이 DELTA에서 재측정하지 않는다(배선 확인만).
 import { mkdirSync, writeFileSync } from "node:fs";

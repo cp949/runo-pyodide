@@ -1,10 +1,18 @@
 // @vitest-environment node
 /**
- * REPL `runSource` 실행기(`createSourceRunner`)의 실제 pyodide(node) 시험(RD-022a DELTA-03). main이 열린 `readLine` RPC에
- * `{ source }`로 응답하면 worker 루프가 이 실행기로 코드를 REPL 콘솔에서 돌린다. 확인하는 것: REPL globals를 그대로 쓰고
- * (`x = 1` 뒤 REPL 명령 `x`), 값 에코·`_` 갱신이 없고, 트레이스백이 `<console>` 형식이며, `SystemExit`가 세션을 끝내지 않고,
- * SIGINT 규칙 ①(파일명 일치)·정지한 `await` 깨우기가 평소 명령과 같이 동작하고, TLA가 콘솔 컴파일러 플래그를 따르고,
- * `input()`이 stdin 리더를 그대로 쓰는 것. 조립(콘솔·interrupt buffer·SIGINT 핸들러·제출 러너)은 `console-harness.ts`다.
+ * REPL `runSource` 실행기(`createSourceRunner`)의 실제 pyodide(node) 시험(RD-022a).
+ * main이 열린 `readLine` RPC에 `{ source }`로 응답하면 worker 루프가 이 실행기로 코드를 REPL 콘솔에서 돌린다.
+ *
+ * 확인하는 것:
+ * - REPL globals를 그대로 쓴다(`x = 1` 뒤 REPL 명령 `x`).
+ * - 값 에코와 `_` 갱신이 없다.
+ * - 트레이스백이 `<console>` 형식이다.
+ * - `SystemExit`가 세션을 끝내지 않는다.
+ * - SIGINT 규칙 ①(파일명 일치)과 정지한 `await` 깨우기가 평소 명령과 같이 동작한다.
+ * - TLA가 콘솔 컴파일러 플래그를 따른다.
+ * - `input()`이 stdin 리더를 그대로 쓴다.
+ *
+ * 조립(콘솔·interrupt buffer·SIGINT 핸들러·제출 러너)은 `console-harness.ts`가 맡는다.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { RunOutcome } from "@cp949/runo-pyodide-core/worker";
@@ -29,13 +37,14 @@ const sources: SourceRunner[] = [];
 /** 시험이 `pyodide.globals`에 만든 이름. 다음 시험으로 새지 않게 지운다. */
 const TEST_GLOBALS = ["x", "y", "s", "sys", "asyncio", "value"];
 
+/** 시험 사이의 해체를 맡는 공용 하니스. 실행기·전역 이름·`builtins._`를 치운다. */
 const harness = useConsoleHarness({
   afterEach: (pyodide) => {
     for (const source of sources.splice(0)) source.destroy();
     for (const name of TEST_GLOBALS) {
       if (pyodide.globals.has(name)) pyodide.globals.delete(name);
     }
-    // 시험이 만든 `_`(값 에코가 남긴 builtins._)를 지운다.
+    // 값 에코가 남긴 `builtins._`를 지운다.
     pyodide.runPython(
       "import builtins\nif hasattr(builtins, '_'): del builtins._",
     );
@@ -149,7 +158,7 @@ describe("runSource: 결말 분류", () => {
     expect(screen.stdout).toBe("");
     expect(screen.stderr).toBe("");
 
-    // 세션 유지: 콘솔은 종료되지 않았고 다음 명령이 정상 실행된다.
+    // 세션 유지: 콘솔이 종료되지 않았고 다음 명령이 정상 실행된다.
     expect(await run("print('세션 유지')")).toEqual(READY);
     expect(screen.stdout).toBe("세션 유지\n");
   });
@@ -197,12 +206,13 @@ describe("runSource: SIGINT·정지한 await(평소 명령 실행과 같은 경�
   it("실행 중 SIGINT는 interrupted이고 트레이스백은 `<console>` 프레임 하나다(규칙 ① 파일명 일치)", async () => {
     const { runSource, screen, buffer } = setup();
 
-    // 사용자 프로그램 앞줄에서 눌림을 쓰고 상한 있는 바쁜 루프를 돈다. 눌림이 버려지면 루프가 끝나 `ok`가 나온다.
+    // 사용자 프로그램 앞줄에서 눌림을 쓰고, 횟수 상한이 있는 바쁜 루프를 돈다.
+    // 눌림이 버려지면 루프가 끝나 `ok`가 나온다.
     const outcome = await runSource(`press()\n${BUSY}`);
 
     expect(outcome.kind).toBe("interrupted");
     const traceback = (outcome as { traceback: string }).traceback;
-    // 폴링이 `press()` 줄(1)에 떨어질 수도 있다(위상은 앞서 실행된 코드의 양에 따라 밀린다).
+    // 폴링이 `press()` 줄(1)에 떨어질 수도 있다. 위상은 앞서 실행된 코드의 양에 따라 밀린다.
     expect(traceback).toMatch(
       /^Traceback \(most recent call last\):\n {2}File "<console>", line [12], in <module>\nKeyboardInterrupt\n$/,
     );
@@ -230,12 +240,12 @@ describe("runSource: SIGINT·정지한 await(평소 명령 실행과 같은 경�
     const elapsedMs = performance.now() - startedAt;
     await wake;
 
-    // top-level await 대기의 중단 화면: 3.14 `python -m asyncio`처럼 트레이스백 없이 한 줄이다.
+    // top-level await 대기의 중단 화면은 3.14 `python -m asyncio`처럼 트레이스백 없이 한 줄이다.
     expect(outcome).toEqual({
       kind: "interrupted",
       traceback: "KeyboardInterrupt\n",
     });
-    // 깨우지 못하면 대기 시간(5초)을 다 채운다.
+    // 깨우지 못하면 대기 시간(5초)을 다 채운다. 응답성 상한이다(09-testing.md 9.7 예외 2).
     expect(elapsedMs).toBeLessThan(1100);
   });
 });
@@ -262,8 +272,8 @@ describe("runSource: stdin", () => {
   it("input()은 pyodide stdin 리더를 그대로 읽고 sys.stdin 객체를 바꾸지 않는다", async () => {
     const stdin = vi.fn(() => "입력 줄");
     const { runSource, screen } = setup();
-    // attach가 기본 stdin(각본 없음, 던지는 stub)을 이미 걸었다 — 이 시험은 그 뒤에 실제 stdin으로 다시 건다
-    // (`stdin-callback.test.ts`의 `installStdin`과 같은 방식, attach의 stdin을 덮는다).
+    // attach가 기본 stdin을 이미 걸었다. 각본이 없어 읽으면 던지는 stub이다.
+    // 이 시험은 그 뒤에 실제 stdin을 다시 걸어 덮는다. `stdin-callback.test.ts`의 `installStdin`과 같은 방식이다.
     pyodide.setStdin({ stdin });
     const before = pyodide.runPython("id(__import__('sys').stdin)") as number;
 
@@ -334,7 +344,7 @@ describe("runReplLoop 통합: `{ source }` 응답을 실제 실행기로 돌린�
         },
       ],
     ]);
-    // 종료 통지는 마지막 `exit()` 명령의 한 번뿐이다(runSource의 `SystemExit`는 세션을 끝내지 않는다).
+    // 종료 통지는 마지막 `exit()` 명령에서 한 번뿐이다. runSource의 `SystemExit`는 세션을 끝내지 않는다.
     expect(onTerminated).toHaveBeenCalledTimes(1);
   });
 });

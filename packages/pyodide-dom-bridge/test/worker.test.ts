@@ -1,8 +1,14 @@
 /**
- * `./worker` 모듈 배선: `bridge()`가 coincident를 한 번만 부르고(같은 worker에서 여러 번 부르면 부트스트랩 상태가 새로 만들어져
- * 안전하지 않다), `ffi`를 노출하지 않으며, 모듈 평가 시점에 부트스트랩 관찰 리스너를 건다. `coincident/window/worker`는 가짜로
- * 바꾼다(실제 모듈은 평가 때 worker 전역의 message 리스너를 걸고 부트스트랩을 기다린다). 평가 시점 동작을 보려고 시험마다 모듈을
- * 새로 불러온다. jsdom의 `self`에는 worker 전역 표지가 없어 `WorkerGlobalScope`를 가짜로 세운다.
+ * `./worker` 모듈 배선 시험.
+ *
+ * - `bridge()`가 coincident를 한 번만 부른다. 같은 worker에서 여러 번 부르면 부트스트랩 상태가 새로 만들어져 안전하지 않다.
+ * - `bridge()`가 `ffi`를 노출하지 않는다.
+ * - 모듈 평가 시점에 부트스트랩 관찰 리스너를 건다.
+ *
+ * 시험 방식:
+ * - `coincident/window/worker`는 가짜로 바꾼다. 실제 모듈은 평가 때 worker 전역의 message 리스너를 걸고 부트스트랩을 기다린다.
+ * - 평가 시점 동작을 보려고 시험마다 모듈을 새로 불러온다.
+ * - jsdom의 `self`에는 worker 전역 표지가 없어 `WorkerGlobalScope`를 가짜로 세운다.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -26,6 +32,7 @@ const fake = vi.hoisted(() => {
 /** 모듈이 건 message 리스너. 시험이 끝나면 전역에서 치워 다음 시험으로 새지 않게 한다. */
 const registered: Array<{ listener: EventListener; capture: boolean }> = [];
 
+/** 전역이 worker 전역인 척한다. 관찰기 설치 모듈이 `globalThis instanceof WorkerGlobalScope`로 판정한다. */
 function pretendWorkerScope() {
   vi.stubGlobal(
     "WorkerGlobalScope",
@@ -37,6 +44,7 @@ function pretendWorkerScope() {
   );
 }
 
+/** 모듈 캐시를 비우고 `src/worker`를 새로 평가한다. 평가 시점 부수효과(리스너 등록)를 시험마다 다시 일으킨다. */
 async function evaluateModule() {
   vi.resetModules();
   return import("../src/worker");
@@ -44,7 +52,8 @@ async function evaluateModule() {
 
 beforeEach(() => {
   fake.coincident.mockClear();
-  // 모듈을 시험마다 새로 평가하므로(`vi.resetModules`) 가짜 모듈도 그때마다 새로 만들어져야 평가 시점 훅이 돈다(`vi.doMock`은 호이스팅되지 않고 이후 import에 적용된다).
+  // 모듈을 시험마다 새로 평가하므로(`vi.resetModules`) 가짜 모듈도 매번 새로 만들어야 평가 시점 훅이 돈다.
+  // `vi.doMock`은 호이스팅되지 않고 이후 import에 적용된다.
   vi.doMock("@cp949/runo-coincident/window/worker", () => {
     fake.onEvaluate?.();
     return { default: fake.coincident };
@@ -132,7 +141,8 @@ describe("모듈 평가 시점 부트스트랩 관찰(worker 전역)", () => {
   test("관찰 리스너는 coincident 모듈이 평가되어 자기 리스너를 거는 것보다 먼저 등록된다(import 순서)", async () => {
     pretendWorkerScope();
     const order: string[] = [];
-    // 가짜 coincident가 평가될 때 하는 일: 부트스트랩 리스너를 걸고 메시지를 삼킨다. 등록 시점을 관찰기 리스너와 비교한다.
+    // 가짜 coincident가 평가될 때 하는 일: 부트스트랩 리스너를 걸고 메시지를 삼킨다.
+    // 등록 시점을 관찰기 리스너와 비교한다.
     fake.onEvaluate = () => {
       order.push(
         `coincident 평가(그때까지 등록된 리스너 ${registered.length}개)`,
@@ -147,6 +157,7 @@ describe("모듈 평가 시점 부트스트랩 관찰(worker 전역)", () => {
     // 관찰기가 이미 등록돼 있는 상태에서 coincident가 평가된다.
     expect(order).toEqual(["coincident 평가(그때까지 등록된 리스너 1개)"]);
     // 뒤에 등록된 coincident 리스너가 전파를 멈춰도 관찰기는 부트스트랩(배열)을 본다.
+    // 아래 `prepare`가 던지지 않는 것이 그 증거다.
     self.dispatchEvent(
       new MessageEvent("message", {
         data: ["uid", false, -1],

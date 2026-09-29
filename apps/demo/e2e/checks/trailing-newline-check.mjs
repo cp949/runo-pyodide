@@ -1,16 +1,16 @@
 // RD-011a 브라우저 캡처(끝 개행 정리)의 RD-005 해당 시나리오 이식. 이전 구현
-// `pyodide-samples/_works/_completed/20260919-07-rd-011a-trailing-newline/reference/{capture.mjs,after.json}`의 SCENARIOS 16개 중
+// RD-011a `{capture.mjs,after.json}`의 SCENARIOS 16개 중
 //   S01·S02·S04·S05·S06·S09·S10·S11·S12·S13·S15·S16 (12개)
 // 을 캡처 대조가 아니라 기대 행 직접 단언으로 옮겼다. 각 입력 뒤 행 목록과 커서 행이 기대와 같아야 한다(빈 줄이 끼면 실패).
 // 기대 행은 이전 `after.json`의 값이다. 다음은 이전 구현 고유라 다르게 잡았다(각각 결정 절에 근거):
-//   - S13: 이전은 `... ` 프롬프트에 자동 들여쓰기 4칸이 미리 채워졌다. RD-018 DELTA-02 갱신: 이후 RD-013이 데모에도
+//   - S13: 이전은 `... ` 프롬프트에 자동 들여쓰기 4칸이 미리 채워졌다. RD-018 갱신: 이후 RD-013이 데모에도
 //     같은 자동 들여쓰기를 넣어 다시 프리필된다 — 수동 4칸을 치지 않고 프리필을 그대로 쓴다(화면 문자열은 불변).
 //   - S15: 이전 `after.json`은 RD-011b 이전 상태라 `err` 뒤 빈 줄이 2개다(`RD-011b 대상`). 3.14 기준(빈 줄 없음)으로 잡는다.
 //   - S16: 이전은 경고 뒤 빈 줄 1개(같은 RD-011b 대상). 3.14 기준으로 잡고 파일명은 `<console>`이다(편차 30).
 // 건너뜀: S03·S07(붙여넣기 분할) → RD-011, S08(실행 중 Ctrl+C) → RD-007, S14(`if True:` 뒤 Ctrl+C) → RD-008.
-// 출처 RD-005, `_works/_completed/20260922-05-rd-005-repl-loop/verify/`에서 이관(RD-018).
+// 출처 RD-005에서 이관(RD-018).
 // 사용: node trailing-newline-check.mjs <url>(생략 시 http://localhost:5173)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 

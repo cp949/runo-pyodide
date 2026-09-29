@@ -1,8 +1,9 @@
-// Virtual terminal harness for tests. Implements the Output interface, parses
-// the ANSI escape sequences emitted by xterm-readline (CUU/CUD/CUF/CUB, CUP,
-// ED, EL, SGR), and maintains a 2D grid + cursor + scrollback. Tests assert on
-// the resulting visible screen rather than the exact byte stream, so they
-// survive renderer refactors as long as the user-visible result is correct.
+// 테스트용 가상 터미널 하네스.
+// - Output 인터페이스를 구현한다.
+// - xterm-readline이 내보내는 ANSI 이스케이프 시퀀스를 파싱한다(CUU/CUD/CUF/CUB, CUP, ED, EL, SGR).
+// - 2차원 격자 + 커서 + 스크롤백을 유지한다.
+// 테스트는 정확한 바이트 스트림 대신 결과로 보이는 화면을 검증한다.
+// 그래서 사용자에게 보이는 결과가 맞는 한 렌더러 리팩터링에도 깨지지 않는다.
 
 import { Output } from "./tty";
 
@@ -13,10 +14,10 @@ export class VTerm implements Output {
   public cursorCol = 0;
   public grid: string[][];
   public scrollback: string[][] = [];
-  // xterm-style "pending wrap": when a character is written into the last
-  // column the cursor stays at that column with this flag set; the next
-  // printable char wraps to the next row before being written. \r, \n, and
-  // any cursor-positioning command clear the flag.
+  // xterm 방식 "pending wrap".
+  // - 마지막 열에 문자를 쓰면 커서는 그 열에 머물고 이 플래그가 선다.
+  // - 다음 출력 가능 문자는 쓰기 전에 다음 행으로 줄바꿈한다.
+  // - \r, \n, 커서 위치 지정 명령은 플래그를 지운다.
   private pendingWrap = false;
 
   constructor(cols: number, rows: number) {
@@ -32,9 +33,9 @@ export class VTerm implements Output {
       if (c === "\x1b") {
         if (text[i + 1] === "[") {
           let j = i + 2;
-          // Skip optional private-mode prefix (e.g. ? in \x1b[?25l).
-          // We don't model cursor visibility, so treat the whole
-          // private-mode sequence as a no-op.
+          // 선택적 사설 모드 접두를 건너뛴다(예: \x1b[?25l의 ?).
+          // 커서 표시 여부는 모델링하지 않는다.
+          // 사설 모드 시퀀스 전체를 no-op으로 처리한다.
           let isPrivate = false;
           if (text[j] === "?") {
             isPrivate = true;
@@ -51,7 +52,7 @@ export class VTerm implements Output {
           }
           i = j + 1;
         } else {
-          // Unknown escape — skip the ESC.
+          // 알 수 없는 이스케이프: ESC를 건너뛴다.
           i += 1;
         }
         continue;
@@ -80,9 +81,9 @@ export class VTerm implements Output {
     this.write(text + "\r\n");
   }
 
-  // Return the visible grid as a string, rows joined by '\n', trailing
-  // whitespace trimmed per row and trailing blank rows dropped so assertions
-  // stay readable. Use `grid` directly if you need the full padded matrix.
+  // 보이는 격자를 문자열로 돌려준다. 행은 '\n'으로 잇는다.
+  // 검증문이 읽기 쉽도록 행마다 끝 공백을 자르고 끝의 빈 행을 버린다.
+  // 패딩을 포함한 전체 행렬이 필요하면 `grid`를 직접 쓴다.
   public screen(): string {
     const trimmed = this.grid.map((r) => r.join("").replace(/ +$/, ""));
     while (trimmed.length > 0 && trimmed[trimmed.length - 1] === "") {
@@ -95,8 +96,8 @@ export class VTerm implements Output {
     return [this.cursorRow, this.cursorCol];
   }
 
-  // Mirror xterm.js's resize behavior: clamp cursor into the new bounds and
-  // grow/shrink the grid (existing rows preserved at the top).
+  // xterm.js의 resize 동작을 따른다.
+  // 커서를 새 범위로 제한하고 격자를 늘리거나 줄인다(기존 행은 위쪽에 보존).
   public resize(cols: number, rows: number): void {
     if (rows < this.grid.length) {
       this.grid = this.grid.slice(0, rows);
@@ -200,7 +201,7 @@ export class VTerm implements Output {
         return;
       }
       case "m":
-        // SGR — ignore styling, we only test visible characters.
+        // SGR: 스타일은 무시한다. 보이는 문자만 검증한다.
         return;
       default:
         return;

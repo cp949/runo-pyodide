@@ -1,12 +1,15 @@
 // @vitest-environment node
 /**
- * `ready` 알림 페이로드 조립(`createReadyPayload`) 시험. 판정은 순수 함수라 가짜 입력으로 전수 본다:
- * `versionMismatch`는 `pyodide.version`과 core 고정 버전의 완전 일치 비교이고(정책 Q3), `details`는 있을 때만 싣는다.
+ * `ready` 알림 페이로드 조립(`createReadyPayload`) 시험.
+ * - 판정은 순수 함수라 가짜 입력으로 전수 본다.
+ * - `versionMismatch`: `pyodide.version`과 core 고정 버전의 완전 일치 비교다(ADR-0007).
+ * - `details`: 있을 때만 싣는다.
  */
 import { describe, expect, test } from "vitest";
 import { createReadyPayload } from "../../src/protocol/ready-payload";
 
-// 판정은 문자열 완전 일치라 실제 pyodide 버전이 아니어도 된다(버전 리터럴은 코드·시험에 두지 않는다, ADR-0007).
+// 판정은 문자열 완전 일치다. 가짜 버전 문자열을 쓴다.
+// 실제 pyodide 버전 리터럴은 코드·시험에 두지 않는다(ADR-0007).
 
 describe("createReadyPayload", () => {
   test("실제 버전이 기대 버전과 같으면 versionMismatch가 거짓이다", () => {

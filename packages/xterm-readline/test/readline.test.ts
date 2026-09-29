@@ -1,28 +1,30 @@
-// Integration tests for Readline against a stub xterm-like Terminal that
-// exposes onData, onResize, attachCustomKeyEventHandler, write(text, cb),
-// and a buffer.active.cursorY readable as the last LF row written. These
-// cover the read()-time anchor flush and the onResize end-to-end path.
-
+/**
+ * `Readline` 통합 시험.
+ * 가짜 xterm `StubTerminal`을 쓴다. 가짜는 `onData`·`onResize`·`attachCustomKeyEventHandler`·
+ * `write(text, cb)`를 제공하고, `buffer.active.cursorY`는 마지막으로 쓴 LF 행이다.
+ * - `read()` 시점의 앵커 flush.
+ * - `onData` 입력 → `State` → 화면 갱신.
+ * - 탭 처리.
+ * - `onResize` 재배치.
+ */
 import { expect, test } from "vitest";
 import { Readline } from "../src/readline";
 import { StubTerminal } from "./stub-terminal";
 
-test("read() samples cursorY *after* prior writes have flushed", () => {
+test("read()는 앞선 write가 flush된 뒤의 cursorY를 잡는다", () => {
   const term = new StubTerminal(20, 6);
   const rl = new Readline();
   rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
 
-  // Print a banner before read(); cursorY should advance through the buffer.
+  // read() 전에 배너를 찍는다. cursorY가 버퍼를 따라 내려간다.
   rl.println("line1");
   rl.println("line2");
   rl.println("line3");
-  // Synchronously call read(); our stub's write callback fires immediately,
-  // but in production read() is wrapped in term.write("", cb) precisely so
-  // the anchor isn't sampled before flush. Verify the prompt lands on the
-  // row directly under the banner, not on top of it.
+  // read()를 동기로 부른다. 스텁은 write 콜백을 바로 부른다.
+  // 실제 xterm에서는 flush 전에 앵커를 잡지 않도록 read()가 term.write("", cb)로 감싼다.
+  // 프롬프트가 배너 바로 아래 행에 놓이고 배너 위에 덮이지 않는지 본다.
   rl.read("> ");
-  // Trailing spaces are trimmed by VTerm.screen(); check cursor position
-  // directly to confirm the prompt landed under the banner, not on top.
+  // VTerm.screen()이 끝 공백을 잘라내므로 커서 위치를 직접 확인한다.
   expect(term.vt.screen().split("\n").slice(0, 3)).toEqual([
     "line1",
     "line2",
@@ -31,14 +33,13 @@ test("read() samples cursorY *after* prior writes have flushed", () => {
   expect(term.vt.cursor()).toEqual([3, 2]);
 });
 
-test("typing through onData drives State and updates the screen", async () => {
+test("onData 입력이 State를 움직여 화면을 갱신한다", async () => {
   const term = new StubTerminal(20, 6);
   const rl = new Readline();
   rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
 
   const promise = rl.read("> ");
-  // Yield once so read()'s internal term.write("", cb) callback runs and
-  // the State is constructed before we feed input.
+  // 입력 전에 한 틱 양보한다. read() 안의 term.write("", cb) 콜백이 돌아 State가 만들어진 뒤여야 한다.
   await Promise.resolve();
 
   for (const ch of "hello") term.feed(ch);
@@ -71,7 +72,7 @@ test("단독 탭 키는 여전히 무시한다", async () => {
   expect(rl.getLine()).toBe("");
 });
 
-test("onResize re-fits Tty and re-renders the active read", () => {
+test("onResize는 Tty를 다시 맞추고 활성 읽기를 다시 그린다", () => {
   const term = new StubTerminal(40, 8);
   const rl = new Readline();
   rl.activate(term as unknown as Parameters<typeof rl.activate>[0]);
@@ -80,7 +81,7 @@ test("onResize re-fits Tty and re-renders the active read", () => {
   for (const ch of "abc") term.feed(ch);
   expect(term.vt.screen()).toBe("> abc");
 
-  // Shrink to 20x4 — the rendered buffer should still be visible and valid.
+  // 20x4로 줄여도 그려 둔 버퍼가 그대로 보여야 한다.
   term.resize(20, 4);
   expect(term.vt.screen()).toBe("> abc");
   expect(term.vt.cursor()).toEqual([0, 5]);

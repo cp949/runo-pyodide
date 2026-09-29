@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """양성 대조 드라이버. 소스를 변조 → 브라우저 확인 실행(해당 확인만 실패해야 함) → git checkout으로 원복 → 재실행(통과).
-출처 RD-007, `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/positive-controls.py`에서 이관(RD-018 DELTA-04).
+출처 RD-007에서 이관(RD-018).
 
 사용: python3 rd-007.py <1|2|3>
   1: index.ts의 sinks.write("^C") → readline.print("^C")          → ctrl-c-check ONLY=S1 실패(꼬리에 안 남아 `t^Cx: abc`가 아님), ONLY=G1은 통과(대조)
@@ -11,7 +11,7 @@ dev 서버(5173)는 이 드라이버가 변조·원복 때마다 다시 띄운�
 
 경로 참고(RD-018 이관): ctrl-c-check.mjs는 apps/demo/e2e/checks/, press-loss.mjs·burst-matrix.mjs는
 apps/demo/e2e/measure/에 있다(계획서의 "대조 대상이 sleep-await-check.mjs인 경우 measure/로"와 같은 규칙을
-이 파일의 press-loss·burst-matrix에도 적용했다 — 둘 다 measure 스크립트이기 때문, DELTA-04 "## 결정" 참고).
+이 파일의 press-loss·burst-matrix에도 적용했다 — 둘 다 measure 스크립트이기 때문).
 """
 import os
 import re
@@ -29,10 +29,10 @@ DEV_LOG = os.environ.get("DEV_LOG", os.path.join(tempfile.gettempdir(), "rd-007-
 
 CONTROLS = {
     "1": {
-        # RD-018 DELTA-04 경로 정정(멈추는 지점 3): `sinks.write("^C")`는 RD-010의 세션 추출로 index.ts에서
+        # RD-018 경로 정정(멈추는 지점 3): `sinks.write("^C")`는 RD-010의 세션 추출로 index.ts에서
         # session.ts의 echoCtrlC()로 옮겨졌다(문자열·들여쓰기는 그대로, 파일만 다르다). readline은 startSession의
         # 인자로 session.ts 스코프에도 있어 같은 변조가 그대로 적용된다.
-        # RD-020 DELTA-04 경로 정정: session.ts를 core 세션과 REPL main driver로 나누면서 echoCtrlC()가
+        # RD-020 경로 정정: session.ts를 core 세션과 REPL main driver로 나누면서 echoCtrlC()가
         # `repl-main-driver.ts`로 갔다(문자열·들여쓰기 그대로, readline은 `createReplMainDriver`의 옵션으로 스코프에 있다).
         "file": "packages/pyodide-repl/src/repl-main-driver.ts",
         "find": '      sinks.write("^C");',
@@ -51,7 +51,7 @@ CONTROLS = {
         "scripts": [["measure/press-loss.mjs", URL, {"N": os.environ.get("N", "200")}]],
     },
     "3": {
-        # RD-018 DELTA-04 경로 정정(멈추는 지점 3): 이 판정 로직은 DELTA-00 무렵 `sigint-handler.ts`에서
+        # RD-018 경로 정정(멈추는 지점 3): 이 판정 로직은 이후 `sigint-handler.ts`에서
         # `sigint-handler.py`(Python 소스, `?raw` import)로 옮겨졌다 — ts는 이제 그 소스를 심는 JS 래퍼만
         # 남았다. find·replace 문자열·들여쓰기는 그대로(같은 한 줄), 파일만 다르다.
         "file": "packages/pyodide-core/src/worker/sigint-handler.py",

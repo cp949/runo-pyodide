@@ -50,8 +50,8 @@ export class Tty {
     return Math.max(this.row - this.anchorRow, 1);
   }
 
-  // Calculate the number of colums and rows required to print
-  // text on a this.cols wide terminal starting at orig
+  // `orig`에서 시작해 `this.col`열 폭 터미널에 `text`를 출력할 때
+  // 필요한 열·행 수를 계산한다.
   public calculatePosition(text: string, orig: Position): Position {
     const pos = { ...orig };
     let escSeq = 0;
@@ -105,8 +105,8 @@ export class Tty {
     return newLayout;
   }
 
-  // Split highlighted text into visual rows respecting wrap at this.col,
-  // re-applying any active SGR escape sequence at the start of each new row.
+  // 하이라이트된 텍스트를 `this.col`에서 줄바꿈하며 시각 행으로 나눈다.
+  // 활성 SGR 이스케이프 시퀀스는 새 행마다 처음에 다시 붙인다.
   public splitIntoVisualRows(text: string): string[] {
     const rows: string[] = [];
     let currentRow = "";
@@ -131,7 +131,7 @@ export class Tty {
     };
 
     for (const c of [...text]) {
-      // Inside an active escape sequence: append to row, track terminator.
+      // 이스케이프 시퀀스 진행 중: 행에 덧붙이고 종결 문자를 추적한다.
       if (escSeq !== 0) {
         currentRow += c;
         pendingEsc += c;
@@ -175,18 +175,17 @@ export class Tty {
     }
 
     rows.push(currentRow);
-    // If the buffer ends exactly at the right margin, calculatePosition
-    // normalizes the end to (row+1, 0). Mirror that here so the row count
-    // matches Layout.end.row — otherwise cursor positioning lands one row
-    // short and any subsequent incremental moves drift.
+    // 버퍼가 오른쪽 끝 열에서 끝나면 calculatePosition이 end를 (row+1, 0)으로
+    // 정규화한다. 여기서도 같게 맞춰 행 수를 Layout.end.row와 일치시킨다.
+    // 어긋나면 커서가 한 행 모자라게 놓이고, 이후 증분 이동이 계속 밀린다.
     if (col === this.col && col > 0) {
       rows.push(activeSgr);
     }
     return rows;
   }
 
-  // Render the layout in a window of viewportRows() rows starting at anchorRow.
-  // Only rows in [scrollOffset, scrollOffset + viewportRows) are emitted.
+  // anchorRow에서 시작하는 viewportRows()행 창에 레이아웃을 그린다.
+  // [scrollOffset, scrollOffset + viewportRows) 범위의 행만 출력한다.
   public refreshLine(
     prompt: string,
     line: LineBuffer,
@@ -194,11 +193,10 @@ export class Tty {
     newLayout: Layout,
     highlighter: Highlighter,
   ) {
-    // Hide the cursor for the duration of the refresh sequence. The
-    // intermediate cursor-up / row-rewrite / cursor-down steps below
-    // would otherwise render the cursor briefly at the buffer's anchor
-    // row on every redraw, which appears as a phantom flash on the
-    // line above when the buffer spans multiple lines.
+    // 갱신 시퀀스 동안 커서를 숨긴다.
+    // 아래의 커서 위로 이동·행 다시 쓰기·커서 아래로 이동 중간 단계에서
+    // 재그리기마다 커서가 버퍼의 앵커 행에 잠깐 보인다.
+    // 버퍼가 여러 줄이면 윗줄에서 유령 깜빡임으로 나타난다.
     this.write("\x1b[?25l");
     try {
       this.refreshLineInner(prompt, line, oldLayout, newLayout, highlighter);
@@ -217,22 +215,23 @@ export class Tty {
     const oldScroll = oldLayout.scrollOffset ?? 0;
     const newScroll = newLayout.scrollOffset ?? 0;
 
-    // Step 0: build the full highlighted text and split into visual rows so we
-    // know the buffer height before deciding whether to scroll the terminal.
+    // Step 0: 하이라이트된 전체 텍스트를 만들어 시각 행으로 나눈다.
+    // 터미널 스크롤 여부를 정하기 전에 버퍼 높이를 알아야 한다.
     const highlighted =
       highlighter.highlightPrompt(prompt) +
       highlighter.highlight(line.buf, line.pos);
     const allRows = this.splitIntoVisualRows(highlighted);
 
-    // Step 1: where is the physical cursor right now? After the previous
-    // refresh it ended at (anchor + oldCursorViewportRow, oldCursor.col).
+    // Step 1: 물리 커서는 지금 어디인가? 직전 갱신 뒤
+    // (anchor + oldCursorViewportRow, oldCursor.col)에 있다.
     const oldCursorViewportRow = Math.max(oldLayout.cursor.row - oldScroll, 0);
     let physicalRow = this.anchorRow + oldCursorViewportRow;
 
-    // Step 2: if the buffer needs more rows than fit below the anchor, scroll
-    // the terminal up by writing \n at the last row. This pulls anchorRow
-    // toward 0 (and lets the prompt scroll into scrollback for very tall
-    // buffers, matching bash's behavior on history recall of a tall command).
+    // Step 2: 버퍼가 앵커 아래에 들어가는 행 수보다 크면 마지막 행에서 \n을 써
+    // 터미널을 위로 스크롤한다.
+    // anchorRow가 0 쪽으로 당겨진다.
+    // 아주 큰 버퍼면 프롬프트가 스크롤백으로 넘어간다.
+    // 큰 명령을 history에서 불러올 때의 bash 동작과 같다.
     const desiredVisible = Math.min(allRows.length, this.row);
     const currentBelowAnchor = this.row - this.anchorRow;
     if (desiredVisible > currentBelowAnchor && this.anchorRow > 0) {
@@ -247,17 +246,16 @@ export class Tty {
       physicalRow = this.row - 1;
     }
 
-    // Step 3: move physical cursor up to anchorRow.
+    // Step 3: 물리 커서를 anchorRow까지 올린다.
     const upToAnchor = physicalRow - this.anchorRow;
     if (upToAnchor > 0) this.write(`\x1b[${upToAnchor}A`);
 
-    // Step 4: move to col 0 and erase from cursor down.
+    // Step 4: 열 0으로 옮기고 커서부터 아래를 지운다.
     this.write("\r\x1b[J");
 
-    // Step 5: re-clamp scrollOffset against the (possibly enlarged) viewport.
-    // State computed scrollOffset with the pre-scroll viewport; if the
-    // anchor just dropped, the buffer may now fit and scrollOffset can
-    // collapse back to 0.
+    // Step 5: (커졌을 수 있는) 뷰포트에 맞춰 scrollOffset을 다시 제한한다.
+    // State는 스크롤 전 뷰포트로 scrollOffset을 계산했다.
+    // 앵커가 방금 내려갔으면 버퍼가 이제 들어맞아 scrollOffset이 0으로 되돌아갈 수 있다.
     const viewport = this.viewportRows();
     let effectiveScroll = newScroll;
     if (newLayout.cursor.row < effectiveScroll) {
@@ -274,17 +272,17 @@ export class Tty {
     const start = effectiveScroll;
     const end = Math.min(allRows.length, start + viewport);
 
-    // Step 4: emit visible rows joined by \r\n. Reset SGR between rows so
-    // styles do not leak when the next row starts without an SGR.
+    // Step 6: 보이는 행을 \r\n으로 이어 출력한다.
+    // 다음 행이 SGR 없이 시작해도 스타일이 새지 않도록 행 사이에서 SGR을 리셋한다.
     for (let i = start; i < end; i++) {
       if (i > start) this.write("\r\n");
       this.write(allRows[i]);
-      // Reset any active style at end-of-row to avoid bleeding into prompt
-      // re-renders or the gap below the buffer.
+      // 행 끝에서 활성 스타일을 리셋한다.
+      // 프롬프트 재렌더링이나 버퍼 아래 빈 공간으로 스타일이 번지지 않게 한다.
       this.write("\x1b[0m");
     }
 
-    // Step 6: position cursor at (newCursor.row - effectiveScroll, newCursor.col).
+    // Step 7: 커서를 (newCursor.row - effectiveScroll, newCursor.col)에 둔다.
     const cursorViewportRow = newLayout.cursor.row - effectiveScroll;
     const lastWrittenViewportRow = end - 1 - start;
     const upBy = Math.max(lastWrittenViewportRow - cursorViewportRow, 0);
@@ -311,7 +309,7 @@ export class Tty {
 
   public moveCursor(oldCursor: Position, newCursor: Position) {
     if (newCursor.row > oldCursor.row) {
-      // Move Down
+      // 아래로 이동
       const rowShift = newCursor.row - oldCursor.row;
       if (rowShift === 1) {
         this.write("\x1b[B");
@@ -319,7 +317,7 @@ export class Tty {
         this.write(`\x1b[${rowShift}B`);
       }
     } else if (newCursor.row < oldCursor.row) {
-      // Move Up
+      // 위로 이동
       const rowShift = oldCursor.row - newCursor.row;
       if (rowShift === 1) {
         this.write("\x1b[A");
@@ -329,7 +327,7 @@ export class Tty {
     }
 
     if (newCursor.col > oldCursor.col) {
-      // Move Right
+      // 오른쪽으로 이동
       const colShift = newCursor.col - oldCursor.col;
       if (colShift === 1) {
         this.write("\x1b[C");
@@ -348,7 +346,7 @@ export class Tty {
   }
 }
 
-// Return the column width of text when printed
+// `text`를 출력할 때의 열 폭을 돌려준다.
 function width(text: string, escSeq: number): [size: number, esc_seq: number] {
   if (escSeq === 1) {
     if (text === "[") {
@@ -357,9 +355,10 @@ function width(text: string, escSeq: number): [size: number, esc_seq: number] {
       return [0, 0];
     }
   } else if (escSeq === 2) {
-    // CSI 본문(ECMA-48): 파라미터 바이트 0x30-0x3F(숫자·`:`·`;`·사설 접두 `<=>?`)와 중간 바이트
-    // 0x20-0x2F는 시퀀스를 이어가고, 최종 바이트 0x40-0x7E에서 폭 0으로 끝난다. 그 밖의 문자는 예전처럼
-    // 지원하지 않는 시퀀스로 보고 끝낸다.
+    // CSI 본문(ECMA-48):
+    // - 파라미터 바이트 0x30-0x3F(숫자·`:`·`;`·사설 접두 `<=>?`)와 중간 바이트 0x20-0x2F: 시퀀스를 잇는다.
+    // - 최종 바이트 0x40-0x7E: 폭 0으로 끝난다.
+    // - 그 밖의 문자: 예전처럼 지원하지 않는 시퀀스로 보고 끝낸다.
     const code = text.charCodeAt(0);
     if (code >= 0x20 && code <= 0x3f) {
       return [0, escSeq];

@@ -1,14 +1,18 @@
 // @vitest-environment node
 /**
- * 이식본이 3.14 REPL과 같은 값을 내는지 pyodide에 든 `_pyrepl.readline`의 함수로 대조한다(차분
- * 시험, 09-testing.md 9.1). 기대값이 이식본이 아니라 CPython 구현에서 나온다. 오라클은
- * `maybe_accept`가 개행을 넣은 뒤 밟는 절차(이어받기 → last_used_indentation 갱신 → `:` 뒤 추가)를
- * 그대로 따른다.
+ * `nextIndentation`(이식본)이 3.14 REPL과 같은 값을 내는지 대조하는 차분 시험(`docs/design/09-testing.md` 9.1).
+ * 오라클은 pyodide에 든 `_pyrepl.readline`의 함수다. 기대값이 이식본이 아니라 CPython 구현에서 나온다.
+ *
+ * 오라클은 `maybe_accept`가 개행을 넣은 뒤 밟는 절차를 그대로 따른다.
+ * 1. 직전 줄 들여쓰기 이어받기
+ * 2. `last_used_indentation` 갱신
+ * 3. `:` 뒤 추가분
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { beforeAll, describe, expect, it } from "vitest";
 import { nextIndentation } from "../../src/terminal/auto-indent";
 
+/** pyodide에 올리는 오라클 Python 소스. `oracle(text, pos, last_used)`가 `(들여쓰기, last_used)`를 돌려준다. */
 const ORACLE_SOURCE = `
 from _pyrepl.readline import _get_first_indentation, _get_previous_line_indent, _should_auto_indent
 
@@ -31,12 +35,14 @@ def oracle(text, pos, last_used):
     return kept + extra, last_used
 `;
 
+/** 오라클 호출 시그니처. `nextIndentation`의 입력·반환과 같은 모양이다. */
 type Oracle = (
   text: string,
   pos: number,
   lastUsed: string | null,
 ) => [string, string | null];
 
+/** `beforeAll`이 pyodide에서 꺼내 채우는 오라클 함수. */
 let oracle: Oracle;
 
 beforeAll(async () => {
@@ -57,14 +63,20 @@ beforeAll(async () => {
   };
 }, 60_000);
 
+/** 차분 대조 케이스 하나. */
 interface Case {
+  /** 시험 제목. */
   name: string;
+
   buffer: string;
-  // 생략하면 버퍼 끝.
+
+  /** 커서 위치. 생략하면 버퍼 끝이다. */
   pos?: number;
+
   lastUsed?: string | null;
 }
 
+/** 차분 대조 케이스 29건. 오라클과 `nextIndentation`이 같은 값을 내야 한다. */
 const CASES: Case[] = [
   { name: "`:`로 끝나는 헤더", buffer: "for i in range(2):" },
   { name: "본문 줄 뒤", buffer: "for i in range(2):\n    print(i)" },

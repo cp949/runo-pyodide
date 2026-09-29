@@ -1,10 +1,16 @@
 /**
  * worker 진입점 `runWorker({ driver })` 시험.
- * main이 worker 생성 직후 보내는 core의 첫 메시지(초기화 프레임)를 검증해 부팅 시퀀스(`bootWorker`)를 시작하는지 확인한다.
- * 부팅 시퀀스 자체(pyodide 로드·ready·배너)는 core `worker/boot.test.ts`와 repl `worker/boot.test.ts`가 보므로 여기서는
- * mock으로 막는다.
- * 프레임을 놓치지 않도록 리스너는 core `./worker` 모듈 평가 시점에 걸린다(import 순서 조건을 지키면 `runWorker` 호출 시점은 자유다, 01-protocols.md 4절).
- * 리스너는 init 프레임만 소비한다: 배열 메시지나 kind가 다른 객체가 먼저 와도 뒤의 init을 받는다(RD-020 Q11).
+ * main이 worker 생성 직후 보내는 첫 메시지(초기화 프레임)를 검증해 부팅 시퀀스(`bootWorker`)를 시작하는지 확인한다.
+ *
+ * 부팅 시퀀스 자체(pyodide 로드·ready·배너)는 core `worker/boot.test.ts`와 repl `worker/boot.test.ts`가 본다.
+ * 여기서는 `bootWorker`를 mock으로 막는다.
+ *
+ * 리스너는 init 프레임만 소비한다.
+ * 배열 메시지나 kind가 다른 객체가 먼저 와도 뒤의 init을 받는다(RD-020 Q11).
+ *
+ * 실제 worker에서는 리스너가 core `./worker` 모듈 평가 시점에 걸린다(import 순서 조건을 지키면 `runWorker` 호출 시점은 자유다, 01-protocols.md 4절).
+ * 이 시험은 jsdom(worker 전역 아님)이라 `runWorker` 호출 때 수신기가 리스너를 건다.
+ * 모듈 평가 시점 등록은 이 파일이 보지 않는다.
  */
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createInitFrame as createBaseInitFrame } from "../boot-harness";
@@ -22,6 +28,7 @@ const driver: WorkerDriver = {
   },
 };
 
+/** 시험용 driver로 `runWorker`를 부른다. */
 const runReplWorker = () => runWorker({ driver });
 
 /** worker 전역(jsdom에서는 window)에 main이 보낸 것과 같은 message 이벤트를 던진다. */
@@ -29,11 +36,11 @@ function receive(data: unknown) {
   self.dispatchEvent(new MessageEvent("message", { data }));
 }
 
-/** main이 보내는 것과 같은 모양의 올바른 초기화 프레임. */
+/** main이 보내는 것과 같은 모양의 올바른 초기화 프레임을 만든다. 포트는 `afterEach`가 닫는다. */
 function createInitFrame() {
   const { port1, port2 } = new MessageChannel();
   ports.push(port1, port2);
-  // 스프레드로 감싸 object literal 타입(암묵적 index signature)을 유지한다 —
+  // 스프레드로 감싸 object literal 타입(암묵적 index signature)을 유지한다.
   // 아래에서 `Record<string, unknown>`로 받아 필드를 지우는 시험이 있다.
   return { ...createBaseInitFrame({ rpcPort: port1 }) };
 }
@@ -99,7 +106,8 @@ test("첫 메시지만 처리하고 이후 네이티브 message는 무시한다"
   expect(error).not.toHaveBeenCalled();
 });
 
-// kind만 보고 통과시키면 필드가 빠진 프레임이 뒤 단계(pyodide 로드, 메일박스 대기)에서 원인을 알 수 없는 오류로 터진다.
+// kind만 보고 통과시키면 필드가 빠진 프레임이 뒤 단계(pyodide 로드, 메일박스 대기)에서 터진다.
+// 그때는 원인을 알 수 없는 오류가 된다.
 test("kind는 init이지만 필드가 빠진 프레임은 필드 이름을 담아 console.error로 알리고 부팅하지 않는다", () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => {});
   runReplWorker();

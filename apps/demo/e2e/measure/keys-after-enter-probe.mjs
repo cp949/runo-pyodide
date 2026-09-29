@@ -3,9 +3,9 @@
 // 재생하므로 전 지연에서 N/N 유입이 기대값이다(회귀 관찰용 측정. 판정은 `checks/type-ahead-check.mjs` T04·T01이 한다).
 // RD-003 시점에는 `readLine` 핸들 API가 프롬프트를 직접 그렸지만 지금은 worker 왕복(`readLine` 요청 → `run` → 다음 `readLine`)이 더해져
 // 창이 달라질 수 있다. 판정에 쓰지 않고 수치만 기록한다(편차 32는 RD-019에서 해소).
-// 출처 RD-005, `_works/_completed/20260922-05-rd-005-repl-loop/verify/`에서 이관(RD-018 DELTA-04).
+// 출처 RD-005에서 이관(RD-018).
 // 사용: node keys-after-enter-probe.mjs <url>(생략 시 http://localhost:5173) [반복 N=10]
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙). 판정선 없음(측정 전용).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙). 판정선 없음(측정 전용).
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

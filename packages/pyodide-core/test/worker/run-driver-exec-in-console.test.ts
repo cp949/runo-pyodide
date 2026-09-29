@@ -1,10 +1,18 @@
 // @vitest-environment node
 /**
- * 실행·분류 공용 함수 `exec_in_console`(run-driver.py)의 실제 pyodide(node) 시험. runner(`run_code`)와 REPL `runSource`가 같은
- * 컴파일·`console.runcode`·결말 분류를 쓰게 하려고 `run_code`에서 떼어 낸 뒤쪽이다. 여기서는 runner 전용 준비(새 globals·
- * stdin 교체)가 이 함수 안에 없다는 것과 파일명이 콘솔의 `filename`(기본 `<console>`)을 따른다는 것, `SystemExit` 뒤 닫힌
- * stdin 되살림은 이 함수가 한다는 것을 본다. 분류 분기 전수는 `run-driver-classify.test.ts`, runner 경로 전체는
- * `run-driver-pyodide.test.ts`가 본다. 실제 `PyodideConsole`을 쓰되 SIGINT 계층은 올리지 않는다(정상·오류·종료 경로만 태운다).
+ * 실행·분류 공용 함수 `exec_in_console`(run-driver.py)의 실제 pyodide(node) 시험.
+ * runner(`run_code`)와 REPL `runSource`가 같은 컴파일·`console.runcode`·결말 분류를 쓰게 하려고 `run_code`에서 떼어 낸 뒤쪽이다.
+ *
+ * 여기서 보는 것:
+ * - runner 전용 준비(새 globals·stdin 교체)가 이 함수 안에 없다.
+ * - 파일명이 콘솔의 `filename`(기본 `<console>`)을 따른다.
+ * - `SystemExit` 뒤 닫힌 stdin 되살림은 이 함수가 한다.
+ *
+ * 다른 파일이 보는 것:
+ * - 분류 분기 전수: `run-driver-classify.test.ts`
+ * - runner 경로 전체: `run-driver-pyodide.test.ts`
+ *
+ * 실제 `PyodideConsole`을 쓰되 SIGINT 계층은 올리지 않는다. 정상·오류·종료 경로만 태운다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import type { PyProxy } from "pyodide/ffi";
@@ -24,10 +32,14 @@ import {
 } from "../../src/worker/core-console";
 import { loadExecInConsole, toRunOutcome } from "../../src/worker/run-driver";
 
+/** 시험 전체가 공유하는 pyodide. `beforeAll`이 한 번 로드한다. */
 let pyodide: PyodideInterface;
+/** sink가 받은 텍스트. `beforeEach`가 시험마다 비운다. */
 const output = { stdout: "", stderr: "" };
+/** `makeConsole`이 만든 콘솔. `afterAll`이 모두 destroy한다. */
 const consoles: PyodideConsoleProxy[] = [];
 
+/** 콘솔 콜백과 전역 Writer가 같이 쓰는 sink. `output`에 쌓는다. */
 const sinks = {
   write: (text: string) => {
     output.stdout += text;
@@ -104,7 +116,7 @@ describe("exec_in_console: runner 전용 준비를 하지 않는다", () => {
     await exec(pyconsole, "pass");
 
     expect(isSame(pyconsole.globals, pyodide.globals)).toBe(true);
-    // 사용자 코드가 __name__ 등을 새로 정하지 않는다(runner의 새 globals와 다르다).
+    // 사용자 globals에 __name__ 등을 새로 채우지 않는다(runner의 새 globals와 다르다).
     expect(pyodide.globals.has("__file__")).toBe(false);
     isSame.destroy();
   }, 60_000);
@@ -214,8 +226,9 @@ describe("exec_in_console: exec 의미와 분류", () => {
 });
 
 describe("exec_in_console: SystemExit 뒤 stdin", () => {
-  // 파일이 pyodide 하나를 공유하므로 원래 sys.stdin을 센티널로 바꿔 둔 채 시작하고 매 시험 뒤 되돌린다.
-  // exit()가 현재 sys.stdin을 닫으므로 원본 대신 센티널을 닫혀도 되는 값으로 둔다.
+  // 파일이 pyodide 하나를 공유한다.
+  // 원래 sys.stdin을 센티널로 바꿔 둔 채 시작하고 매 시험 뒤 되돌린다.
+  // exit()가 현재 sys.stdin을 닫으므로 원본 대신 센티널을 닫는다.
   beforeEach(() => {
     pyodide.runPython(
       "import io, sys\n_orig_stdin = sys.stdin\nsys.stdin = io.StringIO('sentinel')",

@@ -1,11 +1,11 @@
-// RD-048 DELTA-05 브라우저 확인: 빈 입력줄 Ctrl+D를 EOF로(REPL `>>>` 세션 종료, `input()`·`sys.stdin` 읽기는
-// `EOFError`/루프 종료, 실행창은 `EOFError` 결과). pty 3.14.4 실측(DELTA-01, `pty/rd-048/results.md`)의 H3 네 항목과
+// RD-048 브라우저 확인: 빈 입력줄 Ctrl+D를 EOF로(REPL `>>>` 세션 종료, `input()`·`sys.stdin` 읽기는
+// `EOFError`/루프 종료, 실행창은 `EOFError` 결과). pty 3.14.4 실측(`pty/rd-048/results.md`)의 H3 네 항목과
 // 화면 기대값을 맞춘다. 트레이스백 프레임 모양(`File "<console>"` 한 줄, `_pyrepl` 내부 프레임 없음)은 기존 편차(35 계열)로
 // 흡수돼 이 스크립트는 대조하지 않는다(입력-취소 확인 스크립트 `input-cancel-check.mjs`와 같은 `TRACEBACK_HEAD`·`CONSOLE_FRAME`).
 //
 // 셀:
 //   D02 `if True:` Enter → `...`에서 빈 줄 Ctrl+D → 입력줄·프롬프트 불변(무동작), `pass` Enter Enter → 블록 생존·`>>>`
-//   D03 `x = input("p: ")` → 빈 줄 Ctrl+D → `EOFError` 트레이스백(DELTA-01 P3 대조), `>>>` 복귀, x 미정의(NameError)
+//   D03 `x = input("p: ")` → 빈 줄 Ctrl+D → `EOFError` 트레이스백(P3 대조), `>>>` 복귀, x 미정의(NameError)
 //   D04 `x = input("p: ")` → `ab` 커서 끝에서 Ctrl+D → 무동작, Enter → `print(x)` → `ab`
 //   D05 `for line in sys.stdin: print(line, end="")` 블록 → `a` Enter `b` Enter → 빈 줄 Ctrl+D → 루프 종료·`>>>`
 //   D06 `import time; time.sleep(1)` 실행 중 Ctrl+D → `>>>` 복귀 뒤 세션 유지(`1+1` → `2`)
@@ -144,7 +144,7 @@ async function runRepl(baseUrl) {
     }
   });
 
-  await d('D03 `x = input("p: ")` 빈 줄 Ctrl+D → EOFError 트레이스백(DELTA-01 P3 대조), `>>>` 복귀, x 미정의', async () => {
+  await d('D03 `x = input("p: ")` 빈 줄 Ctrl+D → EOFError 트레이스백(P3 대조), `>>>` 복귀, x 미정의', async () => {
     await startInput('x = input("p: ")', "p:");
     await openEmptyRead();
     await pressCtrlD();
@@ -201,7 +201,7 @@ async function runRepl(baseUrl) {
     await type("import time; time.sleep(1)");
     await enter();
     // 활성 읽기가 없는 구간(실행 중)에 친 Ctrl+D는 type-ahead로 쌓였다가 다음 읽기(`>>>`)에서 origin="replay"로
-    // 재생돼 EOF를 내지 않는다(DELTA-02 [V5], `xterm-readline` origin 판정). sleep(1) 안에 확실히 들어가도록 Enter 직후
+    // 재생돼 EOF를 내지 않는다([V5], `xterm-readline` origin 판정). sleep(1) 안에 확실히 들어가도록 Enter 직후
     // 곧바로 누른다(추가 대기 없음).
     await pressCtrlD();
     await waitPrompt(">>>", 5000);

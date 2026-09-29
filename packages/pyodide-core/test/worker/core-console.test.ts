@@ -1,7 +1,8 @@
 // @vitest-environment node
 /**
  * 콘솔 뼈대(`installStdioWriters`·`createCoreConsole`) 시험(실제 pyodide, 02-console-core.md 5.1).
- * REPL 전용 부분(ps1/ps2·헬퍼·TLA)은 repl `worker/console.test.ts`가 본다. 여기서는 driver가 공통으로 쓰는 두 함수만 본다.
+ * 여기서는 driver가 공통으로 쓰는 두 함수만 본다.
+ * REPL 전용 부분(ps1/ps2·헬퍼·TLA)은 repl `worker/console.test.ts`가 본다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
@@ -23,8 +24,9 @@ afterAll(() => {
 });
 
 /**
- * 콘솔에 한 줄을 push하고 결과 future를 기다린다. 실행 예외면 그 메시지(트레이스백 포함)를 돌려준다. 이 시험은 뼈대만 보므로
- * REPL의 `await_fut` 헬퍼 없이 직접 await한다(내부 프레임이 남지만 소스 이름 확인에는 상관없다).
+ * 콘솔에 한 줄을 push하고 결과 future를 기다린다.
+ * 실행 예외면 그 메시지(트레이스백 포함)를 돌려준다. 정상이면 빈 문자열이다.
+ * 뼈대만 보므로 REPL의 `await_fut` 헬퍼 없이 직접 await한다. 내부 프레임이 남지만 소스 이름 확인에는 상관없다.
  */
 async function push(pyconsole: PyodideConsoleProxy, line: string) {
   try {
@@ -56,7 +58,7 @@ describe("installStdioWriters·createCoreConsole", () => {
     pyconsole.destroy();
   });
 
-  // 전역 Writer 없이 콘솔 콜백만 걸어, 콘솔 안에서 쓴 stdout·stderr가 각자의 sink로 가는지 본다.
+  // 전역 Writer 없이 콘솔 콜백만 걸고, 콘솔 안에서 쓴 stdout·stderr가 각자의 sink로 가는지 본다.
   test("콘솔 안에서 쓴 stdout·stderr는 전역 Writer 없이도 각각 write·writeErrorRaw로 간다", async () => {
     pyodide.setStdout();
     pyodide.setStderr();

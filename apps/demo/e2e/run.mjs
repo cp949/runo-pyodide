@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// RD-018 DELTA-01: apps/demo/e2e 묶음 실행기(node 전용, playwright 미사용). checks/·measure/ 아래의
+// RD-018: apps/demo/e2e 묶음 실행기(node 전용, playwright 미사용). checks/·measure/ 아래의
 // 개별 스크립트가 playwright로 실제 확인을 수행하고, 이 파일은 그 스크립트들을 순서대로 부르며 서버
 // (5173 dev · 4173 preview · 4174 비격리 정적)를 관리하고 결과를 대조한다.
 //
@@ -221,12 +221,12 @@ async function teardown(servers) {
 }
 
 /**
- * `apps/demo/e2e/baseline.json`(DELTA-05가 채움, `BASELINE.md` 3절이 이 파일을 인용하는 원본): 허용 편차
+ * `apps/demo/e2e/baseline.json`(`BASELINE.md` 3절이 이 파일을 인용하는 원본): 허용 편차
  * 이름 접두어(`deviations`, 문자열 배열), 미실행 확인의 `{ prefix, rd }`(`unrun`), 다른 확인에 흡수된
  * 관찰 항목 `{ id, by }`(`absorbed`, 매칭에는 쓰지 않고 그대로 요약에 옮긴다 — 흡수된 항목은 애초에 독립된
  * 확인 이름으로 나타나지 않는다), 각 스크립트 자신의 판정이 이미 "의도된 forced 1건만" 확인으로 걸러낸
- * pageerror `{ file, count }`(`expectedPageErrors`, DELTA-03이 실측한 session-reset `crash` 절·tla `sticky`
- * 절 3건 — `pending-issues/05.md`). 이 개수만큼은 총 `pageerror` 집계에서 뺀다(그 이상 나오면 초과분이
+ * pageerror `{ file, count }`(`expectedPageErrors`, 실측한 session-reset `crash` 절·tla `sticky`
+ * 절 3건). 이 개수만큼은 총 `pageerror` 집계에서 뺀다(그 이상 나오면 초과분이
  * 그대로 집계돼 회귀를 계속 잡아낸다). 파일이 없으면 전부 빈 값.
  */
 function loadBaselineConfig() {
@@ -239,8 +239,8 @@ function loadBaselineConfig() {
 /**
  * `results/*.json`(이 실행이 만든 것만 — `baseline` 시작 시 `results/`를 비운다)을 읽어 `failed`를
  * 모으고 `baseline.json`의 접두어와 대조해 `results/summary.json`을 쓴다. `measure/boot-press.mjs`는
- * `finish()`를 쓰지 않고 자기 `{ summary, results }` 포맷을 직접 쓴다(DELTA-04 결정, "동작 불변") — DELTA-05가
- * 이 스크립트를 baseline 세트에 배선하면서 그 포맷도 여기서 같이 해석한다.
+ * `finish()`를 쓰지 않고 자기 `{ summary, results }` 포맷을 직접 쓴다("동작 불변" 결정). 이 스크립트를 baseline 세트에
+ * 배선하면서 그 포맷도 여기서 같이 해석한다.
  *
  * `runs`(`cmdBaseline()`이 기록한 `SETS` 항목별 `{ file, args, server, only, exitCode, newFiles }`)에서
  * exit ≠ 0인데 이 항목이 만든 새 결과 파일이 없는 실행(`finish()` 전 크래시 등)은 결과 파일 집계에

@@ -1,14 +1,17 @@
 /**
- * dom-bridge main 진입점(`@cp949/runo-pyodide-dom-bridge`). coincident `Worker`를 만들고 worker 쪽 `domBridge()` 플러그인이 쓸 수
- * 있는지 판정한다. 소비자는 Vite가 번들할 수 있게 worker 생성을 직접 쓴다:
+ * dom-bridge main 진입점(`@cp949/runo-pyodide-dom-bridge`).
+ *
+ * - coincident `Worker`를 만든다.
+ * - worker 쪽 `domBridge()` 플러그인이 쓸 수 있는지 판정한다.
+ * - 소비자는 Vite가 번들할 수 있게 worker 생성을 직접 쓴다.
  *
  *   const { Worker } = createBridgeMain();
  *   const createWorker = () => new Worker(new URL("./app.worker.ts", import.meta.url), { type: "module" });
  *
- * 만들 때 coincident가 부트스트랩 메시지를 동기로 보내므로 core init 프레임보다 항상 먼저 도착한다. `coincidentMain()`에는 옵션을
- * 넘기지 않는다. 돌려준 `Worker` 생성자의 두 번째 인자는 런타임에 coincident로 그대로 간다(`serviceWorker`·`import`·
- * `reflected_ffi_timeout`도 걸러내지 않는다). 타입(`BridgeMain.Worker`)이 표준 `WorkerOptions`로 제한해 TS 초과 속성 검사가 1차로
- * 막을 뿐이다.
+ * - 만들 때 coincident가 부트스트랩 메시지를 동기로 보낸다. 그래서 core init 프레임보다 항상 먼저 도착한다.
+ * - `coincidentMain()`에는 옵션을 넘기지 않는다.
+ * - 돌려준 `Worker` 생성자의 두 번째 인자는 런타임에 coincident로 그대로 간다. `serviceWorker`·`import`·`reflected_ffi_timeout`도 걸러내지 않는다.
+ * - 타입(`BridgeMain.Worker`)이 표준 `WorkerOptions`로 제한한다. TS 초과 속성 검사가 1차로 막을 뿐이다.
  */
 import { detectRuntimeSupport } from "@cp949/runo-pyodide-core";
 import coincidentMain from "@cp949/runo-coincident/window/main";
@@ -54,11 +57,14 @@ function canCreateGrowableSharedArrayBuffer(): boolean {
 }
 
 /**
- * dom-bridge를 쓸 수 있는 페이지인가: `detectRuntimeSupport() === "supported"`(빌드 floor 이상 브라우저 + pyodide 런타임
- * wasm 지원 + cross-origin isolation, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`)이고 growable
- * SharedArrayBuffer 생성이 된다. worker를 만들기 전에 걸러 조기 실패시키는 데 쓴다. 기능 탐지만 하고 UA는 판별하지
- * 않는다(검증은 Chromium에서만 했다). growable 판정 자체는 Chrome 97~110에서 오탐(true)할 수 있다 — 개선은 이
- * 저장소 범위 밖이다(GitHub 이슈 #1).
+ * dom-bridge를 쓸 수 있는 페이지인가. 두 조건을 모두 만족해야 참이다.
+ * - `detectRuntimeSupport() === "supported"`: 빌드 floor 이상 브라우저 + pyodide 런타임 wasm 지원 + cross-origin isolation
+ *   (`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
+ * - growable SharedArrayBuffer 생성이 된다.
+ *
+ * worker를 만들기 전에 걸러 조기 실패시키는 데 쓴다.
+ * 기능 탐지만 하고 UA는 판별하지 않는다(검증은 Chromium에서만 했다).
+ * growable 판정 자체는 Chrome 97~110에서 오탐(true)할 수 있다. 개선은 이 저장소 범위 밖이다(GitHub 이슈 #1).
  */
 export function isDomBridgeSupported(): boolean {
   return (

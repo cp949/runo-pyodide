@@ -15,4 +15,4 @@ Agent 도구 정의상 포크는 "always inherit the parent model" — `model` �
 ## 탐지/회피
 
 - 회피: DELTA 구현은 포크에 맡기되, 모델 지정이 있는 리뷰는 항상 오케스트레이터(메인 컨텍스트)가 직접 `Agent(subagent_type: "general-purpose", model: "opus"|"sonnet")`로 dispatch한다. 포크 지시문에는 "리뷰는 하지 말고 구현·검증·기록·커밋까지만 하라"고 명시한다.
-- 탐지: 포크가 낸 "OO 모델 리뷰" 보고가 있으면, 진짜 그 모델의 독립 subagent를 오케스트레이터가 별도로 dispatch해 같은 diff를 재검증한다. 처음부터 결함이 없었더라도 재검증 자체가 checklist 요구를 실제로 만족시킨다(2026-09-27 RD-044에서 이 패턴으로 DELTA-01의 "opus 리뷰"를 재검증해 시험 결함 1건을 추가로 잡았다).
+- 탐지: 포크가 낸 "OO 모델 리뷰" 보고가 있으면, 진짜 그 모델의 독립 subagent를 오케스트레이터가 별도로 dispatch해 같은 diff를 재검증한다. 처음부터 결함이 없었더라도 재검증 자체가 checklist 요구를 실제로 만족시킨다(2026-09-27 RD-044에서 이 패턴으로 DELTA의 "opus 리뷰"를 재검증해 시험 결함 1건을 추가로 잡았다).

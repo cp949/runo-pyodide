@@ -1,9 +1,11 @@
 /**
  * sink 4종(`createTerminalSinks`)의 개행·색·꼬리 계약 시험(05-output.md 4.1, TRAP-29).
- * 실제 `Readline`을 가짜 터미널에 붙여 터미널로 나간 바이트를 그대로 비교한다. 벤더 `write`가
- * `\n`을 `\r\n`으로 정규화하므로 fake가 아니라 실제 `Readline`이어야 이중 개행을 놓치지 않는다.
- * pyodide·worker는 쓰지 않는다(실제 `PyodideConsole`과의 바이트 비교는 sinks-pyodide.test.ts).
- * 열린 읽기 중 출력(RD-022b)은 결과 화면을 `VtScreen`으로 해석해 단정한다(입력줄 위 행·접두·다시 그린 입력줄).
+ * - 실제 `Readline`을 가짜 터미널에 붙이고 터미널로 나간 바이트를 그대로 비교한다.
+ * - 벤더 `write`가 `\n`을 `\r\n`으로 정규화한다. 가짜 `Readline`이면 이중 개행을 놓친다.
+ * - pyodide·worker는 쓰지 않는다.
+ *   실제 `PyodideConsole`과의 바이트 비교는 `pyodide-repl/test/terminal/sinks-pyodide.test.ts`가 맡는다.
+ * - 열린 읽기 중 출력(RD-022b, 05-output.md 4.4)은 결과 화면을 `VtScreen`으로 해석해 단정한다.
+ *   대상: 입력줄 위 행, 접두, 다시 그린 입력줄.
  */
 import { Readline } from "@cp949/runo-xterm-readline";
 import { describe, expect, test, vi } from "vitest";
@@ -11,12 +13,15 @@ import { createFakeTerminal } from "@repo/pyodide-testkit/fake-terminal";
 import { VtScreen, attachVtScreen } from "@repo/pyodide-testkit/vt-screen";
 import { createTerminalSinks, splitAboveRead } from "../src/sinks";
 
+/**
+ * 실제 `Readline`을 붙인 가짜 터미널과 sink 세트를 만든다.
+ * `bytes()`는 터미널로 나간 바이트 전부를 돌려준다.
+ */
 function setup() {
   const fake = createFakeTerminal();
   const readline = new Readline({ persist: false });
   fake.term.loadAddon(readline);
   const sinks = createTerminalSinks(readline);
-  /** 터미널에 나간 바이트 전부. */
   const bytes = () => fake.written.join("");
   return { fake, sinks, bytes };
 }
@@ -297,8 +302,11 @@ describe("열린 읽기 위 출력의 완성 행·접두 분리(`splitAboveRead`
 });
 
 /**
- * 실제 `Readline`에 활성 읽기(`> ` + 친 글자)를 연 상태를 만든다. 화면은 `VtScreen`으로 해석하고 커서 모델도 갱신한다
- * (벤더 재그리기가 앵커 행으로 `cursorY`를 읽는다). `printAboveRaw`는 호출을 기록하되 실제로 실행한다.
+ * 실제 `Readline`에 활성 읽기(`> ` + 친 글자)를 연 상태를 만든다.
+ * - 화면은 `VtScreen`으로 해석하고 커서 모델도 갱신한다. 벤더 재그리기가 앵커 행으로 `cursorY`를 읽는다.
+ * - `printAboveRaw`는 호출을 기록하되 실제로 실행한다.
+ * - `openRead(typed)`는 `> ` 읽기를 열고 그린 뒤 `typed`(기본 `abc`)를 친다.
+ *   읽기 Promise는 객체에 담아 돌려주므로 읽기가 끝나지 않아도 시험이 멈추지 않는다.
  */
 function setupReading(options: { cols?: number; asyncWrite?: boolean } = {}) {
   const cols = options.cols ?? 40;
@@ -312,7 +320,6 @@ function setupReading(options: { cols?: number; asyncWrite?: boolean } = {}) {
   fake.term.loadAddon(readline);
   const sinks = createTerminalSinks(readline);
   const printAboveRaw = vi.spyOn(readline, "printAboveRaw");
-  /** `> ` 읽기를 열고 그린 뒤 `typed`를 친다. 읽기 Promise는 객체에 담아 돌려준다(끝나지 않아도 시험을 멈추지 않는다). */
   const openRead = (typed = "abc") => {
     const line = readline.read("> ");
     fake.flush();
@@ -460,9 +467,11 @@ describe("열린 읽기 중 출력은 입력줄 위에 쓰고 같은 읽기를 �
 });
 
 /**
- * `\r`로 끝나는 조각(`print(f"{p}%", end="\r")`)은 커서를 행 머리에 둔다. 꼬리 규칙만 쓰면 접두가 빈 문자열이 되어 조각이 사라지고
- * 뒤따르는 `\n`도 빈 행만 남긴다(second-opinion SO-T1). 마지막으로 보이는 `\r` 구간을 접두로 보관하고, 다음 조각은 그 뒤 `\r`에
- * 이어 계산한다(다음 조각이 그 접두를 덮어쓰거나 `\n`이 그 행을 완성한다).
+ * `\r`로 끝나는 조각(`print(f"{p}%", end="\r")`)은 커서를 행 머리에 둔다.
+ * - 꼬리 규칙만 쓰면 접두가 빈 문자열이 되어 조각이 사라진다. 뒤따르는 `\n`도 빈 행만 남긴다.
+ * - 그래서 마지막으로 보이는 `\r` 구간을 접두로 보관한다.
+ * - 다음 조각은 보관한 원문 뒤 `\r`에 이어 계산한다.
+ *   다음 조각이 그 접두를 덮어쓰거나, `\n`이 그 행을 완성한다.
  */
 describe("열린 읽기 중 `\\r`로 끝나는 조각(진행률)", () => {
   test.each([
@@ -539,8 +548,8 @@ describe("열린 읽기 중 `\\r`로 끝나는 조각(진행률)", () => {
       resume: undefined,
     },
     {
-      // 보이는 글자 판정은 꼬리 정규화와 같은 기준이어야 한다. BEL을 글자로 세면 접두가 빈 문자열이 되어
-      // 화면의 `50%`가 통째로 사라진다(RD-026 사후 리뷰).
+      // 보이는 글자 판정은 꼬리 정규화와 같은 기준이어야 한다.
+      // BEL을 글자로 세면 접두가 빈 문자열이 되어 화면의 `50%`가 통째로 사라진다(RD-026 사후 리뷰).
       name: "`\\r` 뒤 BEL만 있으면 정규화로 사라지므로 그 앞 구간을 접두로 보관한다",
       prefix: "",
       text: "50%\r\x07",
@@ -664,9 +673,10 @@ describe("열린 읽기 중 `\\r`로 끝나는 조각(진행률)", () => {
     expect(vt.screen()).toBe("50%Y\n> abc");
   });
 
-  // 보이지 않는 조각(`\r`·SGR뿐)이 이어져도 보관 원문은 보이는 구간 + `\r` 하나 + SGR 순효과로 묶인다(second-opinion 2차 SO2-S1).
-  // 색 켜기의 순효과는 꼬리 추적기의 열린 SGR 목록이라 같은 SGR이 반복되면 `MAX_ACTIVE_SGR`(64)까지만 쌓이고, 닫지 않은 색은
-  // 꼬리 규칙대로 `\n` 뒤 새 접두(SGR만)로 이어진다.
+  // 보이지 않는 조각(`\r`·SGR뿐)이 이어져도 보관 원문은 "보이는 구간 + `\r` 하나 + SGR 순효과"로 묶인다.
+  // 색 켜기의 순효과는 꼬리 추적기의 열린 SGR 목록이다.
+  // 같은 SGR이 반복돼도 `MAX_ACTIVE_SGR`(64)까지만 쌓인다.
+  // 닫지 않은 색은 꼬리 규칙대로 `\n` 뒤 새 접두(SGR만)로 이어진다.
   test.each([
     { name: "`\\r`만", color: "", chunk: "\r", lines: "50%\r\n" },
     { name: "SGR 끄기만", color: "", chunk: RESET, lines: `50%\r${RESET}\n` },
@@ -674,7 +684,7 @@ describe("열린 읽기 중 `\\r`로 끝나는 조각(진행률)", () => {
   ])(
     "`50%\\r` 뒤 보이지 않는 조각이 이어져도 보관 원문이 자라지 않는다($name)",
     ({ color, chunk, lines }) => {
-      /** `50%\r` 뒤 `chunk`를 n번, 이어 `\n`을 쓴 뒤 마지막 완성 행과 화면. */
+      // `50%\r` 뒤 `chunk`를 n번, 이어 `\n`을 쓴다. 마지막 완성 행·접두와 화면을 돌려준다.
       const run = (n: number) => {
         const { vt, printAboveRaw, sinks, openRead } = setupReading();
         openRead();
@@ -752,7 +762,7 @@ describe("열린 읽기 중 출력과 꼬리 추적(RD-022b)", () => {
   });
 });
 
-describe("열린 읽기 위 접두의 제어 문자 정규화(결함 15, 실제 `Readline` 경로)", () => {
+describe("열린 읽기 위 접두의 제어 문자 정규화(실제 `Readline` 경로)", () => {
   const BACKSPACE = "\x7f";
 
   test("BS 스피너 `|` 뒤 `\\b/`는 접두 `/`가 되고 커서가 실제 글자 끝이다", () => {

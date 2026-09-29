@@ -1,10 +1,12 @@
 /**
- * `createTerminalRunner` 시험(RD-022 DELTA-06, RD-031 DELTA-01). 실제 벤더 `Readline`·실제 sink·실제 선택 복사를 가짜 터미널
- * (`@repo/pyodide-testkit/fake-terminal`)에 붙이고, core도 실제 `createRunner`를 쓴다 — worker만 공용 가짜
- * (`@cp949/runo-pyodide-core/test-utils`)로 둔다. 가짜 core 주입 자리(내부 팩토리)는 RD-031에서 삭제됐다: runner
- * 규칙(거부 분기·`busy`·상태 전이)은 core `runner.test.ts`가 소유하고, 이 파일은 실행창이 그 위에 붙이는 화면(sink)·입력
- * (`Readline`)·Ctrl+C·선택 복사만 본다. 공용 setup은 `./test/runner-setup`(`terminal-runner-screen.test.ts`와 공유).
- * `run()` 시작 화면 준비 시험은 `terminal-runner-screen.test.ts`에 있다. 실제 pyodide 왕복은 브라우저 L1이 본다.
+ * `createTerminalRunner` 시험(RD-022, RD-031).
+ * - 실제 벤더 `Readline`·실제 sink·실제 선택 복사를 가짜 터미널(`@repo/pyodide-testkit/fake-terminal`)에 붙인다.
+ * - core는 실제 `createRunner`를 쓴다. worker만 공용 가짜(`@cp949/runo-pyodide-core/test-utils`)로 둔다.
+ * - runner 규칙(거부 분기·`busy`·상태 전이)은 core `runner.test.ts`가 소유한다.
+ * - 이 파일은 실행창이 그 위에 붙이는 화면(sink)·입력(`Readline`)·Ctrl+C·선택 복사만 본다.
+ * - 공용 setup은 `./runner-setup`이다. `terminal-runner-screen.test.ts`와 공유한다.
+ * - `run()` 시작 화면 준비 시험은 `terminal-runner-screen.test.ts`에 있다.
+ * - 실제 pyodide 왕복은 브라우저 L1이 본다.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { RunRejectedError, type RunnerStatus } from "@cp949/runo-pyodide-core";
@@ -87,7 +89,7 @@ describe("키 정책: 읽기 밖 입력은 무시한다(typeAhead: false)", () =
       kind: "line",
       text: "ac",
     });
-    // 프롬프트(core가 넘기는 prompt 인자가 아니라 자체 꼬리를 쓴다)와 입력이 화면에 그려졌다.
+    // 프롬프트와 입력이 화면에 그려졌다. 프롬프트는 core가 넘기는 prompt 인자가 아니라 자체 꼬리를 쓴다.
     expect(screen()).toContain("ac");
   });
 
@@ -298,10 +300,10 @@ describe("Ctrl+C: 상태별 분기 4종", () => {
     void handle.run("code");
     expect(handle.status).toBe("running");
 
-    // 실제 runDriver는 보내지 않는 알림이다(design.md P-e, P-d). core의 `pythonRunning()`을 거짓으로 만들어
-    // I3 조건(`active?.phase === "sent" && session?.pythonRunning()`)이 성립하지 않는 상황을 재현한다.
-    // 알림은 MessagePort를 타고 비동기로 도착한다 — 같은 포트의 뒤 알림(write)이 그려질 때까지 기다려 반영을 확인한 뒤
-    // Ctrl+C를 친다.
+    // 실제 runDriver는 보내지 않는 알림이다.
+    // core의 `pythonRunning()`을 거짓으로 만들어 I3 조건(`active?.phase === "sent" && session?.pythonRunning()`)이 깨진 상황을 재현한다.
+    // 알림은 MessagePort를 타고 비동기로 도착한다.
+    // 같은 포트의 뒤 알림(write)이 그려질 때까지 기다려 반영을 확인한 뒤 Ctrl+C를 친다.
     worker().sessionTerminated();
     worker().write("·");
     await vi.waitFor(() => expect(screen()).toContain("·"));
@@ -473,15 +475,10 @@ describe("input() 대기 중 배경 출력(RD-022b)", () => {
 });
 
 describe("상태·크래시 전달", () => {
-  // [결정] 가짜 core는 `core.setStatus("running")·("waiting-input")·("ready")`를 직접 세 번 불러 상태만 흉내 냈다(실행 중인
-  // run과 무관). 실제 core에서 "waiting-input" 뒤 "ready"(다음 "running"을 거치지 않고)로 가려면 그 읽기가 실행 중인 run에
-  // 묶이지 않은 배경 읽기여야 하고(P-d), "running"이 먼저 나오려면 실행 중인 run이 있어야 한다(그 run의 읽기는 취소돼도
-  // `active.phase`가 그대로라 "running"으로 돌아간다, `runner.ts` `inputResumed`) — 두 조건이 같은 흐름에서 동시에 성립하지
-  // 않아 기존 배열(`["running","waiting-input","ready"]`)을 실제 사건으로는 재현할 수 없었다(설계 §3.4 "기대값 원칙"의
-  // 멈추는 지점 후보). 대신 "실행 중 input() 한 번을 마치고 끝나는" 가장 가까운 실제 흐름(`["running","waiting-input",
-  // "running","ready"]`)으로 바꾼다 — 포워딩 자체(onStatus 순서 그대로·getter가 core 상태와 일치)는 다른 시험(onCrash·
-  // not-isolated)도 간접적으로 검증해 틀렸을 때 비용은 낮다. **사용자 확인 필요**: 기대 배열이 바뀌는 것이므로 병합 전
-  // 확인받는다.
+  // 실행 중 `input()` 한 번을 마치고 끝나는 흐름이다. 기대 상태열은 `["running","waiting-input","running","ready"]`다.
+  // - `waiting-input` 뒤 `running`으로 돌아간다. 그 run의 읽기가 끝나도 `active.phase`가 그대로다(`runner.ts` `inputResumed`).
+  // - `waiting-input` 뒤 곧바로 `ready`로 가려면 그 읽기가 실행 중인 run에 묶이지 않은 배경 읽기여야 한다(P-d).
+  // - 그러면 `running`이 먼저 나올 수 없다. 두 조건은 한 흐름에서 함께 성립하지 않는다.
   test("core 상태 알림을 onStatus로 그대로 전달하고 status 게터는 core 상태를 읽는다", async () => {
     const { fake, handle, worker, statuses, startInput, finishRun } =
       await setupReal();
@@ -539,29 +536,28 @@ describe("상태·크래시 전달", () => {
     });
   });
 
-  // 예외 1건: 가짜 core의 `stop()`은 실행 여부와 무관하게 항상 `"stopped"`를 돌려줬다. 실제 core는 실행 중인 run이 있어야
-  // `"stopped"`다(없으면 `"idle"`, `runner.ts` `stop()`) — 실행 중 run을 `stop()`한 뒤 그 run이 끝나는 흐름으로 재현한다.
+  // 실제 core의 `stop()`은 실행 중인 run이 있어야 `"stopped"`를 돌려준다. 없으면 `"idle"`이다(`runner.ts` `stop()`).
+  // 그래서 실행 중 run을 `stop()`한 뒤 그 run이 끝나는 흐름으로 확인한다.
   test("stop·reset은 core로 넘기고 결과를 그대로 돌려준다", async () => {
     const { handle, worker, finishRun } = await setupReal();
     void handle.run("code");
 
     const stopping = handle.stop();
-    // stop()이 실제로 core에 닿았다는 증거: 눌림을 보냈다.
+    // `stop()`이 core에 닿았다는 증거: 눌림을 보냈다.
     expect(worker().signal()).toBe(2);
     await finishRun();
     await expect(stopping).resolves.toBe("stopped");
 
     handle.reset();
 
-    // reset()이 실제로 core에 닿았다는 증거: 새 worker를 만든다.
+    // `reset()`이 core에 닿았다는 증거: 새 worker를 만든다.
     await vi.waitFor(() => expect(factory.workers.length).toBe(2));
   });
 });
 
 describe("inputProvider 옵션", () => {
-  // 예외 1건: 가짜 core에서는 프롬프트 자체가 화면에 쓰이지 않아 "화면이 완전히 빈다"를 볼 수 있었다. 실제 worker의
-  // `write("x: ")`는 입력 읽기 여부와 무관하게 항상 화면에 그려진다(출력과 입력은 별개 경로) — 여기서 실제로 보는 건
-  // "읽기가 없어 키 입력이 화면에 나타나지 않는다"쪽이다.
+  // 실제 worker의 `write("x: ")`는 입력 읽기와 무관하게 항상 화면에 그려진다. 출력과 입력은 별개 경로다.
+  // 그래서 화면이 비는지가 아니라 "읽기가 없어 키 입력이 화면에 나타나지 않는지"를 본다.
   test("주면 core에 그대로 넘기고 xterm 읽기는 열지 않는다", async () => {
     const inputProvider = vi.fn(() => new Promise<string | null>(() => {}));
     const { fake, worker, screen } = await setupReal({
@@ -603,8 +599,8 @@ describe("입력 읽기의 signal abort", () => {
     fake.type("ab");
     const before = fake.written.length;
 
-    // 실행 중인 run이 있으면 `stop()`의 Promise는 그 run이 끝나야(또는 1000ms 폴백) 풀린다 — 여기서 보는 건 취소
-    // 자체(`pendingInput.abandon()`, 호출 안에서 동기)뿐이라 기다리지 않는다.
+    // 실행 중인 run이 있으면 `stop()`의 Promise는 그 run이 끝나야(또는 1000ms 폴백) 풀린다.
+    // 여기서는 취소 자체(`pendingInput.abandon()`, 호출 안에서 동기)만 보므로 기다리지 않는다.
     void handle.stop();
 
     await expect(worker().takeResponse()).resolves.toEqual({
@@ -616,9 +612,9 @@ describe("입력 읽기의 signal abort", () => {
     expect(after.at(-1)).toBe("\r\n");
   });
 
-  // 이슈 13: 재그리기 콜백 전 abort하면 벤더가 화면에 아무것도 쓰지 않아 아직 그리지 않은 접두가 사라진다. 호출자가 복원한다.
+  // 재그리기 콜백 전에 abort하면 벤더가 화면에 아무것도 쓰지 않아 아직 그리지 않은 접두가 사라진다. 호출자가 복원한다.
   describe("재그리기 대기 중 abort의 접두 복원(이슈 13)", () => {
-    /** `x: ab`가 그려진 입력 읽기를 열고, 배경 출력 `tick`(개행 없음)의 재그리기 write 콜백은 배출하지 않은 채 둔다. */
+    // `x: ab`가 그려진 입력 읽기를 열고, 배경 출력 `tick`(개행 없음)의 재그리기 write 콜백은 배출하지 않은 채 둔다.
     const openWithPendingPrefix = async () => {
       const fake = createFakeTerminal({ asyncWrite: true });
       const vt = new VtScreen(80, 24);
@@ -678,12 +674,12 @@ describe("입력 읽기의 signal abort", () => {
     });
   });
 
-  // 커서가 감긴 입력의 중간 행에 있을 때 abort하면 뒤 출력이 입력 마지막 행 위에 겹치던 결함(readline-read-end DELTA-03).
+  // 회귀: 커서가 감긴 입력의 중간 행에 있을 때 abort하면 뒤 출력이 입력 마지막 행 위에 겹쳤다.
   describe("abort 뒤 출력 위치: 벤더 settle·그리기 전 대체 개행", () => {
     const THIRTY = "abcdefghijklmnopqrstuvwxyz0123";
     const HOME = "\x1b[H";
 
-    /** 열 20 화면에서 `x: ` 읽기에 30자를 쳐 두 행으로 감긴 입력을 만든다. */
+    // 열 20 화면에서 `x: ` 읽기에 30자를 쳐 두 행으로 감긴 입력을 만든다.
     const openWrappedInput = async () => {
       const fake = createFakeTerminal({ asyncWrite: true, cols: 20, rows: 10 });
       const vt = new VtScreen(20, 10);
@@ -703,7 +699,7 @@ describe("입력 읽기의 signal abort", () => {
       return { ...context, vt };
     };
 
-    /** stop으로 읽기를 끊고 트레이스백 한 줄을 낸 뒤 화면을 배출한다. */
+    // stop으로 읽기를 끊고 트레이스백 한 줄을 낸 뒤 화면을 배출한다.
     const stopAndPrintTraceback = async (
       context: Awaited<ReturnType<typeof openWrappedInput>>,
     ) => {
@@ -792,8 +788,9 @@ describe("입력 읽기의 signal abort", () => {
     });
   });
 
-  // `onAbort` 리스너 제거는 실제 core로 관찰할 수 없다: core는 끝난 읽기의 signal을 다시 abort하지 않는다(`pendingInput`이
-  // 읽기 종료 때 비워진다). 여기서는 읽기가 끝난 뒤 stop()이 화면에 쓰지 않는 것만 본다.
+  // `onAbort` 리스너 제거는 실제 core로 관찰할 수 없다.
+  // core는 끝난 읽기의 signal을 다시 abort하지 않는다. `pendingInput`이 읽기 종료 때 비워지기 때문이다.
+  // 여기서는 읽기가 끝난 뒤 `stop()`이 화면에 쓰지 않는 것만 본다.
   test("읽기가 정상으로 끝난 뒤의 stop은 줄바꿈을 더 쓰지 않는다", async () => {
     const { fake, handle, worker, startInput } = await setupReal();
     await startInput();

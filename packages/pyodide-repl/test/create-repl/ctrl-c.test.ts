@@ -1,10 +1,18 @@
 /**
  * `createRepl`의 Ctrl+C 시험.
- * RD-008: 입력줄 취소. REPL 읽기는 응답 `null`, stdin 읽기는 메일박스 CANCELLED가 되고 둘 다 `^C`를 찍지 않는다. 취소 응답 뒤
- * 다음 요청이 오기 전의 구간(`cancelSettling`)은 게이트를 닫고, `input()` 취소에는 닫지 않는다.
- * RD-007: 실행 중 Ctrl+C. 벤더 `Readline`이 활성 읽기 없이 부르는 `setCtrlCHandler`가 `^C`를 꼬리에 쓰고 프레임의 interrupt
- * buffer에 SIGINT를 쓰는지, 게이트(`pythonRunning`)가 대상 코드가 없는 구간의 눌림을 버리는지, cancel 지점이 송신기의 재전송을
- * 멈추는지 본다. 송신기의 상태기계 자체는 core `protocol/interrupt-sender.test.ts`가 맡는다.
+ *
+ * RD-008 입력줄 취소:
+ * - REPL 읽기는 응답 `null`, stdin 읽기는 메일박스 CANCELLED가 된다. 둘 다 `^C`를 찍지 않는다.
+ * - 취소 응답 뒤 다음 요청이 오기 전 구간(`cancel-settling` phase, 옛 이름 `cancelSettling`)은 게이트를 닫는다.
+ * - `input()` 취소에는 게이트를 닫지 않는다.
+ *
+ * RD-007 실행 중 Ctrl+C:
+ * - 벤더 `Readline`이 활성 읽기 없이 부르는 `setCtrlCHandler`가 `^C`를 꼬리에 쓴다.
+ * - 같은 핸들러가 프레임의 interrupt buffer에 SIGINT를 쓴다.
+ * - 게이트(`pythonRunning`)가 대상 코드가 없는 구간의 눌림을 버린다.
+ * - cancel 지점이 송신기의 재전송을 멈춘다.
+ *
+ * 송신기의 상태기계 자체는 core `test/protocol/interrupt-sender.test.ts`가 맡는다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { Readline } from "@cp949/runo-xterm-readline";
@@ -124,13 +132,14 @@ describe("취소 직후의 게이트(cancelSettling, RD-008)", () => {
     fake.flush();
     await expect(line).resolves.toBeNull();
 
-    // 벤더에는 활성 읽기가 없어 이 키는 Ctrl+C 핸들러로 온다. 게이트가 막지 않으면 SIGINT가 남아 다음 push가 죽는다(TRP-009).
+    // 벤더에는 활성 읽기가 없어 이 키는 Ctrl+C 핸들러로 온다.
+    // 게이트가 막지 않으면 SIGINT가 남아 다음 push가 죽는다(TRAP-04).
     fake.type("\x03");
 
     expect(echoes(session)).toBe(0);
     expect(slots(session).seq).toBe(0);
 
-    // 정상 복귀: 다음 요청이 오면 읽기가 열리고 그 줄이 응답이 된다.
+    // 정상 복귀. 다음 요청이 오면 읽기가 열리고 그 줄이 응답이 된다.
     const { line: next } = await startRead(session);
     fake.type("1\r");
     await expect(next).resolves.toBe("1");
@@ -158,7 +167,8 @@ describe("취소 직후의 게이트(cancelSettling, RD-008)", () => {
     const session = startSession({}, { asyncWrite: true });
     const { fake, workerRpc } = session;
     const { line } = await startRead(session);
-    // 프롬프트를 기다리는 사이 배경 콜백의 `input()`이 도착한다. 가드가 REPL 읽기 뒤로 미룬다.
+    // 프롬프트를 기다리는 사이 배경 콜백의 `input()`이 도착한다.
+    // 가드가 REPL 읽기 뒤로 미룬다.
     const before = flushRequestCount(fake);
     workerRpc.notify("readInput", true);
     await settle();
@@ -176,7 +186,8 @@ describe("취소 직후의 게이트(cancelSettling, RD-008)", () => {
     });
     await settle();
 
-    // 값을 전달한 시점이 worker가 깨어나 사용자 코드를 재개하는 시점이다. 요청 도착만으로 내리면 이 구간이 막힌다.
+    // 값을 전달한 시점이 worker가 깨어나 사용자 코드를 재개하는 시점이다.
+    // 요청 도착만으로 방어를 내리면 이 구간이 막힌다.
     fake.type("\x03");
     expect(echoes(session)).toBe(1);
     expect(slots(session).seq).toBe(1);
@@ -193,7 +204,8 @@ describe("취소 직후의 게이트(cancelSettling, RD-008)", () => {
     fake.flush();
     await settle();
 
-    // 읽기는 `Error("readline disposed")`로 끝나지만 dispose가 RPC를 먼저 끊으므로 worker 역할 rpc에는 응답이 오지 않는다.
+    // 읽기는 `Error("readline disposed")`로 끝난다.
+    // dispose가 RPC를 먼저 끊으므로 worker 역할 rpc에는 응답이 오지 않는다.
     expect(outcome().state).toBe("pending");
     const writtenAtDispose = fake.written.length;
     expect(() => fake.type("\x03")).not.toThrow();
@@ -203,17 +215,20 @@ describe("취소 직후의 게이트(cancelSettling, RD-008)", () => {
 });
 
 describe("실행 중 Ctrl+C(RD-007)", () => {
-  /** 소실을 흉내 낸다: ack 없이 SIGNAL만 0으로 지운다. 송신기가 살아 있으면 5ms 안에 같은 번호로 다시 쓴다. */
+  // 소실을 흉내 낸다. ack 없이 SIGNAL만 0으로 지운다.
+  // 송신기가 살아 있으면 5ms 안에 같은 번호로 다시 쓴다.
   function loseSignal(session: Pick<Session, "fakeWorker">) {
     Atomics.store(session.fakeWorker.frame().interruptBuffer, SIGNAL, 0);
   }
 
-  /** 상태 콜백이 `loading` 다음 값을 받을 때까지 기다린다. cancel·게이트 갱신이 그 콜백보다 먼저 끝나 있다. */
+  // 상태 콜백이 `loading` 다음 값을 받을 때까지 기다린다.
+  // cancel·게이트 갱신이 그 콜백보다 먼저 끝나 있다.
   const waitNextStatus = (session: Pick<Session, "onStatus">) =>
     waitFor(() => session.onStatus.mock.calls.length === 2);
 
   test("활성 읽기가 없을 때(로딩 중 포함) Ctrl+C는 `^C`를 쓰고 요청 번호를 올려 SIGINT를 쓴다", async () => {
-    // `ready`를 보내지 않아 세션은 아직 로딩 중이다. 부팅 중 눌림도 버퍼에 써져 worker가 폐기한다(boot-press).
+    // `ready`를 보내지 않아 세션은 아직 로딩 중이다.
+    // 부팅 중 눌림도 버퍼에 써지고 worker가 폐기한다(브라우저 회귀 `boot-press`, 09-testing.md 9.3).
     const session = startSession();
     session.workerRpc.notify("write", "t");
     await waitFor(() => session.bytes() === "t");
@@ -232,7 +247,8 @@ describe("실행 중 Ctrl+C(RD-007)", () => {
 
     await startRead(session);
 
-    // `readline.print("^C")`로 에코하면 꼬리가 `t`뿐이라 `t>>> `가 되고 `^C`는 프롬프트 밖에 따로 남는다(S1).
+    // `readline.print("^C")`로 에코하면 꼬리가 `t`뿐이라 `t>>> `가 된다.
+    // 그러면 `^C`는 프롬프트 밖에 따로 남는다(S1).
     expect(session.bytes()).toContain("t^C\x1b[0m>>> ");
   });
 
@@ -252,7 +268,8 @@ describe("실행 중 Ctrl+C(RD-007)", () => {
 
     await settle();
 
-    // 재전송은 번호를 올리지 않는다. 이 시험은 송신기가 프레임의 그 버퍼에 배선됐는지만 본다(상태기계는 interrupt-sender 시험).
+    // 재전송은 번호를 올리지 않는다.
+    // 이 시험은 송신기가 프레임의 그 버퍼에 배선됐는지만 본다. 상태기계는 interrupt-sender 시험이 본다.
     expect(slots(session)).toEqual({ signal: 2, ack: 0, seq: 1 });
   });
 
@@ -264,7 +281,7 @@ describe("실행 중 Ctrl+C(RD-007)", () => {
     async ({ notification, args }) => {
       const session = startSession();
       session.fake.type("\x03");
-      // 대조: 세션이 살아 있는 동안에는 전송된다.
+      // 대조. 세션이 살아 있는 동안에는 전송된다.
       expect(slots(session).seq).toBe(1);
       session.workerRpc.notify(notification, ...args);
       await waitNextStatus(session);
@@ -285,7 +302,8 @@ describe("실행 중 Ctrl+C(RD-007)", () => {
     );
     await waitFor(() => flushRequestCount(fake) > before);
 
-    // 읽기 시작 write 콜백이 아직 오지 않아 벤더 `Readline`에는 활성 읽기가 없다. 그래서 이 키는 Ctrl+C 핸들러로 온다.
+    // 읽기 시작 write 콜백이 아직 오지 않아 벤더 `Readline`에는 활성 읽기가 없다.
+    // 그래서 이 키는 Ctrl+C 핸들러로 온다.
     fake.type("\x03");
     expect(echoes(session)).toBe(0);
     expect(slots(session).seq).toBe(0);
@@ -342,14 +360,16 @@ describe("실행 중 Ctrl+C(RD-007)", () => {
 
     session.fake.type("\x03");
 
-    // 읽기가 줄·취소·실패 어느 쪽으로 끝나든 게이트는 열려야 한다. 닫힌 채 남으면 Ctrl+C가 영영 죽는다.
+    // 읽기가 줄·취소·실패 어느 쪽으로 끝나든 게이트는 열려야 한다.
+    // 닫힌 채 남으면 Ctrl+C가 영영 죽는다.
     expect(slots(session).seq).toBe(1);
   });
 
   test("`input()` 응답을 아직 다 전달하지 못한 동안(다음 청크 대기) Ctrl+C는 에코도 전송도 하지 않는다", async () => {
     const session = startSession();
     await startInputRead(session);
-    // 64KiB를 넘는 줄은 청크로 나뉜다. worker가 첫 청크를 가져가기 전에는 다음 청크를 쓰지 못하고 멈춘다.
+    // 64KiB를 넘는 줄은 청크로 나뉜다.
+    // worker가 첫 청크를 가져가기 전에는 다음 청크를 쓰지 못하고 멈춘다.
     session.fake.paste("x".repeat(70_000));
     session.fake.type("\r");
     await vi.waitFor(() => {
@@ -360,7 +380,8 @@ describe("실행 중 Ctrl+C(RD-007)", () => {
     expect(echoes(session)).toBe(0);
     expect(slots(session).seq).toBe(0);
 
-    // worker가 첫 청크를 가져간 것처럼 소비한다 — main이 이어서 마지막 청크를 써 전체 줄을 완성한다.
+    // worker가 첫 청크를 가져간 것처럼 소비한다.
+    // main이 이어서 마지막 청크를 써 전체 줄을 완성한다.
     // 그 시점에 worker가 깨어나 실행을 재개한다. 그때부터 다시 전송한다.
     await expect(takeResponse(session)).resolves.toEqual({
       kind: "line",

@@ -1,6 +1,6 @@
 /**
- * worker 쪽 브리지 핸들. `bridge()`가 돌려주는 값이다. coincident가 함께 돌려주는 `ffi`(임의 코드 평가 등)는 CSP 때문에
- * 노출하지 않는다.
+ * worker 쪽 브리지 핸들. `bridge()`가 돌려주는 값이다.
+ * coincident가 함께 돌려주는 `ffi`(임의 코드 평가 등)는 CSP 때문에 노출하지 않는다.
  */
 export interface WorkerBridge {
   /** main이 `worker.proxy`에 등록한 함수들(`native`면 동기 호출). 시험용 훅·앱 고유 함수 노출에 쓴다. */

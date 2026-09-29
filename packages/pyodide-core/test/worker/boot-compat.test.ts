@@ -1,9 +1,15 @@
 // @vitest-environment node
 /**
- * worker 부팅의 호환 탐지(RD-021): interrupt 공개 API 부재 시 시작 거부(`loadFailed`), driver `probe` 호출 위치, `ready` 페이로드
- * `{ pyodideVersion, versionMismatch, degraded, details? }`. 지점마다 실제 pyodide(node)를 새로 로드해 비공개 API를 한 곳씩
- * 바꾸고(속성 삭제·`__file__` 변조) `degraded`에 그 식별자만 실리며 해당 기능만 꺼지는지 본다. 변이가 다음 시험에 새지 않도록
- * 시험마다 `loadPyodide()`를 새로 부른다. driver는 콘솔 뼈대(core)만 쓰는 가짜라 REPL을 모른다.
+ * worker 부팅의 호환 탐지(RD-021) 시험.
+ * - interrupt 공개 API가 없으면 시작을 거부한다(`loadFailed`).
+ * - driver `probe`는 콘솔 생성 직후 한 번 불린다.
+ * - `ready` 페이로드는 `{ pyodideVersion, versionMismatch, degraded, details? }`다.
+ *
+ * 지점별 시험은 실제 pyodide(node)를 시험마다 새로 로드한다.
+ * 비공개 API를 한 곳씩 바꾼다(속성 삭제·`__file__` 변조).
+ * `degraded`에 그 식별자만 실리고 해당 기능만 꺼지는지 확인한다.
+ * 변이가 다음 시험에 새지 않도록 `loadPyodide()`를 시험마다 새로 부른다.
+ * driver는 core 콘솔 뼈대만 쓰는 가짜라 REPL을 모른다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { describe, expect, test, vi } from "vitest";
@@ -19,7 +25,11 @@ import type {
   WorkerDriverSession,
 } from "../../src/worker/driver";
 
-/** core 콘솔 뼈대만 쓰는 가짜 driver. `run`은 바로 끝난다(부팅 시퀀스만 본다). */
+/**
+ * core 콘솔 뼈대만 쓰는 가짜 driver를 만든다.
+ * `run`은 바로 끝난다(부팅 시퀀스만 본다).
+ * `log`에 `createConsole` 호출이 남는다.
+ */
 function createDriver(overrides: Partial<WorkerDriverSession> = {}) {
   const log: string[] = [];
   const driver: WorkerDriver = {
@@ -39,7 +49,10 @@ function createDriver(overrides: Partial<WorkerDriverSession> = {}) {
   return { driver, log };
 }
 
-/** 새 pyodide를 로드하고 `mutation`(Python)을 한 번 실행한다. 로드한 인스턴스는 `loaded`로 시험에 돌려준다. */
+/**
+ * 새 pyodide를 로드하고 `mutation`(Python)을 한 번 실행하는 로더를 만든다.
+ * 로드한 인스턴스는 `loaded.pyodide`로 시험에 돌려준다.
+ */
 function loadMutated(mutation?: string) {
   const loaded: { pyodide?: PyodideInterface } = {};
   const load = async () => {
@@ -51,7 +64,7 @@ function loadMutated(mutation?: string) {
   return { load, loaded };
 }
 
-/** 부팅을 끝까지 돌리고 `ready` 페이로드를 돌려준다. `loadFailed`가 오면 시험이 실패한다. */
+/** 부팅을 끝까지 돌려 `ready` 페이로드와 pyodide를 돌려준다. `loadFailed`가 오면 시험이 실패한다. */
 async function bootAndGetReady(mutation?: string) {
   const main = createMainSide();
   const { driver } = createDriver();
@@ -213,7 +226,7 @@ describe("bootWorker: driver probe", () => {
   }, 60_000);
 });
 
-/** 부팅 뒤 같은 인스턴스에서 Python 식을 평가한다. */
+/** 부팅을 마친 같은 인스턴스에서 Python 식을 평가한다. */
 function evaluate(pyodide: PyodideInterface, source: string): unknown {
   return pyodide.runPython(source);
 }
@@ -230,7 +243,7 @@ describe("bootWorker: 지점별 저하(실제 pyodide, 시험마다 새 로드)"
       degraded: ["webloop-handlers"],
       details: { "webloop-handlers": ["_system_exit_handler"] },
     });
-    // 부분 설치 없음: 있던 속성은 no-op으로 바뀌지 않고 기본값 None이다.
+    // 부분 설치는 없다. 남은 속성은 no-op으로 바뀌지 않고 기본값 None이다.
     expect(
       evaluate(
         pyodide,
@@ -254,7 +267,7 @@ describe("bootWorker: 지점별 저하(실제 pyodide, 시험마다 새 로드)"
       degraded: ["run-sync"],
       details: { "run-sync": ["pyodide.ffi.run_sync"] },
     });
-    // 깨우기 교체만 꺼진다: webloop의 run_sync가 원본 그대로이고 SIGINT 핸들러는 설치돼 있다.
+    // 깨우기 교체만 꺼진다. webloop의 run_sync는 원본 그대로이고 SIGINT 핸들러는 설치돼 있다.
     expect(
       evaluate(
         pyodide,
@@ -308,7 +321,7 @@ describe("bootWorker: 지점별 저하(실제 pyodide, 시험마다 새 로드)"
       degraded: ["webloop-filename"],
       details: { "webloop-filename": ["/somewhere/other.py"] },
     });
-    // 끌 기능이 없다: 조각 교체·깨우기 교체·핸들러 설치는 모두 됐다.
+    // 끌 기능이 없다. 조각 교체·깨우기 교체·핸들러 설치는 모두 됐다.
     expect(
       evaluate(pyodide, "import time\ntime.sleep.__code__.co_filename"),
     ).toBe("<sleep-slice>");

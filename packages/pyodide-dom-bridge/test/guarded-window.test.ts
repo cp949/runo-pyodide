@@ -1,6 +1,8 @@
 /**
- * `guardedWindow`: worker에서 본 main `window` 프록시를 한 겹 감싸 `parent`·`top`·`opener` 읽기를 명시 오류로 막는다.
- * 얕은 차단이다(`window.frames`·`document.defaultView.parent` 같은 우회는 막지 않는다). 보안 경계가 아니라 실수 방지다.
+ * `guardedWindow` 시험. worker에서 본 main `window` 프록시를 한 겹 감싸 `parent`·`top`·`opener` 읽기를 명시 오류로 막는다.
+ *
+ * - 얕은 차단이다. `window.frames`·`document.defaultView.parent` 같은 우회는 막지 않는다.
+ * - 보안 경계가 아니라 실수 방지다.
  */
 import createLocal from "@cp949/runo-reflected-ffi/local";
 import createRemote from "@cp949/runo-reflected-ffi/remote";
@@ -166,10 +168,12 @@ describe("guardedWindow", () => {
 
 /**
  * reflected-ffi 원격 프록시처럼 동작하는 대역. 자기 target은 비어 있고 `getOwnPropertyDescriptor`는 실제 창의 설명자를 그대로 돌려준다.
- * 실제 `window.document`·`location`은 비설정(non-configurable) own 속성이라, 빈 target을 가진 프록시가 그 설명자를 돌려주면 JS 엔진이 프록시
- * 불변식 위반(`TypeError: 'getOwnPropertyDescriptor' on proxy: trap reported non-configurability …`)으로 던진다. guard가 원격 프록시를 그대로
- * target으로 삼으면 바깥 Proxy의 `[[Get]]` 불변식 검사가 target에 이 요청을 보내므로 `.document` 읽기부터 실패한다(Python에서는
- * `window.document`, Chromium L1 실측).
+ *
+ * - 실제 `window.document`·`location`은 비설정(non-configurable) own 속성이다.
+ * - 빈 target을 가진 프록시가 그 설명자를 돌려주면 JS 엔진이 프록시 불변식 위반으로 던진다.
+ *   `TypeError: 'getOwnPropertyDescriptor' on proxy: trap reported non-configurability …`
+ * - guard가 원격 프록시를 그대로 target으로 삼으면 바깥 Proxy의 `[[Get]]` 불변식 검사가 target에 이 요청을 보낸다.
+ * - 그래서 `.document` 읽기부터 실패한다. Python에서는 `window.document`가 실패했다(Chromium L1 실측).
  */
 function createRemoteLikeWindow() {
   const real: Record<string, unknown> = { title: "제목", parent: "부모" };
@@ -272,23 +276,25 @@ describe("guardedWindow: 원격 프록시(불변식이 엄격한 target)", () =>
 });
 
 /**
- * 실제 reflected-ffi 0.7.2 `local`(main 쪽)·`remote`(worker 쪽) 쌍을 같은 스레드에서 직접 묶는다. `remote.global`이 worker에서 본 main
- * `globalThis` 프록시다. guarded 창에서 `g.method()`를 부르면 호출 receiver(`this`)로 guarded 프록시가 원격에 넘어간다. reflected-ffi
- * `remote.js`의 `toValue`는 값에 비공개 심볼이 `in`으로 보일 때만(`reflected in value`) 원격 참조로 되돌리므로, guard의 `has`가
- * 심볼 키까지 원격에 위임해야 main 쪽 receiver가 원본 `globalThis`가 된다(아니면 worker 쪽 객체의 원격 프록시가 된다).
+ * 실제 reflected-ffi 포크(`@cp949/runo-reflected-ffi`)의 `local`(main 쪽)·`remote`(worker 쪽) 쌍을 같은 스레드에서 직접 묶는다.
+ * `remote.global`이 worker에서 본 main `globalThis` 프록시다.
+ *
+ * - guarded 창에서 `g.method()`를 부르면 호출 receiver(`this`)로 guarded 프록시가 원격에 넘어간다.
+ * - reflected-ffi `remote`의 `toValue`는 값에 비공개 심볼이 `in`으로 보일 때만(`reflected in value`) 원격 참조로 되돌린다.
+ * - 그래서 guard의 `has`가 심볼 키까지 원격에 위임해야 main 쪽 receiver가 원본 `globalThis`가 된다.
+ * - 위임하지 않으면 receiver가 worker 쪽 객체의 원격 프록시가 된다.
  */
 function createReflectedPair() {
-  // 두 끝이 서로를 부르므로 remote는 만든 뒤에 채운다.
-  const ends: { remote?: ReturnType<typeof createRemote> } = {};
+  // 두 끝이 서로를 부른다. local 콜백은 호출 시점에 remote를 읽으므로 선언 순서가 문제없다.
   const local = createLocal({
-    reflect: (method: number, uid: number | null, ...args: unknown[]) =>
-      ends.remote?.reflect(method, uid, ...args),
+    reflect: (method: number, uid: unknown, ...args: unknown[]) =>
+      remote.reflect(method, uid, ...args),
   });
-  ends.remote = createRemote({
-    reflect: (method: number, uid: number | null, ...args: unknown[]) =>
+  const remote = createRemote({
+    reflect: (method: number, uid: unknown, ...args: unknown[]) =>
       local.reflect(method, uid, ...args),
   });
-  return ends.remote;
+  return remote;
 }
 
 const MAIN_FUNCTION = "__runoGuardedWindowReceiverProbe";

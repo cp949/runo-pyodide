@@ -1,6 +1,5 @@
-// RD-010 DELTA-00: RD-009 하니시(`_works/_completed/20260922-09-rd-009-idle-ctrl-c/verify/lib.mjs`)를
-// 저장소 devDependency(`playwright`, apps/demo/package.json)로 옮긴 것. 이후 각 RD의 브라우저 확인
-// 스크립트는 `_works/<작업>/verify/`에 두고 이 파일만 import한다(복사하지 않는다).
+// RD-010: RD-009 하니스를 저장소 devDependency(`playwright`, apps/demo/package.json)로
+// 옮긴 것. 이후 각 RD의 브라우저 확인 스크립트는 이 파일만 import한다(복사하지 않는다).
 //
 // 사용법:
 //   import { open, hasFg, same, show } from "<repo>/apps/demo/e2e/lib.mjs";
@@ -13,11 +12,11 @@
 // 전제: `pnpm --filter demo dev`(또는 `preview`)가 떠 있고, `pnpm exec playwright install chromium`이
 // 끝나 있어야 한다.
 //
-// 결과 파일(RD-018 DELTA-01): `finish()`가 stdout JSON을 그대로 찍으면서 같은 내용을
+// 결과 파일(RD-018): `finish()`가 stdout JSON을 그대로 찍으면서 같은 내용을
 // `process.env.E2E_RESULTS_DIR`(기본 `apps/demo/e2e/results/`)에 `<호출 스크립트 파일명>-<label>.json`으로도
 // 쓴다. 같은 프로세스에서 같은 조합이 반복되면 `-2`·`-3` 접미가 붙는다.
 //
-// 규칙(RD-004 DELTA-08 계승): 고정 sleep 대신 조건이 참이 될 때까지 폴링한다. 행 텍스트는 `.xterm-rows > div`(NBSP → 공백,
+// 규칙(RD-004 계승): 고정 sleep 대신 조건이 참이 될 때까지 폴링한다. 행 텍스트는 `.xterm-rows > div`(NBSP → 공백,
 // 행 끝 공백 제거), 색은 span 클래스(`xterm-fg-1` 빨강, `xterm-fg-2` 초록). 개행 수는 커서 행 번호로 단언한다(TRP-006).
 // 입력은 새 프롬프트 행(`>>> ` 또는 꼬리+`>>> `)이 보인 뒤에 보낸다(TRP-005). 읽기가 없는 구간의 키는 벤더 Readline이
 // 쌓았다가 다음 읽기에서 재생하므로(RD-019) 재시도로 키를 다시 치면 글자가 중복된다.
@@ -28,7 +27,7 @@ import { fileURLToPath } from "node:url";
 
 const e2eDir = path.dirname(fileURLToPath(import.meta.url));
 
-// RD-018 DELTA-01: finish()가 결과 파일을 쓸 때 호출 스크립트 파일명을 기준으로 삼는데, 같은 프로세스에서
+// RD-018: finish()가 결과 파일을 쓸 때 호출 스크립트 파일명을 기준으로 삼는데, 같은 프로세스에서
 // 같은 스크립트가 label을 바꿔가며(또는 같은 label로) finish()를 여러 번 부를 수 있다(dev·preview 등). 그
 // 반복을 세어 `-2`·`-3` 접미를 붙이는 카운터. 모듈 스코프라 프로세스 하나당 하나만 존재한다.
 const resultFileCounts = new Map();
@@ -60,7 +59,7 @@ function readEnvNumber(name, min) {
 /**
  * 브라우저를 띄워 url을 연다. 반환한 객체의 헬퍼가 화면·입력·콘솔 기록·페이지 내부 시계를 다룬다.
  *
- * 환경변수(이슈 `.scratch/e2e-time-dependence/` 02·03, 판정 규칙은 `docs/design/09-testing.md` 9.7):
+ * 환경변수(이슈 02·03, 판정 규칙은 `docs/design/09-testing.md` 9.7):
  * - `E2E_CPU_THROTTLE`(기본 1): 1보다 크면 CDP `Emulation.setCPUThrottlingRate`로 CPU를 그 배율만큼 감속한다.
  *   감속은 `waitPrompt()`가 **처음 성공한 시점에 1회** 적용한다(부팅 구간은 감속하지 않는다). 기본값(1)에서는 CDP 세션을
  *   만들지 않아 기존 동작이 그대로다.
@@ -74,7 +73,7 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
   if (cpuThrottle !== 1 || timeScale !== 1) {
     console.warn(`경고: E2E_CPU_THROTTLE=${cpuThrottle} E2E_TIME_SCALE=${timeScale} (기본 1이 아님, 결과 notes에 기록됨)`);
   }
-  // DELTA-06(구버전 Chromium 실측): `cdpEndpoint`를 주면 로컬에서 새 브라우저를 띄우는 대신
+  // 구버전 Chromium 실측: `cdpEndpoint`를 주면 로컬에서 새 브라우저를 띄우는 대신
   // 이미 떠 있는 브라우저(구버전 Chromium 컨테이너)에 CDP로 붙는다. 기존 호출자는 이 옵션을
   // 주지 않으므로 `chromium.launch()` 경로가 그대로다(기존 스크립트 동작 불변).
   const browser = cdpEndpoint ? await chromium.connectOverCDP(cdpEndpoint) : await chromium.launch();
@@ -262,8 +261,7 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
   const press = (key) => page.keyboard.press(key);
   /**
    * xterm의 `paste` 이벤트 경로(RD-011): 클립보드에 쓰고 Control+V로 붙여넣는다(`\n`→`\r` 변환은 벤더
-   * `readPaste`가 한다). headless Chromium은 Control+V가 실제 OS 클립보드 붙여넣기를 일으키지 않는다(실측,
-   * DELTA-04 "## 결정") — 화면이 안 바뀌면 `textarea`에 `ClipboardEvent("paste")`를 직접 dispatch하는
+   * `readPaste`가 한다). headless Chromium은 Control+V가 실제 OS 클립보드 붙여넣기를 일으키지 않는다(실측) — 화면이 안 바뀌면 `textarea`에 `ClipboardEvent("paste")`를 직접 dispatch하는
    * fallback으로 대체한다. `page.keyboard.insertText`는 대신 쓰지 않는다: CDP `Input.insertText`가 `\n`을
    * 삽입 이벤트에서 지워버려(실측) 여러 줄 소스가 한 줄로 뭉개진다. 합성 `paste` 이벤트는 xterm이 실제로
    * 듣는 이벤트(`qs` 핸들러, `event.clipboardData.getData("text/plain")`)라 실제 붙여넣기와 같은 코드 경로를
@@ -583,7 +581,7 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
    * 결과를 JSON으로 출력하고 브라우저를 닫는다. 종료 코드는 호출자가 정한다.
    * `ok`는 `pageErrors`(전체, 재보고 포함) 0도 요구한다. `webLoopReraises`는 진단용으로만 남긴다.
    *
-   * RD-018 DELTA-01: `label`(기본 `"dev"`)은 stdout에는 찍히지 않고, 결과 파일 이름(`<호출 스크립트
+   * RD-018: `label`(기본 `"dev"`)은 stdout에는 찍히지 않고, 결과 파일 이름(`<호출 스크립트
    * 파일명>-<label>.json`, `resultFileName` 참고)에만 쓰인다. stdout JSON 자체는 이전과 같은 모양이고
    * (기존 호출자가 `label` 없이 부르면 파일은 `dev`로 저장돼 호환된다), 파일 내용은 그 stdout JSON과
    * 동일하다(`checks` 전체 맵도 함께 담아 실행기(`run.mjs`)가 ID 단위로 대조할 수 있게 한다).
@@ -678,16 +676,16 @@ export async function open(url, { viewport, before, waitUntil = "load", cdpEndpo
 }
 
 // RD-017: 선택 복사 도우미. `open()`이 반환하는 핸들의 클로저가 아니라 `page`를 인자로 받는 독립 함수다
-// (계획서 DELTA-04 "가정" — `open` 자체와 같은 형태). 좌표는 실제 마우스 이벤트로 드래그를 만들기 위해
+// (`open` 자체와 같은 형태). 좌표는 실제 마우스 이벤트로 드래그를 만들기 위해
 // `.xterm-rows > div`의 `getBoundingClientRect()`를 쓴다(데모에 `window.__term`이 없다).
 
 /**
  * `endOutside`용 x좌표: `.xterm` 요소 오른쪽 바깥, 뷰포트 안쪽 중간. `.xterm-screen`보다 오른쪽이라 터미널
- * 요소 밖에서 mouseup이 일어나 document 리스너 경로를 탄다(실측, DELTA-04 2차 정정). 같은 행 y를 유지해야
+ * 요소 밖에서 mouseup이 일어나 document 리스너 경로를 탄다(실측). 같은 행 y를 유지해야
  * 한다 — 터미널 위쪽(y가 작은 곳)으로 떼면 xterm이 선택 방향을 뒤집어 드래그한 텍스트 자체가 선택에서
  * 빠지고 스크롤 위치에 따라 클립보드가 달라진다.
  *
- * 주의(DELTA-04 2차 정정 — "선택 범위를 안 건드린다"는 최초 서술은 틀렸다): 이 x좌표로 마우스를 이동하면
+ * 주의("선택 범위를 안 건드린다"는 최초 서술은 틀렸다): 이 x좌표로 마우스를 이동하면
  * xterm은 **열 좌표를 그 행 끝으로 clamp**한다. 즉 `toCol`은 무시되고 "`fromCol`부터 그 행 끝까지"가
  * 선택된다(실측 반례: `hello world` 행에서 `selectRows(r,0,r,5)`가 `endOutside:false`면 `"hello"`,
  * `endOutside:true`면 `"hello world"`). `toCol`이 그 행의 마지막 글자가 아닌 한 이 옵션으로 정확한 부분
@@ -725,7 +723,7 @@ async function cellCenter(page, row, col) {
  * move(steps: 5) → up`). `endOutside`가 참이면 같은 행의 y를 유지한 채 `.xterm` 요소 오른쪽 바깥(뷰포트
  * 안)에서 뗀다 — xterm의 드래그 종료 리스너는 `document`에 걸려 있어 터미널 밖에서 떼도 선택이 확정된다
  * (S11). 단, 이 좌표에서는 xterm이 열 좌표를 그 행 끝으로 **clamp**한다 — `toCol`은 무시되고 `fromCol`부터
- * 그 행 끝까지가 선택된다(`xtermOutsideRightX` 참고, DELTA-04 2차 정정). "행 전체/행 끝까지"를 확인하고
+ * 그 행 끝까지가 선택된다(`xtermOutsideRightX` 참고). "행 전체/행 끝까지"를 확인하고
  * 싶을 때만 `endOutside: true`를 써라. 뷰포트가 좁아 mouseup이 실제로 `.xterm` 안에서 일어나면(전제:
  * `xtermOutsideRightX` 참고) 조용히 넘어가지 않고 에러를 던진다.
  */
@@ -783,7 +781,7 @@ export async function setCopyOnSelect(page, on) {
 
 /**
  * 토스트(`data-testid=copy-toast`) 텍스트. 떠 있지 않으면 `null`. Locator로 존재 확인(`count()`)과 텍스트
- * 읽기(`textContent()`)를 나눠 부르면(DELTA-04 3차 정정 전 구현) 그 사이에 토스트가 1초 자동 소멸 타이머로
+ * 읽기(`textContent()`)를 나눠 부르면(정정 전 구현) 그 사이에 토스트가 1초 자동 소멸 타이머로
  * 사라져 `textContent()`가 요소를 못 찾고 기본 타임아웃까지 기다리다 던지는 경쟁 조건이 있었다(재현: 6회
  * 반복 중 1회, locator timeout 30000ms). `page.evaluate`로 존재 확인과 텍스트 읽기를 같은 DOM 스냅샷 안에서
  * 동기로 끝내 경쟁 조건을 없앤다.
@@ -792,7 +790,7 @@ export async function toastText(page) {
   return page.evaluate(() => document.querySelector('[data-testid="copy-toast"]')?.textContent ?? null);
 }
 
-// RD-022b DELTA-04: main 쪽 RPC 알림 관찰·주입. 화면에 신호가 없는 제품 이벤트(배경 `input()`의 `readInput` 알림이 main에
+// RD-022b: main 쪽 RPC 알림 관찰·주입. 화면에 신호가 없는 제품 이벤트(배경 `input()`의 `readInput` 알림이 main에
 // 도착해 처리됨)를 조건 대기로 기다리고(9.7 "판정은 이벤트·상태로"), worker가 낼 수 없는 시점의 출력(`input()` 대기 중 worker는
 // 메일박스 `Atomics.wait`에 멈춰 있다)을 main 경로 그대로 흉내 낸다. 알림 모양은 `packages/pyodide-core/src/protocol/rpc.ts`
 // (`{ kind: "ntf", name, args }`)와 `CORE_MAIN_HANDLER_NAMES`(`write`·`readInput` 등)를 따른다.

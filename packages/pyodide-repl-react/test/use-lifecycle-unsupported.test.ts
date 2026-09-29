@@ -1,13 +1,14 @@
 // @vitest-environment node
 /**
- * `initialRunnerStatus()`의 `unsupported`(`detectRuntimeSupport()` wasm 미지원, DELTA-07) 분기만 따로 본다.
- * 다른 시험 파일은 실제 Node `WebAssembly.validate`(참)를 공유 모듈 인스턴스로 쓰므로, `WebAssembly.validate`를
- * 거짓으로 바꾸려면 `vi.resetModules()` + 동적 import로 이 파일만 독립된 모듈 인스턴스를 써야 한다
- * (`@cp949/runo-pyodide-core`의 wasm 지원 캐시가 먼저 계산되면 이후 스텁이 반영되지 않는다 —
- * `runtime-support.test.ts`·`runner-unsupported.test.ts`와 같은 이유).
+ * `initialRunnerStatus()`의 `unsupported` 분기 시험. node 환경.
+ * - 조건: `detectRuntimeSupport()`가 wasm 미지원으로 판정한다.
+ * - 별도 파일인 이유: core는 wasm 지원 판정을 모듈 스코프에 캐시한다. 캐시가 먼저 계산되면 이후 `WebAssembly.validate` 스텁이 반영되지 않는다.
+ * - 방법: `vi.resetModules()` 뒤 동적 import로 이 파일만 독립된 모듈 인스턴스를 쓴다.
+ * - 같은 이유의 core 시험: `runtime-support.test.ts`, `runner-unsupported.test.ts`.
  */
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+// 시험이 거짓으로 바꾸는 `WebAssembly.validate`의 원본. `afterEach`에서 복원한다.
 const originalValidate = WebAssembly.validate;
 
 beforeEach(() => {

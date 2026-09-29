@@ -1,9 +1,11 @@
 /**
- * `<PythonRunner>` 시험(jsdom + React). 실제 `createTerminalRunner`·실제 `@xterm/xterm`·실제 `FitAddon`을 쓰고 worker만 가짜다
- * (공용 `@cp949/runo-pyodide-core/test-utils`). 두 컴포넌트 시험에서 본문이 같은 쌍(StrictMode 수명·정리 순서·copyOnSelect 반응형·
- * fit 배선 3건·ref handle 4건)은 `terminal-component.contract.test.tsx`로 옮겼다(DELTA-02). fit 세부(크기 0 건너뜀·rAF 합침)는
- * `terminal-view.ts`가 실제로 보는 로직이라 `terminal-view.test.ts`로 옮겼다(DELTA-03). 여기는 runner 고유 시험(생성 옵션·
- * `onOutput`·`inputProvider`·`clearOnRun`)만 남았다.
+ * `<PythonRunner>` 고유 시험. jsdom + React.
+ * - 실제 `createTerminalRunner`·`@xterm/xterm`·`FitAddon`을 쓰고 worker만 가짜다(`@cp949/runo-pyodide-core/test-utils`).
+ * - 확인: 생성 옵션 전달·고정, `onOutput`·`onStatus`·`inputProvider`, `clearOnRun`, ref handle 위임 규칙, 타입 유도.
+ * - 다른 파일과의 분담:
+ *   - `PythonRepl`과 본문이 같은 시험은 `terminal-component.contract.test.tsx`가 본다.
+ *     StrictMode 수명, 정리 순서, `copyOnSelect` 반응형, fit 배선, ref handle 공통 부분이 여기에 든다.
+ *   - fit 세부(크기 0 건너뜀·rAF 합침)는 `terminal-view.test.ts`가 본다.
  */
 import type {
   TerminalRunnerHandle,
@@ -31,13 +33,13 @@ import {
 
 const HOST_ID = "runner-host";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks -- React hook이 아니다. beforeEach/afterEach를 등록하는 시험 하니스(RD-037 `useConsoleHarness` 선례).
+// eslint-disable-next-line react-hooks/rules-of-hooks -- React hook이 아니다. beforeEach/afterEach를 등록하는 시험 하니스다(`pyodide-repl`의 `useConsoleHarness`와 같은 방식).
 const { mount, props } = useComponentHarness<
   PythonRunnerHandle,
   PythonRunnerProps
 >({ Component: PythonRunner, hostId: HOST_ID });
 
-/** worker `ready`를 보내 상태를 `ready`로 만든다. */
+/** `index`번째 worker가 `ready`를 알리게 하고 handle의 `status`가 `ready`가 될 때까지 기다린다. */
 async function becomeReady(
   probe: Probe<PythonRunnerHandle, PythonRunnerProps>,
   index = 0,
@@ -123,7 +125,7 @@ describe("PythonRunner: 출력·콜백 latest-ref", () => {
     const probe = mount({ onOutput: outputFirst, onStatus: statusFirst });
     expect(statusFirst).toHaveBeenCalledWith("loading");
     probe.rerender(props({ onOutput: outputSecond, onStatus: statusSecond }));
-    // 재렌더가 worker·Terminal을 다시 만들지 않는다(계약 C4는 공통 콜백만 넘겨서 못 보는 onOutput 인라인 람다 경로 보존).
+    // 재렌더가 worker·Terminal을 다시 만들지 않는다. 계약 suite의 인라인 람다 시험은 공통 콜백만 넘기므로 `onOutput` 경로는 여기서 본다.
     expect(factory.workers).toHaveLength(1);
     expect(openSpy).toHaveBeenCalledTimes(1);
     await becomeReady(probe);
@@ -154,7 +156,7 @@ describe("PythonRunner: 출력·콜백 latest-ref", () => {
     probe.ref.current!.run("input()").catch(() => {});
     await until(() => factory.workers[0]!.pending.length === 1);
     factory.workers[0]!.readInput();
-    // 읽기가 열리면 키 입력이 화면에 에코된다. 열리기 전 입력은 버려지므로 나타날 때까지 계속 보낸다.
+    // 읽기가 열리면 키 입력이 화면에 에코된다. 열리기 전 입력은 버려진다. 에코가 나타날 때까지 계속 보낸다.
     await expect
       .poll(async () => {
         act(() => probe.terminal().input("q"));
@@ -176,7 +178,7 @@ describe("PythonRunner: ref handle", () => {
         run: Promise<unknown>;
         stop: Promise<unknown>;
       }[] = [];
-      // 콜백 ref는 레이아웃 단계에 불려 passive effect의 runner 생성보다 먼저다.
+      // 콜백 ref는 레이아웃 단계에 불린다. passive effect의 runner 생성보다 먼저다.
       const ref = (handle: PythonRunnerHandle | null) => {
         if (!handle) return;
         const run = handle.run("1");

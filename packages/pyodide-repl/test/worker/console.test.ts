@@ -1,9 +1,16 @@
 // @vitest-environment node
 /**
  * worker 콘솔 코어(`createConsole`) 시험(02-console-core.md 5.1·5.4, TRAP-02·03).
- * 실제 pyodide(node)에서 `PyodideConsole` 생성·콜백·`sys.ps1/ps2`·`runLine` 네 결과·`await_fut` 헬퍼·값 에코(`echo`)·
- * `_IncompleteInputError` 정규화·`pending()`/`clearPending()`을 확인한다.
- * sink는 `vi.fn()`이라 터미널 바이트는 보지 않는다(그건 terminal/sinks-pyodide.test.ts).
+ *
+ * 실제 pyodide(node)에서 아래를 확인한다.
+ * - `PyodideConsole` 생성·콜백·`sys.ps1/ps2`.
+ * - `runLine`의 네 결과.
+ * - `await_fut` 헬퍼.
+ * - 값 에코(`echo`).
+ * - `_IncompleteInputError` 정규화.
+ * - `pending()`/`clearPending()`.
+ *
+ * sink는 `vi.fn()`이라 터미널 바이트는 보지 않는다. 그것은 `terminal/sinks-pyodide.test.ts`가 본다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { beforeAll, describe, expect, test, vi } from "vitest";
@@ -17,6 +24,7 @@ import {
   warnDegraded,
 } from "@cp949/runo-pyodide-core/test-utils/worker";
 
+/** 파일 전체가 공유하는 pyodide 인스턴스. 앞 시험이 남긴 전역을 뒤 시험이 볼 수 있다. */
 let pyodide: PyodideInterface;
 
 beforeAll(async () => {
@@ -27,8 +35,8 @@ beforeAll(async () => {
 function setup(topLevelAwait = false) {
   const sinks = { write: vi.fn(), writeErrorRaw: vi.fn() };
   const repl = createConsole(pyodide, sinks, { topLevelAwait });
-  // KeyboardInterrupt·SystemExit을 실제로 낼 수 있는 시험(exit() 등)이 WebLoop 재보고로 처리되지 않은 Promise
-  // 거부를 남기지 않도록 worker와 같은 순서로 설치한다(03-ctrl-c.md 2.8).
+  // `exit()` 같은 시험은 SystemExit을 실제로 낸다.
+  // WebLoop 재보고가 처리되지 않은 Promise 거부를 남기지 않도록 worker와 같은 순서로 억제를 설치한다(03-ctrl-c.md 2.8).
   suppressWebLoopReraise(pyodide, { report: warnDegraded });
   return { sinks, repl };
 }
@@ -52,7 +60,7 @@ describe("createConsole", () => {
   });
 
   test("새 콘솔을 만들어도 `sys`가 사용자 전역에 남지 않는다", () => {
-    // pyodide 인스턴스를 시험끼리 공유하므로 앞 시험이 남긴 `sys`를 먼저 지운다.
+    // pyodide 인스턴스를 시험끼리 공유한다. 앞 시험이 남긴 `sys`를 먼저 지운다.
     pyodide.runPython("globals().pop('sys', None)");
     setup();
 
@@ -104,7 +112,8 @@ describe("createConsole", () => {
   test("문법 오류는 syntax-error와 formatted_error다", async () => {
     const { repl } = setup();
 
-    // EOF에서 끊긴 입력(`1 +` 등)은 아래 "문법 오류 정규화"가 다루고, 여기서는 정규화 없이 나오는 평범한 오류를 쓴다.
+    // EOF에서 끊긴 입력(`1 +` 등)은 아래 "문법 오류 정규화"가 다룬다.
+    // 여기서는 정규화 없이 나오는 평범한 오류를 쓴다.
     const result = await repl.runLine("x = = 1");
 
     expect(result.kind).toBe("syntax-error");
@@ -248,7 +257,7 @@ describe("값 에코(`echo`)", () => {
       result.formattedError.startsWith("Traceback (most recent call last):\n"),
     ).toBe(true);
     expect(result.formattedError.includes("in __repr__")).toBe(true);
-    // 끝 개행은 하나다. 제거는 호출부(러너)가 한다.
+    // 끝 개행은 하나다. 개행 제거는 호출부(러너)가 한다.
     expect(result.formattedError.endsWith("ValueError: boom\n")).toBe(true);
     for (const internal of [
       "runcode",
@@ -273,7 +282,7 @@ async function pushAll(
 }
 
 describe("문법 오류 정규화 — `_IncompleteInputError`를 3.14 표준 문구로", () => {
-  // 기대값은 CPython 3.14.4 pty 실측(`<python-input-0>` → `<console>`)이다.
+  // 기대값은 CPython 3.14.4 pty 실측이다. 파일명 `<python-input-0>`만 `<console>`로 바꿨다.
   test.each([
     {
       name: "`1 +`",
@@ -355,8 +364,10 @@ describe("문법 오류 future 회수", () => {
   test("문법 오류를 반복해도 GC 때 `never retrieved` 로그가 stderr로 새지 않는다", async () => {
     const { repl, sinks } = setup();
 
-    // 문법 오류 future는 await하지 않는다. 예외를 회수하지 않으면 순환 참조가 사이클 GC에 수거될 때 asyncio가
-    // `ConsoleFuture exception was never retrieved`를 sys.stderr로 낸다(destroy 직후가 아니라 나중에 나온다).
+    // 문법 오류 future는 await하지 않는다.
+    // 예외를 회수하지 않으면 순환 참조가 사이클 GC에 수거될 때 asyncio가
+    // `ConsoleFuture exception was never retrieved`를 sys.stderr로 낸다.
+    // 이 로그는 destroy 직후가 아니라 나중에 나온다.
     for (let i = 0; i < 10; i++) await repl.runLine(`x = = ${i}`);
     for (let pass = 0; pass < 4; pass++) {
       pyodide.runPython("import gc; gc.collect()");

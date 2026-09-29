@@ -1,4 +1,4 @@
-// main 쪽 프로토콜(01-protocols.md)과 core 세션(`startCoreSession`, driver 경계).
+// main 쪽 진입점. main 쪽 프로토콜(01-protocols.md)·core 세션(`startCoreSession`, driver 경계)·runner(`createRunner`)를 내보낸다.
 export { postInitFrame } from "./protocol/init-frame";
 export type { InitFrame } from "./protocol/init-frame";
 export { DEFAULT_PYODIDE_INDEX_URL, PYODIDE_VERSION } from "./pyodide-version";

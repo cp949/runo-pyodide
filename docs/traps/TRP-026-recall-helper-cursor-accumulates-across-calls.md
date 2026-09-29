@@ -31,4 +31,4 @@
 - 재현: `Readline`으로 `append("a")`·`append("if True:")`·`append("b")` 뒤 ↑를 두 번 눌러 `"if True:"`를 본
   상태에서(cursor가 남아 있다), 그다음 변이로 entries가 `["b","if True:","a"]`가 아니라 어긋난 상태에서도
   같은 코드로 다시 ↑ 재호출을 하면 cursor 누적 때문에 기대값과 우연히 일치할 수 있다(`block-history.test.ts`
-  DELTA-03 리뷰에서 실측).
+  리뷰에서 실측).

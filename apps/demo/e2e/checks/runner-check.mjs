@@ -1,4 +1,4 @@
-// RD-022 DELTA-07 브라우저 확인: 실행창 데모(`?view=runner`, `createTerminalRunner`). 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
+// RD-022 브라우저 확인: 실행창 데모(`?view=runner`, `createTerminalRunner`). 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
 // 코드를 `textarea`에 넣고 `run` 버튼으로 실행하는 데모 화면을 plain 요소(testid `code`·`run`·`stop`·`reset`·`clear`·`status`·
 // `result`·`copy-result`·`terminal`)로 조작하고 xterm 화면 행(`.xterm-rows > div`)으로 판정한다. `result`는 `run()`이 돌려준
 // 결과 유니온의 JSON 텍스트이고 거부는 `{"rejected":"<reason>"}`다.
@@ -116,7 +116,7 @@ if (mode === "normal") {
     await freshCell();
     await startRun('name = input("이름: ")\nprint("안녕 " + name)');
     await waitStatus(["waiting-input"], "입력 대기 상태");
-    // 프롬프트 행이 화면에 보인 뒤에 친다(읽기가 열린 뒤다, pending-traps/12 — 열리기 전 키는 버려지고 echo가 없으면 type이 던진다).
+    // 프롬프트 행이 화면에 보인 뒤에 친다(읽기가 열린 뒤다 — 열리기 전 키는 버려지고 echo가 없으면 type이 던진다).
     await h.waitPrompt("이름:", 15000);
     await focus();
     await type("kim");

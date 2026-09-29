@@ -1,7 +1,12 @@
+/**
+ * `LineBuffer` 시험.
+ * - 커서 이동·삭제는 서로게이트 쌍(이모지)을 한 글자로 센다.
+ * - `moveLineUp`·`moveLineDown`은 첫 줄의 프롬프트 폭(`promptCols`)을 시각 열에 반영한다.
+ */
 import { expect, test } from "vitest";
 import { LineBuffer } from "../src/line";
 
-test("previous position", () => {
+test("prevPos는 서로게이트 쌍을 한 글자로 세어 이전 위치를 돌려준다", () => {
   {
     const line = new LineBuffer();
     line.insert("foo");
@@ -32,7 +37,7 @@ test("previous position", () => {
   }
 });
 
-test("backspace", () => {
+test("backspace는 이모지를 한 글자로 지운다", () => {
   {
     const line = new LineBuffer();
     line.insert("foobar");
@@ -47,7 +52,7 @@ test("backspace", () => {
   }
 });
 
-test("deleteEndOfLine", () => {
+test("deleteEndOfLine은 커서부터 논리 줄 끝까지 지운다", () => {
   {
     const line = new LineBuffer();
     line.insert("foobar");
@@ -73,44 +78,44 @@ test("deleteEndOfLine", () => {
   }
 });
 
-test("moveLineUp accounts for prompt offset on line 0", () => {
+test("moveLineUp은 0행의 프롬프트 폭을 반영한다", () => {
   const line = new LineBuffer();
-  // Buffer line 0 is "abcde" (rendered after a 2-col prompt → visual cols
-  // 2..6). Buffer line 1 is "wxyz". Cursor at end of line 1, visual col 4.
+  // 버퍼 0행은 "abcde"다. 2열 프롬프트 뒤에 그려지므로 시각 열 2~6을 차지한다.
+  // 버퍼 1행은 "wxyz"다. 커서는 1행 끝, 시각 열 4다.
   line.insert("abcde\nwxyz");
 
   expect(line.moveLineUp(1, 2)).toBeTruthy();
-  // Visual col 4 on line 0 = buffer col 4 - 2 = 2 → cursor before 'c'.
+  // 0행의 시각 열 4 = 버퍼 열 4 - 2 = 2. 커서는 'c' 앞에 놓인다.
   expect(line.pos).toBe(2);
 });
 
-test("moveLineDown accounts for prompt offset on line 0", () => {
+test("moveLineDown은 0행의 프롬프트 폭을 반영한다", () => {
   const line = new LineBuffer();
   line.insert("abcde\nwxyz");
-  // Move cursor to buffer pos 4 on line 0 ("abcd|e"). Visual col 6
-  // (= 4 + promptCols 2).
+  // 커서를 0행의 버퍼 위치 4("abcd|e")로 옮긴다.
+  // 시각 열은 6(= 4 + promptCols 2)이다.
   line.moveBack(line.length() - 4);
   expect(line.pos).toBe(4);
 
   expect(line.moveLineDown(1, 2)).toBeTruthy();
-  // Visual col 6 on line 1 → buffer col 6, but line 1 only has 4 chars,
-  // so cursor lands at end of line 1.
+  // 1행의 시각 열 6은 버퍼 열 6이지만 1행은 4글자뿐이다.
+  // 커서는 1행 끝에 놓인다.
   expect(line.pos).toBe(line.length());
 
-  // Now repeat with a smaller column so we stay inside line 1.
+  // 열을 줄여 커서가 1행 안에 머무는 경우를 본다.
   const line2 = new LineBuffer();
   line2.insert("abcde\nwxyz");
-  line2.moveBack(line2.length() - 1); // pos 1, visual col 3
+  line2.moveBack(line2.length() - 1); // 위치 1, 시각 열 3
   expect(line2.pos).toBe(1);
   expect(line2.moveLineDown(1, 2)).toBeTruthy();
-  // Visual col 3 on line 1 = buffer col 3 → between 'y' and 'z'.
-  expect(line2.pos).toBe(6 + 3); // "abcde\n" = 6, then 3 chars in
+  // 1행의 시각 열 3 = 버퍼 열 3. 커서는 'y'와 'z' 사이에 놓인다.
+  expect(line2.pos).toBe(6 + 3); // "abcde\n"이 6, 1행 안에서 3글자 지난 위치
 });
 
-test("moveLineUp/Down without prompt offset matches char count (existing behavior)", () => {
+test("프롬프트 폭이 없으면 moveLineUp·moveLineDown은 글자 수 기준으로 움직인다(기존 동작)", () => {
   const line = new LineBuffer();
   line.insert("abcde\nwxyz");
-  expect(line.moveLineUp(1)).toBeTruthy(); // default promptCols = 0
-  // Visual col 4 → buffer col 4 on line 0 (between 'd' and 'e').
+  expect(line.moveLineUp(1)).toBeTruthy(); // promptCols 기본값은 0
+  // 시각 열 4 = 버퍼 열 4. 커서는 0행의 'd'와 'e' 사이에 놓인다.
   expect(line.pos).toBe(4);
 });

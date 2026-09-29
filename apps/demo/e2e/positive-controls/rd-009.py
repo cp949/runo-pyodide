@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """양성 대조 드라이버. 소스를 변조 → dev 서버 재시작(TRP-007) → 해당 확인만 실행(지정한
 확인만 실패해야 함) → `git checkout`으로 원복 → 재시작 → 재실행(통과).
-출처 RD-009, `_works/_completed/20260922-09-rd-009-idle-ctrl-c/verify/positive-controls.py`에서 이관(RD-018 DELTA-04).
+출처 RD-009에서 이관(RD-018).
 
 사용: python3 rd-009.py <1|2|3>
   1: worker/boot.ts의 `suppressWebLoopReraise(...)` 호출 제거
@@ -58,7 +58,7 @@ CONTROLS = {
         ],
     },
     "3": {
-        # RD-018 DELTA-04 경로 정정(멈추는 지점 3): 문자열은 그대로이나 boot.ts의 이 블록이 들여쓰기 2칸→4칸으로
+        # RD-018 경로 정정(멈추는 지점 3): 문자열은 그대로이나 boot.ts의 이 블록이 들여쓰기 2칸→4칸으로
         # 바뀌었다(호이스팅 관련 리팩토링, 주변 줄 132~133 주석 참고). find·replace를 그 들여쓰기에 맞췄다.
         "file": "packages/pyodide-core/src/worker/boot.ts",
         "find": (

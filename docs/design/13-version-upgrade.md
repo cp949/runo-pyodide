@@ -28,7 +28,7 @@
 | `pnpm up -r pyodide`                                                  | 변경 없음(catalog 정확한 버전을 그대로 둔다)                                                                                                                                                                                   |
 | `pnpm up -r pyodide@<버전>`                                           | **쓰지 않는다.** core·repl `package.json`의 `"catalog:"`를 리터럴 버전으로 덮어써 catalog 원천이 끊긴다                                                                                                                        |
 
-catalog 값을 바꾼 뒤에는 `pnpm install`이 끝나야 `pyodide/package.json`이 새 버전이 되고 `PYODIDE_VERSION`·`DEFAULT_PYODIDE_INDEX_URL`이 따라온다. `pnpm build`가 `dist`에 새 버전을 인라인한다.
+catalog 값을 바꾼 뒤 `pnpm install`이 끝나면 `pyodide/package.json`이 새 버전이 된다. `PYODIDE_VERSION`·`DEFAULT_PYODIDE_INDEX_URL`이 따라온다. `pnpm build`가 `dist`에 새 버전을 인라인한다.
 
 ## 13.2 원칙
 
@@ -41,10 +41,13 @@ catalog 값을 바꾼 뒤에는 `pnpm install`이 끝나야 `pyodide/package.jso
 ## 13.3 patch 절차
 
 1. `pnpm-workspace.yaml`의 `catalog.pyodide`를 새 버전으로 고치고 `pnpm install`(13.1). minor가 바뀌지 않았는지 확인한다(core `peerDependencies.pyodide`의 `^314.0.7`은 같은 minor 안에서 유지된다).
-2. `pnpm check-types`·`pnpm lint`·`pnpm test`·`pnpm build`·`pnpm check-dist`·`pnpm smoke:pack`(L0). 실패한 시험 목록을 기록한다. 실제 pyodide를 로드하는 node 시험이 비공개 경로를 직접 단정하므로 여기서 깨지는 것이 업그레이드 알림이다(`09-testing.md` 9.1). 13.5의 "고정 버전 부팅" 시험 3건이 `degraded: []`·`versionMismatch: false`를 단정하므로 저하 지점이 생기면 이 시험이 실패한다. 런타임 floor 탐지 바이트도 재확인한다(13.6 "런타임 floor 탐지 바이트 재검증").
-3. `pnpm --filter demo e2e:baseline`(L2)을 사용자 지시가 있을 때 돌려 기준선과 비교한다. 지시가 없으면 돌리지 않고 "미실행"으로 판단 자료에 적는다(`docs/agents/rubber-workflow.md` "검증 실행 예산").
+2. `pnpm check-types`·`pnpm lint`·`pnpm test`·`pnpm build`·`pnpm check-dist`·`pnpm smoke:pack`(L0). 실패한 시험 목록을 기록한다.
+   - 실제 pyodide를 로드하는 node 시험이 비공개 경로를 직접 단정한다. 여기서 깨지는 것이 업그레이드 알림이다(`09-testing.md` 9.1).
+   - 13.5의 "고정 버전 부팅" 시험 3건이 `degraded: []`·`versionMismatch: false`를 단정한다. 저하 지점이 생기면 이 시험이 실패한다.
+   - 런타임 floor 탐지 바이트도 재확인한다(13.6 "런타임 floor 탐지 바이트 재검증").
+3. `pnpm --filter demo e2e:baseline`(L2)은 사용자 지시가 있을 때만 돌려 기준선과 비교한다. 지시가 없으면 돌리지 않고 "미실행"으로 판단 자료에 적는다(`docs/agents/rubber-workflow.md` "검증 실행 예산").
 4. 판단 자료(13.5)를 작성한다.
-5. **멈춘다.** 사용자가 결정한다. CDN 위치는 `PYODIDE_VERSION`에서 자동으로 유도되므로 별도 수정이 없다.
+5. **멈춘다.** 사용자가 결정한다. CDN 위치는 `PYODIDE_VERSION`에서 자동 유도된다. 별도 수정은 없다.
 
 ## 13.4 minor 절차
 
@@ -69,15 +72,22 @@ patch 절차 1~5에 더해:
 
 ## 13.6 호환 탐지와 `ready` 페이로드
 
-worker 부팅 순서(`00-architecture.md` 3.1): `loadPyodide` → interrupt 공개 API 확인 → `driver.createConsole` → `driver.probe` → `attachRuntime`(WebLoop 재보고 억제·SIGINT 핸들러·stdin 배선을 한 번에, `03-ctrl-c.md` 2.6) → `ready`. 지점 판정은 부팅 중 한 번이고 결과를 `ready` 페이로드 `{ pyodideVersion, versionMismatch, degraded, details? }`로 알린다(`01-protocols.md` 1.2). worker는 경고를 내지 않는다.
+worker 부팅 순서(`00-architecture.md` 3.1): `loadPyodide` → interrupt 공개 API 확인 → `driver.createConsole` → `driver.probe` → `attachRuntime`(WebLoop 재보고 억제·SIGINT 핸들러·stdin 배선을 한 번에, `03-ctrl-c.md` 2.6) → `ready`.
 
-main(core 세션)의 `ready` 핸들러가 `versionMismatch` 또는 `degraded`가 비어 있지 않을 때만 다음을 **1회** 낸다. 문제가 없으면 아무것도 내지 않는다.
+- 지점 판정은 부팅 중 한 번이다.
+- 결과는 `ready` 페이로드 `{ pyodideVersion, versionMismatch, degraded, details? }`로 알린다(`01-protocols.md` 1.2).
+- worker는 경고를 내지 않는다.
+
+main(core 세션)의 `ready` 핸들러는 `versionMismatch`가 참이거나 `degraded`가 비어 있지 않을 때만 다음을 **1회** 낸다. 문제가 없으면 아무것도 내지 않는다.
 
 ```text
 console.warn("[session] pyodide 호환 경고", { expected, actual, degraded, details })
 ```
 
-`expected`는 core `PYODIDE_VERSION`, `actual`은 로드된 `pyodide.version`이다. 비교는 완전 일치다(부분 일치·범위 없음). `degraded`·`versionMismatch`는 공개 API에 노출하지 않는다(내부 계약, 필요해지면 별도 RD).
+- `expected`는 core `PYODIDE_VERSION`이다.
+- `actual`은 로드된 `pyodide.version`이다.
+- 비교는 완전 일치다(부분 일치·범위 없음).
+- `degraded`·`versionMismatch`는 공개 API에 노출하지 않는다(내부 계약, 필요해지면 별도 RD).
 
 ### 시작 거부
 
@@ -96,24 +106,37 @@ console.warn("[session] pyodide 호환 경고", { expected, actual, degraded, de
 | `sleep-slice`              | `time.sleep.__wrapped__`가 원본 C 함수, `pyodide_js.checkInterrupt` 호출 가능              | `find_problems`. 상세 이름: `time.sleep.__wrapped__`·`pyodide_js.checkInterrupt`                                                                                                                                                                                                                       | `time.sleep` 20ms 조각 교체(`time.sleep`은 pyodide 기본으로 남고 SIGINT 핸들러는 설치된다)                                                                                                                                           | core `worker/sleep-slice.py`·`sleep-slice.ts`                                                                               |
 | `webloop-filename`         | `pyodide.webloop.__file__`이 `pyodide/webloop.py`로 끝남                                   | `install` 안에서 `WEBLOOP_FILE_SUFFIX`와 비교. 상세는 실제 경로(없으면 `None`)                                                                                                                                                                                                                         | 끌 기능은 없다. 트레이스백의 `webloop.py` 프레임 떼기 규칙(`is_webloop`)이 무효가 되어 내부 프레임이 보일 수 있다                                                                                                                    | core `worker/sigint-handler.py`(`install`)                                                                                  |
 
-- `degraded` 순서는 driver `probe`가 돌려준 것(`compiler-flags`·`incomplete-input-message`) 뒤에 core 지점이 처음 보고한 순서이고 중복이 없다. `details`는 식별자별 상세 이름의 `Record<string, string[]>`이며 상세가 하나도 없으면 페이로드에 키 자체가 없다.
+- `degraded` 순서: driver `probe`가 돌려준 것(`compiler-flags`·`incomplete-input-message`) 뒤에 core 지점이 처음 보고한 순서. 중복은 없다.
+- `details`는 식별자별 상세 이름의 `Record<string, string[]>`이다. 상세가 하나도 없으면 페이로드에 키 자체가 없다.
 - 식별자 6개는 고정이다. 새 지점을 더하면 이 표·`worker/compat.ts`의 `CoreDegradedId`(core 4개)·driver `probe` 반환(REPL 2개)·시험을 함께 고친다.
-- `probe` 계약(driver 내부): `WorkerDriverSession.probe?(context: { pyodide, pyconsole }): string[]`. 선택 메서드이고 탐지할 지점이 없는 driver는 구현하지 않는다. core가 `createConsole` 직후 한 번 부르고 결과를 `degraded`에 합친다. 콘솔·전역 상태를 바꾸지 않아야 하고, 던지면 `loadFailed`다.
-- 각 지점은 가짜 객체·실제 pyodide 속성 삭제/문구 변조 시험과 변이 검사로 고정돼 있다: core `worker/boot-compat.test.ts`·`worker/compat.test.ts`·`protocol/ready-payload.test.ts`·`session/core-session.test.ts`, repl `worker/console-compat.test.ts`·`worker/repl-driver-probe.test.ts`·`worker/boot.test.ts`.
+- `probe` 계약(driver 내부): `WorkerDriverSession.probe?(context: { pyodide, pyconsole }): string[]`.
+  - 선택 메서드다. 탐지할 지점이 없는 driver는 구현하지 않는다.
+  - core가 `createConsole` 직후 한 번 부르고 결과를 `degraded`에 합친다.
+  - 콘솔·전역 상태를 바꾸지 않아야 한다.
+  - 던지면 `loadFailed`다.
+- 각 지점은 가짜 객체·실제 pyodide 속성 삭제/문구 변조 시험과 변이 검사로 고정한다: core `worker/boot-compat.test.ts`·`worker/compat.test.ts`·`protocol/ready-payload.test.ts`·`session/core-session.test.ts`, repl `worker/console-compat.test.ts`·`worker/repl-driver-probe.test.ts`·`worker/boot.test.ts`.
 
 ### 런타임 floor 탐지 바이트(`WASM_RUNTIME_PROBE`) 재검증
 
-`packages/pyodide-core/src/runtime-support.ts`의 `WASM_RUNTIME_PROBE`(29바이트 wasm 모듈)는 **pyodide 314.0.7이 요구하는 두 wasm 기능**(reference types + legacy Wasm 예외 처리, [ADR-0008](../adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md))만 검사하도록 고정된 것이다 — pyodide 버전 자체가 아니라 그 버전의 wasm 산출물(`pyodide.asm.wasm`)이 요구하는 기능 집합에 묶여 있다.
+`packages/pyodide-core/src/runtime-support.ts`의 `WASM_RUNTIME_PROBE`(29바이트 wasm 모듈)는 **pyodide 314.0.7이 요구하는 두 wasm 기능**(reference types + legacy Wasm 예외 처리, [ADR-0008](../adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md))만 검사하도록 고정돼 있다.
+
+- 묶인 대상은 pyodide 버전 자체가 아니다.
+- 그 버전의 wasm 산출물(`pyodide.asm.wasm`)이 요구하는 기능 집합에 묶여 있다.
 
 patch·minor 절차(13.3·13.4) 모두, `pyodide.asm.wasm`이 바뀌면(pyodide 업그레이드마다 재빌드된다) 다음을 13.5 판단 자료에 추가한다:
 
-- 새 `pyodide.asm.wasm`이 요구하는 wasm 기능이 이전과 같은지 확인한다(`wasm-tools`/`wabt` 등으로 type·tag 섹션을 다시 읽거나, node의 `--experimental-wasm-*` 플래그 조합으로 어떤 기능이 필수인지 재확인 — ADR-0008 "런타임 floor: 정적 판정과 실측"과 같은 방법).
+- 새 `pyodide.asm.wasm`이 요구하는 wasm 기능이 이전과 같은지 확인한다. 방법은 ADR-0008 "런타임 floor: 정적 판정과 실측"과 같다.
+  - `wasm-tools`/`wabt` 등으로 type·tag 섹션을 다시 읽는다.
+  - 또는 node의 `--experimental-wasm-*` 플래그 조합으로 필수 기능을 재확인한다.
 - 요구 기능이 바뀌지 않았으면 `WASM_RUNTIME_PROBE`는 그대로 두고 판단 자료에 "탐지 바이트 재확인: 변경 없음"을 남긴다.
-- 요구 기능이 바뀌었으면(예: exnref로 전환) `WASM_RUNTIME_PROBE`를 새 최소 모듈로 교체하고, 런타임 floor 정적 판정·실측(ADR-0008)을 다시 한다 — 이 교체는 "필요할 때만 올린다"(13.2)는 patch 사유 중 "브라우저 호환"에 해당한다.
+- 요구 기능이 바뀌었으면(예: exnref로 전환) `WASM_RUNTIME_PROBE`를 새 최소 모듈로 교체하고, 런타임 floor 정적 판정·실측(ADR-0008)을 다시 한다. 이 교체는 "필요할 때만 올린다"(13.2)의 사유 중 "브라우저 호환"에 해당한다.
 
 ## 13.7 소비자 요구사항
 
-- core `./worker` 타입(`dist/worker.d.mts`)은 `pyodide`·`pyodide/ffi` 타입을 import한다. core는 `pyodide`를 optional peer(`peerDependencies.pyodide: "^314.0.7"`, `peerDependenciesMeta.pyodide.optional: true`)로 선언한다. `./worker` 타입을 쓰는 소비자는 같은 minor의 `pyodide`를 설치한다. 런타임에서는 `pyodide`를 import하지 않으므로(worker가 CDN에서 불러온다) 타입을 쓰지 않는 소비자는 설치하지 않아도 된다.
+- core `./worker` 타입(`dist/worker.d.mts`)은 `pyodide`·`pyodide/ffi` 타입을 import한다.
+- core는 `pyodide`를 optional peer(`peerDependencies.pyodide: "^314.0.7"`, `peerDependenciesMeta.pyodide.optional: true`)로 선언한다.
+- `./worker` 타입을 쓰는 소비자는 같은 minor의 `pyodide`를 설치한다.
+- 런타임에서는 `pyodide`를 import하지 않는다(worker가 CDN에서 불러온다). 타입을 쓰지 않는 소비자는 설치하지 않아도 된다.
 - repl은 `pyodide` 타입을 노출하지 않아 peer 선언이 없다(repl `dist`에 `pyodide` import 없음).
 - `skipLibCheck: false`인 소비자 tsconfig 요구는 `09-testing.md` 9.8.3에 있다.
 - 자세한 소비자 안내는 core `packages/pyodide-core/README.md`.

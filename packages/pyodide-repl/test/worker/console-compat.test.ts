@@ -1,10 +1,18 @@
 // @vitest-environment node
 /**
- * REPL 콘솔의 호환 탐지 두 지점(RD-021): `compiler-flags`(`pyconsole._compile.compiler.flags`)와
- * `incomplete-input-message`(`1 +`의 EOF 문법 오류 문구). 실제 pyodide(node)를 시험마다 새로 로드해 지점을 하나씩 바꾸고
- * (`PyodideConsole` 클래스 패치), `probe()`가 그 식별자만 돌려주며 해당 기능만 꺼지는지 본다. 변이가 다른 시험에 새지 않도록
- * 파일 공유 인스턴스를 쓰지 않는다. flags 부재 fallback(확정 7)의 세 가지 — `setTopLevelAwait` 건너뜀, `normalizeSyntaxError`
- * 원문, `compilerFlags()` → `TOP_LEVEL_AWAIT_FLAG` — 를 각각 고정한다.
+ * REPL 콘솔의 호환 탐지 두 지점 시험(RD-021).
+ *
+ * - `compiler-flags`: `pyconsole._compile.compiler.flags` 경로.
+ * - `incomplete-input-message`: `1 +`의 EOF 문법 오류 문구.
+ *
+ * 실제 pyodide(node)를 시험마다 새로 로드해 지점을 하나씩 바꾼다(`PyodideConsole` 클래스 패치).
+ * `probe()`가 그 식별자만 돌려주고 해당 기능만 꺼지는지 본다.
+ * 변이가 다른 시험에 새지 않도록 파일 공유 인스턴스를 쓰지 않는다.
+ *
+ * flags 부재 fallback(확정 7)의 세 가지를 각각 고정한다.
+ * - `setTopLevelAwait` 건너뜀.
+ * - `normalizeSyntaxError` 원문.
+ * - `compilerFlags()` → `TOP_LEVEL_AWAIT_FLAG`.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import type { PyProxy } from "pyodide/ffi";
@@ -13,7 +21,7 @@ import { createConsole, type ReplConsole } from "../../src/worker/console";
 import { loadSplitPaste } from "../../src/worker/multiline";
 import { TOP_LEVEL_AWAIT_FLAG } from "../../src/worker/top-level-await";
 
-/** `_compile.compiler.flags` 경로만 없앤다: 컴파일 동작(안쪽 컴파일러)은 그대로라 pyodide 기본(TLA 켬)이 유지된다. */
+/** `_compile.compiler.flags` 경로만 없앤다. 안쪽 컴파일러는 그대로라 pyodide 기본(TLA 켬)이 유지된다. */
 const REMOVE_FLAGS_PATH = `
 import types
 import pyodide.console as pc
@@ -29,7 +37,10 @@ def _init(self, *args, **kwargs):
 pc.PyodideConsole.__init__ = _init
 `;
 
-/** EOF 오류 표시 문구를 다른 것으로 바꾼다(pyodide가 `_IncompleteInputError` 문구를 바꾼 상황). 문법 오류 표시는 `formatsyntaxerror`다. */
+/**
+ * EOF 오류 표시 문구를 다른 것으로 바꾼다. pyodide가 `_IncompleteInputError` 문구를 바꾼 상황이다.
+ * 문법 오류 표시는 `formatsyntaxerror`가 만든다.
+ */
 const CHANGE_INCOMPLETE_MESSAGE = `
 import pyodide.console as pc
 _orig_format = pc.PyodideConsole.formatsyntaxerror
@@ -40,7 +51,7 @@ def _format(self, exc):
 pc.PyodideConsole.formatsyntaxerror = _format
 `;
 
-/** `1 +`를 push하면 던진다(pyodide가 콘솔 push 계약을 바꿔 문구를 확인할 수 없는 상황). */
+/** `1 +`를 push하면 던진다. pyodide가 콘솔 push 계약을 바꿔 문구를 확인할 수 없는 상황이다. */
 const PUSH_THROWS = `
 import pyodide.console as pc
 _orig_push = pc.PyodideConsole.push
@@ -51,7 +62,10 @@ def _push(self, line):
 pc.PyodideConsole.push = _push
 `;
 
-/** 새 pyodide를 로드하고 `mutation`을 적용한 뒤 새 콘솔을 만든다. */
+/**
+ * 새 pyodide를 로드하고 `mutation`(Python 소스)을 적용한 뒤 새 콘솔을 만든다.
+ * `topLevelAwait`의 기본값은 `false`다.
+ */
 async function setup(
   options: { mutation?: string; topLevelAwait?: boolean } = {},
 ) {
@@ -168,18 +182,18 @@ describe("incomplete-input-message 저하", () => {
 });
 
 describe("probe()는 콘솔 상태를 바꾸지 않는다", () => {
-  /** 사용자 전역·builtins의 `_`·`sys.last_*`·미완성 블록·buffer를 스냅샷으로 뽑는다. */
+  // 사용자 전역·builtins의 `_`·`sys.last_*`·미완성 블록·buffer를 스냅샷으로 뽑는다.
   function snapshot(pyodide: PyodideInterface, repl: ReplConsole) {
     const names = pyodide.runPython("sorted(globals().keys())") as PyProxy;
     const globalNames = names.toJs() as string[];
     names.destroy();
-    // `import builtins`가 사용자 전역에 이름을 남기지 않도록 버리는 namespace에서 읽는다.
+    // `import builtins`가 사용자 전역에 이름을 남기지 않게 버리는 namespace에서 읽는다.
     const scratch = pyodide.toPy({});
     const underscore = pyodide.runPython(
       "import builtins\nrepr(getattr(builtins, '_', 'unset'))",
       { globals: scratch },
     );
-    // 오류 표시(`formatsyntaxerror`)가 설정하는 값이다. 사용자가 `sys.last_value`·`pdb.pm()`으로 본다.
+    // 오류 표시(`formatsyntaxerror`)가 설정하는 값이다. 사용자는 `sys.last_value`·`pdb.pm()`으로 본다.
     const lastExc = pyodide.runPython(
       "import sys\nrepr([getattr(sys, n, 'unset') for n in ('last_exc', 'last_type', 'last_value', 'last_traceback')])",
       { globals: scratch },

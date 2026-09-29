@@ -1,17 +1,23 @@
 /**
- * 부트스트랩 관찰기: coincident가 worker 전역에서 받는 부트스트랩 메시지(배열)가 도착했는지만 기록한다. coincident 리스너는
- * `stopImmediatePropagation()`으로 메시지를 삼키므로 관찰기는 그보다 **먼저 등록**돼야 메시지를 본다(성립 조건은 등록 순서다.
- * 캡처 단계로 순서를 피하는 방식은 Chromium worker 전역에서 성립하지 않았다). 관찰기는 메시지를 소비하지 않는다. jsdom DOM 노드에
- * `message` 이벤트를 보내 "같은 대상의 리스너는 등록 순서대로 호출된다"를 시험한다. 실제 worker 전역에서의 성립은 브라우저(L1)로만
- * 확인한다.
+ * 부트스트랩 관찰기 시험. coincident가 worker 전역에서 받는 부트스트랩 메시지(배열)가 도착했는지만 기록한다.
+ *
+ * - coincident 리스너는 `stopImmediatePropagation()`으로 메시지를 삼킨다.
+ * - 그래서 관찰기는 그보다 **먼저 등록**돼야 메시지를 본다. 성립 조건은 등록 순서다.
+ * - 캡처 단계로 순서를 피하는 방식은 Chromium worker 전역에서 성립하지 않았다.
+ * - 관찰기는 메시지를 소비하지 않는다.
+ *
+ * jsdom DOM 노드에 `message` 이벤트를 보내 "같은 대상의 리스너는 등록 순서대로 호출된다"를 시험한다.
+ * 실제 worker 전역에서의 성립은 브라우저(L1)로만 확인한다.
  */
 import { describe, expect, test } from "vitest";
 import { createBootstrapObserver } from "../src/bootstrap-observer";
 
+/** 이벤트를 받을 jsdom 노드. worker 전역 대신 쓴다. */
 function createTarget() {
   return document.createElement("div");
 }
 
+/** `target`에 `message` 이벤트를 보내고 이벤트를 돌려준다. `defaultPrevented` 확인용으로 취소 가능하게 만든다. */
 function send(target: EventTarget, data: unknown) {
   const event = new MessageEvent("message", { data, cancelable: true });
   target.dispatchEvent(event);

@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
- * 실제 `PyodideConsole` + 실제 sink + 실제 `Readline` + 가짜 터미널의 터미널 바이트 시험(05-output.md 4.1,
- * 이전 구현 terminal-sinks.test.ts 상당). Python이 낸 조각이 화면에 어떤 바이트로 나가는지를 CPython 3.14.4
- * pty 실측 기준표(`print("err", file=sys.stderr)` → `err\r\n` 등)와 맞춰 고정하는 sink의 회귀선이다.
+ * sink의 터미널 바이트 시험(`docs/design/05-output.md` 4.1, 이전 구현 terminal-sinks.test.ts 상당).
+ * 실제 `PyodideConsole` + 실제 sink + 실제 `Readline` + 가짜 터미널을 쓴다.
+ * Python이 낸 조각이 화면에 나가는 바이트를 CPython 3.14.4 pty 실측 기준표와 맞춰 고정한다.
+ * 예: `print("err", file=sys.stderr)` → `err\r\n`.
+ * sink의 회귀선이다.
  */
 import { Readline } from "@cp949/runo-xterm-readline";
 import { loadPyodide, type PyodideInterface } from "pyodide";
@@ -11,6 +13,7 @@ import { createConsole } from "../../src/worker/console";
 import { createFakeTerminal } from "@repo/pyodide-testkit/fake-terminal";
 import { createTerminalSinks } from "@cp949/runo-pyodide-terminal/internal";
 
+/** `beforeAll`이 한 번 올리는 pyodide. 시험 파일 안에서 공유한다. */
 let pyodide: PyodideInterface;
 
 beforeAll(async () => {
@@ -18,7 +21,10 @@ beforeAll(async () => {
   pyodide.runPython("import sys, warnings, logging");
 }, 60_000);
 
-/** 새 가짜 터미널·`Readline`·sink 세트·콘솔. `output(src)`는 `runLine(src)` 동안 터미널에 나간 바이트다. */
+/**
+ * 새 가짜 터미널·`Readline`·sink 세트·콘솔을 만든다.
+ * `output(src)`는 `runLine(src)` 동안 터미널에 나간 바이트를 돌려준다.
+ */
 function setup() {
   const fake = createFakeTerminal();
   const readline = new Readline({ persist: false });
@@ -33,6 +39,7 @@ function setup() {
   return { sinks, output };
 }
 
+/** stderr sink가 조각마다 입히는 빨강 이스케이프로 텍스트를 감싼다. */
 const red = (text: string) => `\x1b[31m${text}\x1b[0m`;
 /** stderr 빨강 이스케이프를 지운 바이트. 3.14.4 pty 기준표는 색이 없는 화면이다. */
 const plain = (bytes: string) =>
@@ -53,7 +60,7 @@ describe("stderr 조각 출력 — CPython 3.14.4 pty 실측과 같은 바이트
 
     const bytes = await output('warnings.warn("w")');
 
-    // 파일명 `<console>`은 3.14의 `<python-input-N>`과 다르다(10-parity-deviations.md 30).
+    // 파일명 `<console>`은 3.14의 `<python-input-N>`과 다르다(`docs/design/10-parity-deviations.md` 30).
     expect(plain(bytes)).toBe("<console>:1: UserWarning: w\r\n");
   });
 
@@ -70,7 +77,7 @@ describe("stderr 조각 출력 — CPython 3.14.4 pty 실측과 같은 바이트
 
     const bytes = await output('sys.stderr.write("a\\nb\\n")');
 
-    // 값 에코 `4`는 REPL 루프(RD-005)가 낸다. 이 경로는 stderr 조각만 본다.
+    // 값 에코 `4`는 REPL 루프(RD-005)가 낸다. 이 시험은 stderr 조각만 본다.
     expect(bytes).toBe(red("a\r\nb\r\n"));
   });
 
@@ -169,8 +176,9 @@ describe("개행 없는 출력 꼬리", () => {
   test("stdout·stderr 조각이 화면 순서대로 꼬리에 이어진다", async () => {
     const { sinks, output } = setup();
 
-    // `sys.stdout.write("a"); ...`처럼 값을 돌려주는 식문장을 앞에 두면 콘솔이 그 값(`1`)과 개행을 stdout으로 에코해
-    // 꼬리가 비워진다. 값이 없는 `print`로 "개행 없는 stdout 뒤 개행 없는 stderr"만 만든다.
+    // `sys.stdout.write("a"); ...`처럼 값을 돌려주는 식문장을 앞에 두면 콘솔이 그 값(`1`)과 개행을 stdout으로 에코한다.
+    // 그러면 꼬리가 비워진다.
+    // 값이 없는 `print`로 "개행 없는 stdout 뒤 개행 없는 stderr"만 만든다.
     await output('print("a", end=""); print("b", end="", file=sys.stderr)');
 
     expect(sinks.tail()).toBe("a" + red("b"));

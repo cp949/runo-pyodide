@@ -1,20 +1,24 @@
 /**
  * `Readline.dispose()` 정책 시험.
- * StrictMode처럼 마운트 직후 dispose되는 경우에도 대기 중인 읽기가 끝나지 않고 남거나,
- * 해제된 xterm에 write 콜백이 닿지 않아야 한다. write 콜백을 동기/비동기로 돌려 둘 다 확인한다.
+ * StrictMode처럼 마운트 직후 dispose되는 경우를 다룬다.
+ * - 대기 중인 읽기가 끝나지 않고 남으면 안 된다.
+ * - 해제된 xterm에 write 콜백이 닿으면 안 된다.
+ * - write 콜백을 동기·비동기로 돌려 둘 다 확인한다.
  */
 import { describe, expect, test } from "vitest";
 import { Readline } from "../src/readline";
 import { StubTerminal } from "./stub-terminal";
 
+/** `observe`가 돌려주는 promise의 현재 상태. */
 type Outcome =
   | { state: "pending" }
   | { state: "resolved"; value: unknown }
   | { state: "rejected"; reason: unknown };
 
 /**
- * promise의 현재 상태를 읽는 함수를 돌려준다. 끝나지 않는 읽기를 시험이 멈추지 않고 잡고,
- * reject된 promise에 핸들러가 붙어 있어 처리되지 않은 rejection이 생기지 않는다.
+ * promise의 현재 상태를 읽는 함수를 돌려준다.
+ * - 끝나지 않는 읽기를 기다리지 않고 잡는다.
+ * - reject된 promise에도 핸들러가 붙어 unhandled rejection이 생기지 않는다.
  */
 function observe(promise: Promise<unknown>): () => Outcome {
   let outcome: Outcome = { state: "pending" };
@@ -34,7 +38,7 @@ function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-/** 시험용 터미널에 활성화한 Readline을 만든다. `term.asyncWrite`가 참이면 write 콜백을 `flush()` 때까지 미룬다. */
+/** `StubTerminal`에 활성화한 `Readline`을 만든다. `asyncWrite`가 참이면 write 콜백을 `flush()`까지 미룬다. */
 function createReadline(asyncWrite: boolean) {
   const term = new StubTerminal(80, 24);
   term.asyncWrite = asyncWrite;
@@ -109,7 +113,7 @@ describe("write 콜백이 아직 오지 않은 읽기", () => {
     flush();
     await tick();
 
-    // 해제된 xterm의 buffer를 읽으면 DisposableStore 경고가 난다(이전 구현 TRP-001).
+    // 해제된 xterm의 buffer를 읽으면 DisposableStore 경고가 난다(TRAP-11).
     expect(term.cursorYReads).toBe(0);
     expect(term.log).toHaveLength(writtenAtDispose);
     expect(outcome().state).toBe("rejected");

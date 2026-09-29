@@ -1,11 +1,14 @@
 // @vitest-environment node
 /**
- * `detectRuntimeSupport()`(결정: `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`, 규칙 정의: `docs/design/14-runner.md` 14.3.1)의 판정표를 고정한다.
- * `WebAssembly.validate`를 스텁해 wasm 실제 지원 여부와 무관하게 세 분기를 각각 재현한다. 모듈 스코프 캐시 때문에
- * `vi.resetModules()` + 동적 import로 매번 새 인스턴스를 만든다.
+ * `detectRuntimeSupport()`의 판정표를 고정한다.
+ * - 결정: `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`
+ * - 규칙 정의: `docs/design/14-runner.md` 14.3.1
+ * - `WebAssembly.validate`와 `crossOriginIsolated`를 스텁해 세 결과(`supported`·`not-isolated`·`unsupported`)를 각각 재현한다.
+ * - wasm 판정이 모듈 스코프에 캐시된다. 시험마다 `vi.resetModules()` + 동적 import로 새 인스턴스를 만든다.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// 시험이 바꾸는 전역의 원래 값. `afterEach`에서 복원한다.
 const originalValidate = WebAssembly.validate;
 const hadIsolated = Object.prototype.hasOwnProperty.call(
   globalThis,
@@ -14,6 +17,9 @@ const hadIsolated = Object.prototype.hasOwnProperty.call(
 const originalIsolated = (globalThis as { crossOriginIsolated?: boolean })
   .crossOriginIsolated;
 
+/**
+ * `globalThis.crossOriginIsolated`를 `value`로 바꾼다. `undefined`면 프로퍼티를 지운다(속성이 없는 환경 재현).
+ */
 function setIsolated(value: boolean | undefined): void {
   if (value === undefined) {
     delete (globalThis as { crossOriginIsolated?: boolean })
@@ -27,6 +33,9 @@ function setIsolated(value: boolean | undefined): void {
   });
 }
 
+/**
+ * 모듈 캐시를 비우고 `detectRuntimeSupport`를 새로 import한다. 시험마다 wasm 판정 캐시가 비어 있게 한다.
+ */
 async function loadDetectRuntimeSupport() {
   vi.resetModules();
   const module = await import("../src/runtime-support");

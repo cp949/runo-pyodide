@@ -1,5 +1,5 @@
-// RD-023 DELTA-04 브라우저 확인: dom-bridge 실행창(`?view=dom-bridge`, `@cp949/runo-pyodide-dom-bridge`). 실제 xterm 6 + 실제 브라우저 + 실제 CDN
-// pyodide + 실제 coincident 4.1.1. 스파이크(`_works/_completed/20260925-31-rd-023-spike`) S1~S7·`native: false`·늦은 import 양성 대조를 저장소 L1로 옮겼다.
+// RD-023 브라우저 확인: dom-bridge 실행창(`?view=dom-bridge`, `@cp949/runo-pyodide-dom-bridge`). 실제 xterm 6 + 실제 브라우저 + 실제 CDN
+// pyodide + 실제 coincident 4.1.1. RD-023 스파이크 S1~S7·`native: false`·늦은 import 양성 대조를 저장소 L1로 옮겼다.
 // 코드를 `textarea`에 넣고 `run` 버튼으로 실행하고 xterm 화면 행·`result`·`window.__domBridge.events`(순서 기록)로 판정한다. dev 서버 전용
 // (StrictMode 이중 마운트에서의 worker 수도 함께 본다).
 //

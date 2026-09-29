@@ -1,14 +1,13 @@
-// RD-008 브라우저 검증 ②: `input()`·`sys.stdin.readline()` 대기 중 Ctrl+C 취소. 출처 RD-008,
-// `_works/_completed/20260922-08-rd-008-prompt-and-input-cancel/verify/`에서 이관(RD-018).
+// RD-008 브라우저 검증 ②: `input()`·`sys.stdin.readline()` 대기 중 Ctrl+C 취소. 출처 RD-008에서 이관(RD-018).
 // 이전 구현 RD-012c의 브라우저 ID를 새 데모로 이식하고, RD-006b에서 RD-008로 넘긴 ID(A1~A5·B1·B2·C1·C2·D1·E2·H1·H2·Q1)를
-// 복원하고, 판정 항목 EC(확정 7)와 양성 대조 ② 전용 T35를 넣었다. 건너뛰는 ID는 skipped-ids.md(J1·J2 → RD-010).
+// 복원하고, 판정 항목 EC(확정 7)와 양성 대조 ② 전용 T35를 넣었다. 건너뛰는 ID는 J1·J2(→ RD-010).
 // 기대 바이트는 node 시험의 `CONSOLE_TRACEBACK`과 같다:
 //   'Traceback (most recent call last):' / '  File "<console>", line 1, in <module>' / 'KeyboardInterrupt'
 // 3.14.4 실제 REPL은 이 트레이스백을 입력 줄에 개행 없이 붙이고 `_pyrepl` 프레임 4개를 더 보인다(`pty/results.md` ⑤⑥ → 편차 35).
-// 이식 시 고친 기대값(사유는 skipped-ids.md 4절): A1의 둘째 행은 `>>> abc`가 아니라 `abc`, C2는 `in f: abc` 한 행,
+// 이식 시 고친 기대값: A1의 둘째 행은 `>>> abc`가 아니라 `abc`, C2는 `in f: abc` 한 행,
 // H1은 `...`/`a`/`a`/`b`/`Traceback…`.
 // 사용: node input-cancel-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=RM2,EC node input-cancel-check.mjs <url>
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 

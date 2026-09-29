@@ -1,7 +1,13 @@
+/**
+ * `History` 시험.
+ * - 용량 초과 시 오래된 항목을 덮어쓴다.
+ * - `prev()`·`next()`로 cursor를 옮긴다.
+ * - `restore()`는 복사본으로 되돌리고 cursor를 -1로 초기화한다.
+ */
 import { expect, test } from "vitest";
 import { History } from "../src/history";
 
-test("append overwrites old entries", () => {
+test("append는 용량을 넘으면 오래된 항목을 덮어쓴다", () => {
   const history = new History(2);
   history.append("a");
   history.append("b");
@@ -9,7 +15,7 @@ test("append overwrites old entries", () => {
   expect(history.entries).toEqual(["c", "b"]);
 });
 
-test("cursor", () => {
+test("prev·next가 cursor를 옮기고 양 끝에서 undefined를 돌려준다", () => {
   const history = new History(3);
   history.append("a");
   history.append("b");

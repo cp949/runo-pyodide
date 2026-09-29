@@ -1,6 +1,5 @@
-// RD-049 DELTA-03 브라우저 확인: `?completionPopover=1`의 completion popover(DOM 오버레이, `role=listbox`).
-// 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide. 규칙 정의: `docs/design/07-tab-completion.md` 7.6(이관 전에는
-// `_works/20260928-64-rd-049-completion-popover/design.md`, 규칙 ID K1~K5·M1~M3·C1~C6·L1~L3).
+// RD-049 브라우저 확인: `?completionPopover=1`의 completion popover(DOM 오버레이, `role=listbox`).
+// 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide. 규칙 정의: `docs/design/07-tab-completion.md` 7.6(규칙 ID K1~K5·M1~M3·C1~C6·L1~L3).
 //
 // 화면 둘을 각각 새 브라우저로 연다(RD-024 `react-fit-check.mjs`와 같은 구조): POP(`/?completionPopover=1`,
 // P1~P7·H3)·OFF(`/`, P8 회귀 — 옵션 꺼짐은 지금 텍스트 목록 그대로).

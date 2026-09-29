@@ -1,15 +1,12 @@
 export interface Highlighter {
-  // Take the current line and cursor position and return a
-  // highlighted version.
+  // 현재 줄과 커서 위치를 받아 하이라이트된 버전을 돌려준다.
   highlight(line: string, pos: number): string;
 
-  // Takes the prompt and returns the highlighted
-  // version
+  // 프롬프트를 받아 하이라이트된 버전을 돌려준다.
   highlightPrompt(prompt: string): string;
 
-  // Returns true if the character at the cursor position
-  // should be highlited. This is used to optimize refresh
-  // during insertion or character movement.
+  // 커서 위치의 문자를 하이라이트해야 하면 true를 돌려준다.
+  // 삽입이나 문자 이동 중 갱신을 최적화하는 데 쓴다.
   highlightChar(line: string, pos: number): boolean;
 }
 

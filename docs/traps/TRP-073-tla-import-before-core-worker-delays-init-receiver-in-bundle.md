@@ -11,7 +11,7 @@
 ## 원인
 
 - Vite 8(rolldown) `vite build`는 모듈 코드를 import 순서대로 한 스코프에 이어 붙인다. 앞 모듈의 top-level await가 뒤 모듈 최상위 문장의 실행까지 막는다. core `./worker`의 수신기 등록 문장(`createInitReceiver(self)`, `run-worker.ts` 모듈 최상위)도 그 뒤 문장에 포함된다.
-- 측정(`_works/_completed/20260925-32-rd-023-dom-bridge/verify/post-review/tla-bundle-order/result.log`, vite/8.3.0 linux-x64 node-v24.20.0, 산출물 행 번호):
+- 측정(vite/8.3.0 linux-x64 node-v24.20.0, 산출물 행 번호):
   - lib 모드, TLA 모듈 먼저(`tla-first/`): `await new Promise(...)` 3행, `createInitReceiver(self)` 676행.
   - lib 모드, core 먼저(`core-first/`): `createInitReceiver(self)` 671행, `await` 690행.
   - worker 번들 모드(`new Worker(new URL("./w.worker.js", import.meta.url), { type: "module" })` + `worker.format: "es"`, TLA 모듈 먼저, `worker-mode/`): `await` 3행, `createInitReceiver(self)` 675행.

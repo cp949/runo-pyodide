@@ -1,13 +1,18 @@
 /**
- * `createPromptRow` 읽기 시험(RD-027, `design.md` §4·§6): `promptRow.read`가 꼬리를 프롬프트로 합성해 벤더 `readline.read`를 여는
- * 규칙과 읽기가 호출 시점의 io에 묶이는 규칙. `@repo/pyodide-testkit/fake-terminal` + 실제 `Readline` + 실제
- * `createTerminalSurface`로 `surface.promptRow`를 직접 부른다(조립·배출은 `../surface-setup.ts`, RD-042). write 콜백이 동기일 때와
- * 비동기일 때를 모두 돌리는 절은 `describe.each`로 `stdin-reader.test.ts`·`repl-reader.test.ts`와 같은 패턴을 쓴다(비동기는
- * `rewindTail`의 flush 대기 순서를 통제한다, TRP-008). 화면에 실제로 어떻게 그려지는지(앞 행 중복 없음)는 브라우저(Playwright)가 본다.
+ * `createPromptRow` 읽기 시험(RD-027).
+ * - 검증 1: `promptRow.read`가 꼬리를 프롬프트로 합성해 벤더 `readline.read`를 연다.
+ * - 검증 2: 읽기가 호출 시점의 io에 묶인다.
+ * - 구성: `@repo/pyodide-testkit/fake-terminal` + 실제 `Readline` + 실제 `createTerminalSurface`.
+ *   `surface.promptRow`를 직접 부른다. 조립·배출은 `../surface-setup.ts`(RD-042)가 맡는다.
+ * - write 콜백이 동기인 경우와 비동기인 경우를 `describe.each`로 모두 돌린다.
+ *   비동기 모드는 `rewindTail`의 flush 대기 순서를 통제한다(TRAP-14).
+ * - 화면에 실제로 어떻게 그려지는지(앞 행 중복 없음)는 브라우저(Playwright)가 본다.
  *
- * "read(prompt="")" 절은 `stdin-reader.test.ts`(20건), "read(합성 프롬프트)" 절은 `repl-reader.test.ts`(18건)를 새 인터페이스로
- * 옮긴 것이다(design.md §6). pending 프리필은 원본이 쓰던 repl `createAutoIndent` 대신 `readOptions`에 직접 `prefill`을 준다
- * (terminal은 repl을 import하지 않는다). 같은 surface의 접두 정리는 `prefix.test.ts`, 행 마감은 `row-end.test.ts`(RD-042 분할).
+ * 절 구성:
+ * - `prompt=''` 절은 구 `stdin-reader` 시험을 새 인터페이스로 옮긴 것이다.
+ * - "합성 프롬프트" 절은 구 `repl-reader` 시험을 새 인터페이스로 옮긴 것이다.
+ * - pending 프리필은 repl `createAutoIndent` 대신 `readOptions`에 직접 `prefill`을 준다. terminal은 repl을 import하지 않는다.
+ * - 같은 surface의 접두 정리는 `prefix.test.ts`, 행 마감은 `row-end.test.ts`가 맡는다(RD-042 분할).
  */
 import { describe, expect, test, vi } from "vitest";
 import { STDIN_EOF } from "@cp949/runo-pyodide-core";
@@ -261,7 +266,7 @@ describe.each([
     test("새 io는 빈 프롬프트로 시작한다(세션 리셋의 단위 성질)", async () => {
       const { surface, io, lastPrompt } = setup();
       io.sinks.write("x: ");
-      // 세션 리셋 뒤에는 io가 새로 만들어진다(현재 io가 바뀐다). 이전 io에 꼬리가 남아 있어도 새 io는 물려받지 않는다.
+      // 세션 리셋 뒤에는 io가 새로 만들어져 현재 io가 바뀐다. 이전 io에 꼬리가 남아 있어도 새 io는 물려받지 않는다.
       const fresh = surface.openIo();
 
       void surface.promptRow.read("", { cancelable: true });
@@ -527,7 +532,7 @@ describe("현재 io 추적과 read의 io 묶임", () => {
     ).rejects.toThrow();
   });
 
-  test("더 오래된 io의 close()는 현재 io를 바꾸지 않는다(변이 검사 ④)", async () => {
+  test("더 오래된 io의 close()는 현재 io를 바꾸지 않는다", async () => {
     const { fake, surface } = setupSurface();
     const first = surface.openIo();
     const second = surface.openIo();
@@ -538,8 +543,8 @@ describe("현재 io 추적과 read의 io 묶임", () => {
     await tick();
     fake.type("ok\r");
 
-    // 현재 io는 여전히 second다 — 그 io로 읽기가 성공하고 프롬프트("2: ")가 함께 그려진다.
-    // (첫 io의 close()가 현재 io를 지우는 변이라면 read()가 "현재 io가 없다"로 reject한다.)
+    // 현재 io는 여전히 second다. 그 io로 읽기가 성공하고 프롬프트("2: ")가 함께 그려진다.
+    // 첫 io의 close()가 현재 io를 지우면 read()가 "현재 io가 없다"로 reject한다.
     await expect(read).resolves.toBe("ok");
     expect(fake.written.join("")).toContain("2: ok");
   });
@@ -548,7 +553,7 @@ describe("현재 io 추적과 read의 io 묶임", () => {
     const { fake, surface, readline } = setupSurface({ asyncWrite: true });
     const read = vi.spyOn(readline, "read");
     const first = surface.openIo();
-    // 100자 꼬리는 rewindTail이 flush를 기다리게 한다(짧은 꼬리는 즉시 반환).
+    // 100자 꼬리는 `rewindTail`이 flush를 기다리게 한다. 짧은 꼬리는 즉시 반환한다.
     first.sinks.write("A".repeat(100));
 
     const line = surface.promptRow.read("", { cancelable: true });
@@ -558,7 +563,7 @@ describe("현재 io 추적과 read의 io 묶임", () => {
     second.sinks.write("B: ");
     await drain(fake);
 
-    // 여전히 first(호출 시점의 현재 io)의 꼬리를 쓴다. second의 "B: "가 아니다.
+    // 호출 시점의 현재 io인 first의 꼬리를 쓴다. second의 "B: "가 아니다.
     expect(read.mock.calls.at(-1)?.[0]).toBe("A".repeat(100));
     fake.type("x\r");
     await expect(line).resolves.toBe("x");

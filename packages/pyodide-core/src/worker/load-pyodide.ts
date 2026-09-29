@@ -1,7 +1,9 @@
 /**
- * CDN에서 pyodide를 동적 import하는 브라우저 worker 전용 로더. 단위 시험은 없다 — worker 안 CDN import와 실패 경로는
- * 브라우저 확인(Playwright)이 본다. 시퀀스 시험은 `bootWorker`에 npm `loadPyodide`를 주입해 node에서 돈다(core
- * `worker/boot.test.ts`는 실행 driver, repl `worker/boot.test.ts`는 REPL driver).
+ * CDN에서 pyodide를 동적 import하는 브라우저 worker 전용 로더.
+ * 단위 시험은 없다. worker 안 CDN import와 실패 경로는 브라우저 확인(Playwright)이 본다.
+ * 시퀀스 시험은 `bootWorker`에 npm `loadPyodide`를 주입해 node에서 돈다.
+ * - core `test/worker/boot.test.ts`는 실행 driver.
+ * - repl `test/worker/boot.test.ts`는 REPL driver.
  */
 import type { loadPyodide as LoadPyodide, PyodideInterface } from "pyodide";
 

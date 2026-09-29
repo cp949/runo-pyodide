@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """양성 대조 드라이버. 소스를 변조 → 브라우저 확인 실행(해당 확인만 실패해야 함) → git checkout으로 원복 → 재실행(통과).
-출처 RD-006, `_works/_completed/20260922-06-rd-006-stdin-input/verify/positive-controls.py`에서 이관(RD-018 DELTA-04).
+출처 RD-006에서 이관(RD-018).
 변조 도구가 vitest 실행기(`tools/mutate.mjs`)가 아니라 브라우저 스크립트를 돌려야 해서 이 드라이버의 CONTROLS 표를 쓴다.
 
 사용: python3 rd-006.py <1|2|3>
@@ -38,7 +38,7 @@ CONTROLS = {
         ],
     },
     "2": {
-        # RD-018 DELTA-04 경로 정정(멈추는 지점 3): 원본 find(`deps.requestInput(true);\n    return
+        # RD-018 경로 정정(멈추는 지점 3): 원본 find(`deps.requestInput(true);\n    return
         # deps.wait();\n`)는 stdin-callback.ts가 이후 EOF 처리(deps.signalInterrupt/checkInterrupt)를
         # 더하며 `const line = deps.wait(); if (line !== null) return line;` 구조로 바뀌어 더는 없다(대조
         # 대상·기대 실패 셀은 그대로, requestInput을 wait() 뒤로 미루는 같은 변조를 현재 구조에 맞춰 옮겼다).

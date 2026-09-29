@@ -1,9 +1,16 @@
 // @vitest-environment node
 /**
- * core 세션(`startCoreSession`) 시험. main 쪽 세션의 공통 부분 — worker 생성·초기화 프레임·RPC 핸들러 합성·
- * 출력 계약 `{ stream, text }`·`readInput` 처리·게이트 `pythonRunning`·종료 수명 주기 — 을 가짜 worker와 가짜 driver로 본다.
- * REPL 쪽 조립(읽기 가드·`readLine`·읽기 phase)은 repl `index.test.ts`·`repl-main-driver.test.ts`가 실제 `Readline`으로 본다.
- * worker 역할의 rpc는 프레임의 포트에 시험이 직접 만든다(worker가 실제로 없으므로 프레임의 포트를 전송하지 않고 그대로 쓴다).
+ * core 세션(`startCoreSession`) 시험.
+ * - 대상: main 쪽 세션의 공통 부분. 가짜 worker와 가짜 driver로 본다.
+ *   - worker 생성과 초기화 프레임
+ *   - RPC 핸들러 합성
+ *   - 출력 계약 `{ stream, text }`
+ *   - `readInput` 처리
+ *   - 게이트 `pythonRunning`
+ *   - 종료 수명 주기, 생성 실패
+ * - REPL 쪽 조립(읽기 가드·`readLine`·읽기 phase)은 repl `index.test.ts`·`repl-main-driver.test.ts`가 실제 `Readline`으로 본다.
+ * - worker 역할의 rpc는 시험이 프레임의 포트에 직접 붙인다. worker가 없으므로 포트를 전송하지 않고 그대로 쓴다.
+ * - 테스트 제목의 `[D1]`~`[D6]`은 `docs/design/08-session.md` 8.1의 판정 규칙 ID다.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { parseInitFrame } from "../../src/protocol/init-frame";
@@ -34,6 +41,7 @@ function mailboxOf(frame: InitFrame): StdinMailboxBuffers {
   return { ctrl: frame.stdinCtrl, data: frame.stdinData };
 }
 
+// 시험 중 만든 자원. `afterEach`가 정리한다.
 const ports: MessagePort[] = [];
 const workerRpcs: Rpc[] = [];
 const sessions: CoreSession[] = [];
@@ -45,10 +53,11 @@ afterEach(() => {
   sessions.length = 0;
 });
 
-/** `postMessage`·`terminate`만 기록하는 가짜 worker. 호출 순서 검증을 위해 공용 로그에도 남긴다. */
+/** `postMessage`·`terminate`만 기록하는 가짜 worker. 호출 순서 검증을 위해 공용 `log`에도 남긴다. */
 function createFakeWorker(log: string[] = []) {
   const errorListeners = new Set<(event: { message?: string }) => void>();
-  // 리스너를 뗀 뒤에도 이미 큐에 있던 이벤트가 늦게 도착하는 경우를 흉내 내려고 등록된 적 있는 리스너를 모두 기억한다.
+  // 등록된 적 있는 리스너를 모두 기억한다.
+  // 리스너를 뗀 뒤에도 큐에 있던 이벤트가 늦게 도착하는 경우를 흉내 내기 위해서다.
   const everAdded: ((event: { message?: string }) => void)[] = [];
   const postMessage = vi.fn<
     (message: unknown, transfer: Transferable[]) => void
@@ -88,13 +97,14 @@ function createFakeWorker(log: string[] = []) {
     dispatchError(message?: string) {
       for (const listener of errorListeners) listener({ message });
     },
-    /** 리스너를 뗀 뒤에 도착한 것으로 치고 등록된 적 있는 리스너를 직접 부른다. */
+    // 리스너를 뗀 뒤에 도착한 이벤트를 흉내 낸다. 등록된 적 있는 리스너를 직접 부른다.
     dispatchLateError(message?: string) {
       for (const listener of everAdded) listener({ message });
     },
   };
 }
 
+/** `cancel` 호출을 공용 `log`에 남기는 가짜 interrupt 송신기. */
 function createFakeSender(log: string[] = []): InterruptSender & {
   cancel: ReturnType<typeof vi.fn>;
 } {
@@ -106,7 +116,11 @@ function createFakeSender(log: string[] = []): InterruptSender & {
   };
 }
 
-/** 시험이 조작하는 가짜 driver. 기본은 읽기 대기 없음(`isIdle` 거짓), 입력 읽기는 끝나지 않는 promise다. */
+/**
+ * 시험이 조작하는 가짜 driver.
+ * - 기본 `isIdle`은 거짓이다. 반환한 `state.idle`로 바꾼다.
+ * - 기본 `readInput`은 끝나지 않는 promise다.
+ */
 function createFakeDriver(overrides: Partial<MainDriver> = {}) {
   const state = { idle: false };
   const driver: MainDriver = {
@@ -119,11 +133,13 @@ function createFakeDriver(overrides: Partial<MainDriver> = {}) {
   return { driver, state };
 }
 
+/** `start`의 옵션. `CoreSessionOptions`를 덮어쓰고 공용 호출 순서 로그를 받는다. */
 interface StartOptions extends Partial<CoreSessionOptions> {
+  /** 가짜 worker·송신기·시험 콜백이 함께 쓰는 호출 순서 로그 */
   log?: string[];
 }
 
-/** 세션을 시작하고 worker 역할 rpc를 붙인다. */
+/** 가짜 worker·송신기·driver로 세션을 시작하고 worker 역할 rpc를 붙인다. */
 function start(options: StartOptions = {}) {
   const log = options.log ?? [];
   const fakeWorker = createFakeWorker(log);
@@ -160,7 +176,7 @@ function start(options: StartOptions = {}) {
   };
 }
 
-/** MessagePort로 도착하는 알림을 기다린다. 조건이 참이 되면 바로 돌아온다(최대 2초). */
+/** MessagePort로 도착하는 알림을 기다린다. `predicate`가 참이 되면 바로 돌아온다. 2초 안에 안 되면 던진다. */
 async function waitFor(predicate: () => boolean): Promise<void> {
   for (let waited = 0; waited < 2000; waited += 5) {
     if (predicate()) return;
@@ -169,7 +185,7 @@ async function waitFor(predicate: () => boolean): Promise<void> {
   throw new Error("기다리던 상태가 되지 않았다");
 }
 
-/** "오지 않아야 한다"는 단언 앞에서 알림이 도착했을 시간을 준다. */
+/** "오지 않아야 한다"는 단언 앞에서 알림이 도착할 시간을 준다. */
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 30));
 
 describe("startCoreSession: 게이트 pythonRunning", () => {
@@ -349,7 +365,8 @@ describe("startCoreSession: readInput 처리", () => {
     workerRpc.notify("readInput", true);
     await waitFor(() => resumed.mock.calls.length === 1);
 
-    // 재개 알림 시점에 이미 쓰여 있다(쓰기가 끝난 뒤 알린다). take는 늦은 쓰기도 기다려 순서를 보지 못한다.
+    // 재개 알림 시점에 이미 쓰여 있어야 한다(쓰기가 끝난 뒤 알린다).
+    // take는 늦은 쓰기도 기다리므로 순서를 볼 수 없다. peek로 본다.
     expect(peekMailbox(mailboxOf(fakeWorker.frame()))).toMatchObject({
       kind: "chunk",
       last: true,
@@ -626,7 +643,7 @@ const CLEAN_READY = {
 };
 
 describe("startCoreSession: pyodide 호환 경고", () => {
-  /** ready 알림을 보내고 상태 알림이 올 때까지 기다린다. `console.warn` 호출은 스파이가 기록한다. */
+  // ready 알림을 보내고 상태 알림이 올 때까지 기다린다. `console.warn` 호출은 스파이가 기록한다.
   async function bootWith(
     payload: unknown,
     driver = createFakeDriver().driver,
@@ -842,7 +859,7 @@ describe("startCoreSession: 종료 수명 주기", () => {
     const { session } = start();
     expect(session.ended).toBe(false);
     const pending = session.call("complete", "x");
-    // 응답이 없는 요청이 걸려 있다. 종료가 rpc.dispose로 reject한다.
+    // 응답이 없는 요청이 걸려 있다. 종료의 `rpc.dispose()`가 reject한다.
     const settled = pending.then(
       () => "resolved",
       () => "rejected",

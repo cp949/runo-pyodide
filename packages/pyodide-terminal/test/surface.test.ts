@@ -1,8 +1,13 @@
 /**
- * `createTerminalSurface`·`surface.openIo()` 시험(terminal-surface DELTA-01). 실제 벤더 `Readline`·실제 sink·실제 선택 복사를
- * 가짜 터미널(`@repo/pyodide-testkit/fake-terminal`)에 붙인다. worker·core는 쓰지 않는다.
- * 소비자(`createTerminalRunner`·`createRepl`)가 어떤 정책으로 부르는지는 보지 않고 surface 계약만 본다:
- * 조립(선택 복사 ↔ `Readline`), 위젯 수명 정리, 세션 수명(`openIo`)의 게이트(TRP-004)·sinks 분리.
+ * `createTerminalSurface`·`surface.openIo()` 시험.
+ * - 실제 벤더 `Readline`·실제 sink·실제 선택 복사를 가짜 터미널(`@repo/pyodide-testkit/fake-terminal`)에 붙인다.
+ * - worker·core는 쓰지 않는다.
+ * - 소비자(`createTerminalRunner`·`createRepl`)의 호출 정책은 보지 않는다. surface 계약만 본다.
+ *
+ * 계약 범위:
+ * - 조립: 선택 복사 ↔ `Readline`.
+ * - 위젯 수명 정리.
+ * - 세션 수명(`openIo`): 게이트(TRP-004), sinks 분리.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
@@ -13,13 +18,19 @@ import { stubClipboard } from "@repo/pyodide-testkit/clipboard";
 import { createTerminalSurface, type TerminalSurface } from "../src/surface";
 import { asVendorReadline, tail, tick } from "./surface-setup";
 
-/** 드래그로 선택을 만든 뒤 마우스를 놓는 사건(`mousedown` → `mouseup`). 선택 텍스트는 호출자가 `select`로 정한다. */
+/**
+ * 드래그 후 마우스를 놓는 사건(`mousedown` → `mouseup`)을 낸다.
+ * 선택 텍스트는 호출자가 `select`로 미리 정한다.
+ */
 function drag(fake: FakeTerminal) {
   fake.term.element!.dispatchEvent(new MouseEvent("mousedown", { button: 0 }));
   document.dispatchEvent(new MouseEvent("mouseup"));
 }
 
-/** 끝나지 않는 읽기의 결과를 시험이 멈추지 않고 잡는다. */
+/**
+ * Promise의 상태·값을 객체에 기록한다.
+ * 끝나지 않는 읽기를 `await`하지 않고 관찰할 때 쓴다.
+ */
 function observe<T>(promise: Promise<T>) {
   const outcome: {
     state: "pending" | "resolved" | "rejected";
@@ -39,6 +50,11 @@ function observe<T>(promise: Promise<T>) {
 }
 
 const surfaces: TerminalSurface[] = [];
+
+/**
+ * 요소가 있는 가짜 터미널에 surface를 조립한다(`readline.persist: false`가 기본).
+ * 만든 surface는 `afterEach`에서 dispose한다.
+ */
 function setup(
   terminalOptions: Parameters<typeof createFakeTerminal>[0] = {},
   options: Parameters<typeof createTerminalSurface>[1] = {},
@@ -73,7 +89,7 @@ describe("openIo 게이트(TRP-004)", () => {
 
     expect(before).toHaveBeenCalledTimes(1);
     expect(after).not.toHaveBeenCalled();
-    // 콜백을 전달하지 않을 뿐 write 자체는 터미널에 간다.
+    // 콜백만 전달하지 않는다. write 자체는 터미널에 간다.
     expect(fake.written).toContain("b");
   });
 
@@ -109,7 +125,7 @@ describe("openIo 게이트(TRP-004)", () => {
     await tick();
 
     expect(fake.disposedBufferReads).toBe(0);
-    // 게이트가 flush 콜백을 막았으므로 읽기는 열리지 않은 채 남는다(dispose가 끝내 주지도 않는다).
+    // 게이트가 flush 콜백을 막아 읽기가 열리지 않은 채 남는다. dispose도 이 읽기를 끝내지 않는다.
     expect(read.state).toBe("pending");
   });
 
@@ -183,10 +199,10 @@ describe("openIo 세션 분리", () => {
     expect(fake.written.join("")).toContain("hello");
   });
 
-  // "inputReader는 같은 io의 sinks 꼬리를 프롬프트로 쓰고..."·"inputReader의 flush 대기는 같은 io의 게이트를 따른다..."는
-  // RD-027 DELTA-04에서 삭제했다: `inputReader`가 없어졌고(promptRow가 대체) 동등한 성질은
-  // `prompt-row/read.test.ts`의 "현재 io 추적과 read의 io 묶임"(read()는 호출 시점에 묶인 io를 쓴다·더 오래된
-  // io의 close()는 현재 io를 바꾸지 않는다)이 커버한다(design.md §6 "surface.test.ts 197-238").
+  // `inputReader`는 RD-027에서 `promptRow`로 대체되어 관련 시험을 삭제했다.
+  // - 삭제한 성질: 같은 io의 sinks 꼬리를 프롬프트로 쓴다. flush 대기가 같은 io의 게이트를 따른다.
+  // - 대체 시험: `prompt-row/read.test.ts`의 "현재 io 추적과 read의 io 묶임".
+  //   read()는 호출 시점에 묶인 io를 쓰고, 더 오래된 io의 close()는 현재 io를 바꾸지 않는다.
 });
 
 describe("선택 복사 조립", () => {
@@ -284,7 +300,7 @@ describe("Readline 옵션", () => {
     discarding.fake.type("\r");
     await expect(first).resolves.toBe("");
 
-    // 기본(typeAhead 켜짐)이면 읽기 밖 입력이 다음 읽기에 이어진다(대조).
+    // 대조: 기본(typeAhead 켜짐)이면 읽기 밖 입력이 다음 읽기에 이어진다.
     const keeping = setup();
     keeping.fake.type("ab");
     keeping.surface.openIo();
@@ -306,7 +322,7 @@ describe("Readline 옵션", () => {
     await first;
     expect(skipping.surface.readline.getHistory().entries).toEqual([]);
 
-    // 기본은 빈 줄도 남긴다(대조).
+    // 대조: 기본은 빈 줄도 남긴다.
     const keeping = setup();
     keeping.surface.openIo();
     const second = keeping.surface.promptRow.read("", { cancelable: false });

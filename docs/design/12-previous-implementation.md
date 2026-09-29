@@ -4,7 +4,25 @@
 
 ## 1. 제품 정의(이전 구현 기준)
 
-브라우저에서 Pyodide(배포판 `314.0.7`, 번들 Python 3.14.2)를 Web Worker 안에서 실행하고, 메인 스레드의 xterm.js 터미널(`@xterm/xterm` 6 + `xterm-readline` 1.2.2, MIT, npm 패키지를 포팅 없이 사용)로 입출력을 연결해, 실제 터미널에서 `python`을 실행한 CPython 3.14 기본 대화형 REPL과 같은 조작감을 목표로 하는 로컬 데모다. REPL 코어는 직접 만든 `compile(..., "single")` 루프가 아니라 Pyodide 공식 `pyodide.console.PyodideConsole`이고, UI는 Vite 8 + React 19 + TypeScript 6 + MUI v9 셸이다. 실행 환경은 로컬 `vite dev`(포트 4321 고정, `strictPort`)로 한정하고 COOP/COEP 헤더(`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`)를 dev 서버에 건다. "동등성"은 주관 판단이 아니라 실측으로 판정한다: 기준은 CPython 3.14.4를 pty로 띄워 `pyte`로 화면을 렌더링하는 측정 하니스(`ptyrepl.py`, `TERM=xterm`)로 얻은 화면 행이고, 웹 쪽은 Playwright(Chromium headless)로 `.xterm-rows > div`의 텍스트 행을 읽어 같은 시나리오의 기대 행과 대조한다. 두 화면이 다르면 "편차"로 문서에 남기고, 재현할 수 없거나 시나리오에 닿지 않는 차이는 "범위 밖"으로 확정한다. Tab 완성처럼 후보 집합 비교가 필요한 항목은 pty 케이스(예: 37케이스 + 추가 4)와 네이티브 대 Pyodide 대조(95케이스), 게이트 코퍼스(53줄)까지 따로 측정했다. 이전 구현은 Worker↔Main 사이에 coincident 동기 브리지를 썼고 새 구현은 쓰지 않는다.
+브라우저에서 Pyodide를 Web Worker 안에서 실행하는 로컬 데모다. 목표는 실제 터미널에서 `python`을 실행한 CPython 3.14 기본 대화형 REPL과 같은 조작감이다.
+
+- 실행 환경:
+  - Pyodide 배포판 `314.0.7`, 번들 Python 3.14.2. Web Worker 안에서 실행한다.
+  - 메인 스레드의 xterm.js 터미널(`@xterm/xterm` 6 + `xterm-readline` 1.2.2, MIT)로 입출력을 연결한다. npm 패키지를 포팅 없이 쓴다.
+  - REPL 코어는 Pyodide 공식 `pyodide.console.PyodideConsole`이다. 직접 만든 `compile(..., "single")` 루프가 아니다.
+  - UI는 Vite 8 + React 19 + TypeScript 6 + MUI v9 셸이다.
+  - 실행 환경은 로컬 `vite dev`(포트 4321 고정, `strictPort`)로 한정한다.
+  - COOP/COEP 헤더(`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`)를 dev 서버에 건다.
+- "동등성"은 주관 판단이 아니라 실측으로 판정한다.
+  - 기준: CPython 3.14.4를 pty로 띄워 `pyte`로 화면을 렌더링하는 측정 하니스(`ptyrepl.py`, `TERM=xterm`)로 얻은 화면 행.
+  - 웹 쪽: Playwright(Chromium headless)로 `.xterm-rows > div`의 텍스트 행을 읽어 같은 시나리오의 기대 행과 대조한다.
+  - 두 화면이 다르면 "편차"로 문서에 남긴다.
+  - 재현할 수 없거나 시나리오에 닿지 않는 차이는 "범위 밖"으로 확정한다.
+- Tab 완성처럼 후보 집합 비교가 필요한 항목은 따로 측정했다.
+  - pty 케이스(예: 37케이스 + 추가 4).
+  - 네이티브 대 Pyodide 대조(95케이스).
+  - 게이트 코퍼스(53줄).
+- 이전 구현은 Worker↔Main 사이에 coincident 동기 브리지를 썼다. 새 구현은 쓰지 않는다.
 
 참고: `/work/cp949/pyodide-samples/apps/repl/README.md`, `/work/cp949/pyodide-samples/apps/repl/DESIGN.md`, `/work/cp949/pyodide-samples/README.md`
 
@@ -76,7 +94,7 @@
 **사용자 시나리오**: `name = input()`을 실행하면 터미널이 입력을 기다리고, 값을 치고 Enter를 누르면 그 값이 Python 변수에 들어가 실행이 이어진다.
 **규칙·결정**
 
-- `pyodide.setStdin`의 stdin 콜백은 동기로 문자열을 돌려줘야 한다 — CPython이 동기로 부르므로 이 경로만은 블로킹이어야 한다(RD-021에서도 이 결론은 유지).
+- `pyodide.setStdin`의 stdin 콜백은 동기로 문자열을 돌려줘야 한다. CPython이 동기로 부른다. 이 경로만은 블로킹이어야 한다(RD-021에서도 이 결론은 유지).
 - `input()`·`sys.stdin.readline()/read()/readlines()`·`for line in sys.stdin`은 전부 같은 stdin 콜백이라 서로 구분할 수 없다. 규칙은 하나로 통일한다.
 - Pyodide의 `sys.stdin.isatty()`가 거짓이라 `input()`도 non-tty 경로로 `readline()`을 거친다(실측).
 
@@ -199,7 +217,10 @@
 
 - `SharedArrayBuffer` 기반 `Int32Array`를 main↔worker가 공유하고 worker가 `pyodide.setInterruptBuffer`로 연결한다. main은 `buf[0] = 2`(SIGINT)를 쓴다. (RD-012e에서 4칸으로 확장.)
 - main의 Ctrl+C 훅은 readline의 `setCtrlCHandler`(읽는 중이 아닐 때만 불린다).
-- 세션 리셋/스위치로 worker를 바꿔도 같은 버퍼를 재사용한다. 남은 SIGINT가 새 worker의 시작 코드를 죽이므로 ① main이 넘기기 직전 `buf[0] = 0`으로 비우고 ② worker는 버퍼 연결을 시작 코드 뒤 REPL 루프 직전으로 미루고 연결 전 눌림을 버리며 **버린 눌림도 ack**한다.
+- 세션 리셋/스위치로 worker를 바꿔도 같은 버퍼를 재사용한다.
+- 남은 SIGINT가 새 worker의 시작 코드를 죽인다. 대책:
+  - ① main이 넘기기 직전 `buf[0] = 0`으로 비운다.
+  - ② worker는 버퍼 연결을 시작 코드 뒤 REPL 루프 직전으로 미룬다. 연결 전 눌림을 버린다. **버린 눌림도 ack**한다.
 
 **완료 기준**: 무한 루프 중 Ctrl+C로 트레이스백이 나오고 REPL이 계속 산다.
 **이전 구현 상태**: 완료
@@ -327,7 +348,8 @@
 **규칙·결정**
 
 - "화면 지우기"(Ctrl+L, main 쪽 순수 UI 동작 — Python 상태를 건드리지 않음)와 별개 기능이다.
-- RD-009의 크래시-재시작 메커니즘을 재사용한다. `SystemExit`은 평범한 예외로 잡혀 REPL이 죽지 않음을 실측으로 확인했으므로 `on_fatal` 훅은 불필요.
+- RD-009의 크래시-재시작 메커니즘을 재사용한다.
+- `SystemExit`은 평범한 예외로 잡혀 REPL이 죽지 않는다(실측). `on_fatal` 훅은 불필요.
 - 세션 리셋 때 입력을 기다리던 블록은 버리고 이미 제출된 블록은 남긴다.
 
 **완료 기준**: 위 두 시나리오.
@@ -369,7 +391,9 @@
 - `ModuleCompleter`가 이름 완성보다 먼저 판정하므로 `from os import pa`가 `['path']`다. 빈 리스트는 무동작이며 이름 완성으로 폴백하지 않는다.
 - 콤마·`as` 뒤는 마지막 이름만 스템. `;`·여러 줄·`... ` 블록·`yield from`도 모듈 완성. `... ` 블록은 이전 줄(`pending`)을 입력 앞에 붙인다.
 - 호출마다 `ModuleCompleter` **새 인스턴스**를 만든다(재사용하면 `loadPackage`·micropip 뒤 패키지를 놓친다).
-- main 사전 게이트는 커서 앞 텍스트(+pending)에 대한 **부분 문자열** `/import|from/`이다. 단어 경계 게이트는 숫자 리터럴 뒤 키워드(`1import os`)에서 건전하지 않아 기각했고, 대가는 `important = ` 같은 줄의 worker 왕복 1회(약 23ms) 추가다.
+- main 사전 게이트는 커서 앞 텍스트(+pending)에 대한 **부분 문자열** `/import|from/`이다.
+  - 단어 경계 게이트는 기각했다. 숫자 리터럴 뒤 키워드(`1import os`)에서 건전하지 않다.
+  - 대가: `important = ` 같은 줄의 worker 왕복 1회(약 23ms) 추가.
 - pyodide stdlib가 zip이라 원본이 잃는 `collections.abc` 등은 `_is_stdlib_module` 판정만 오버라이드한 서브클래스로 되살린다.
 
 **완료 기준**: 브라우저 129개 시나리오 통과, 3.14 pty 케이스 A01~A36 중 32개 + X01과 대조, 왕복 지연 중앙값 24.0ms. 빈 줄·`x = `의 Tab 8연타가 왕복 0회로 **32칸**. 3.14 삽입 quirk 동등(`import os.pa  # c` → `import os.pa  # cs.path`).
@@ -418,7 +442,8 @@
 **사용자 시나리오**: 상단 스위치가 꺼진 기본 상태에서 `await asyncio.sleep(1)`은 실제 `python`처럼 `SyntaxError: 'await' outside function`이 난다. 스위치를 켜면 `python -m asyncio`처럼 바로 실행된다. 스위치를 바꾸면 세션이 리셋되고 설정은 저장되지 않는다(새로고침하면 꺼짐).
 **규칙·결정**
 
-- `Console.__init__`이 플래그를 항상 켜므로 기본이 ON이었다 — 이 항목은 "기본 ON을 OFF로 바꾸고 켤 수 있게 하는 옵션"이다.
+- `Console.__init__`이 플래그를 항상 켜므로 기본이 ON이었다.
+- 이 항목은 "기본 ON을 OFF로 바꾸고 켤 수 있게 하는 옵션"이다.
 - ON은 **컴파일 플래그만** 켠다. `asyncio` 선주입, 배너 변경, Ctrl+C의 task 취소 같은 `python -m asyncio`의 나머지 동작은 흉내내지 않는다.
 - 꺼짐에서 붙여넣은 여러 문장은 앞 문장을 실행한 뒤 `await` 문장에서 오류가 나고 이후는 실행되지 않는다.
 
@@ -446,7 +471,8 @@
 
 - main 단독의 "진행형 교체"로 기록한다(worker 프로토콜 변경 없음): 블록 첫 줄 append 직전의 entries를 기준점으로 잡고, `... ` 줄을 제출할 때마다 기준점으로 되돌린 뒤 블록 전체를 다시 append한다(`History`에 삭제 API가 없다).
 - Ctrl+C 취소와 세션 리셋은 기준점으로 복원한다 → 취소된 블록(첫 줄 포함)이 남지 않는다.
-- `... ` 입력줄의 ↑는 history 탐색이 아니라 **무동작**으로 정했다(진행형 항목이 작성 중인 블록 자신이라 자기 자신이 들어온다). 편집 버퍼 안 줄 이동은 유지.
+- `... ` 입력줄의 ↑는 history 탐색이 아니라 **무동작**으로 정했다. 진행형 항목이 작성 중인 블록 자신이라 자기 자신이 들어온다.
+- 편집 버퍼 안 줄 이동은 유지한다.
 - 괄호 안 빈 줄은 보존. 문법 오류·예외·`exit()`로 끝난 블록도 전체가 남는다. 공백만 있는 제출은 history에 남지 않는다.
 
 **완료 기준**: 위 전부.
@@ -459,9 +485,15 @@
 
 - REPL 프롬프트 읽기와 완성 요청을 **전용 `MessageChannel` 위 비동기 RPC** 하나로 옮긴다. 센티널·resume 코덱, 플래그, 우회 모듈은 전부 제거한다.
 - `input()`의 stdin 읽기는 CPython이 동기로 부르므로 **동기 경로에 남긴다**(대기 중 다른 콜백이 돌면 CPython 의미가 깨진다 — `time.sleep`을 블로킹으로 둔 것과 같은 근거).
-- 치르는 대가: 프롬프트 대기 중 worker 이벤트 루프가 살아 있어 asyncio 콜백이 돈다. 3.14 기본 REPL은 돌 루프가 없고 `python -m asyncio`는 돈다 → **`python -m asyncio` 쪽으로 정렬**(사용자 결정).
-- **백그라운드 `input()` 가드**: REPL 읽기가 활성인 동안 들어온 stdin 읽기는 그 REPL 읽기가 끝난 뒤 시작한다(없으면 REPL 읽기가 고아가 되어 세션 리셋 전까지 멈춘다).
-- **전역 스트림**: `PyodideConsole`이 `runcode()` 동안만 리다이렉트하므로, 프롬프트 대기 중 배경 콜백 출력·asyncio 예외 로그는 전역 stdout/stderr를 탄다. 전역 `setStdout`/`setStderr`를 콘솔 콜백과 **같은 sink**로 보낸다(pyodide `Writer`로 바이트를 받아 `TextDecoder({ stream: true })`로 조각 경계를 잇는다). Python 쪽 stdout 버퍼는 건드리지 않는다 → 개행 없는 배경 출력은 `flush=True`가 필요하다.
+- 치르는 대가: 프롬프트 대기 중 worker 이벤트 루프가 살아 있어 asyncio 콜백이 돈다.
+  - 3.14 기본 REPL은 돌 루프가 없다. `python -m asyncio`는 돈다.
+  - → **`python -m asyncio` 쪽으로 정렬**(사용자 결정).
+- **백그라운드 `input()` 가드**: REPL 읽기가 활성인 동안 들어온 stdin 읽기는 그 REPL 읽기가 끝난 뒤 시작한다.
+  - 가드가 없으면 REPL 읽기가 고아가 된다. 세션 리셋 전까지 멈춘다.
+- **전역 스트림**: `PyodideConsole`이 `runcode()` 동안만 리다이렉트한다.
+  - 프롬프트 대기 중 배경 콜백 출력·asyncio 예외 로그는 전역 stdout/stderr를 탄다.
+  - 전역 `setStdout`/`setStderr`를 콘솔 콜백과 **같은 sink**로 보낸다. pyodide `Writer`로 바이트를 받아 `TextDecoder({ stream: true })`로 조각 경계를 잇는다.
+  - Python 쪽 stdout 버퍼는 건드리지 않는다. 개행 없는 배경 출력은 `flush=True`가 필요하다.
 - **프롬프트 유휴 SIGINT 폐기**: 프롬프트 대기 중 깨울 정지한 실행이 없는 SIGINT는 감시 타이머가 폐기하고 ack한다(송신기가 멈춘다). 실행 중 규칙(깨울 수 없으면 남겨 둔다)은 그대로.
 
 **완료 기준**
@@ -481,12 +513,17 @@
 
 ### 3.2 보류
 
-- **RD-016b `input()` 안 Tab**: 3.14는 `input()` 안에서도 완성한다(pty 실측: `[ not unique ]` → 두 번째 Tab 목록). 이전 구현은 무동작이고 `\t`도 넣지 않는다. `input()`은 동기 stdin 콜백이라 worker가 멈춰 있어 **비동기 채널로도 풀리지 않는다** — main 쪽 완성이나 별도 배선이 필요하다. 이 읽기는 REPL 읽기와 프롬프트 합성·취소 처리가 다르다.
+- **RD-016b `input()` 안 Tab**: 3.14는 `input()` 안에서도 완성한다(pty 실측: `[ not unique ]` → 두 번째 Tab 목록). 이전 구현은 무동작이고 `\t`도 넣지 않는다.
+  - `input()`은 동기 stdin 콜백이다. worker가 멈춰 있다. **비동기 채널로도 풀리지 않는다.**
+  - main 쪽 완성이나 별도 배선이 필요하다.
+  - 이 읽기는 REPL 읽기와 프롬프트 합성·취소 처리가 다르다.
 - **RD-012i `asyncio.run` 코루틴 안 중복 트레이스백**: 실작업으로 분류됐으나 착수 전(대기). 완료 기준 미확정.
 - **RD-012j `time.sleep` 대기 중 워커 CPU 점유**: Node 측정으로 `sleep(1.0)`이 벽시계 1000ms에 CPU 1115ms(기본 JSPI는 1003ms에 5ms). 눌림 지연·화면·정확성에 영향이 없는 CPU 점유만이라 재측정 비용(Node 10분 + 브라우저 50분)이 이득보다 크다. 후보: 조각을 원본 C 대신 사설 `SharedArrayBuffer`의 `Atomics.wait`로 재운다.
 - **RD-016d 후보 선택 UI(popover, 필터·쪽 넘김)**: 3.14 동등 밖의 UI 기능. 시나리오와 완료 기준이 정해지면 재등록.
 - **RD-012h (a) "Python 정지" 플래그**: 정확성 영향이 없는 송신기 잔류만 없애므로 문제로 드러날 때까지 미룸.
-- **readline 라이브러리 포크**: `xterm-readline` 소스를 저장소에 포팅하지 않기로 확정(npm 패키지 그대로 사용). 포팅했다면 풀렸을 항목들(`... ` 접두사 미표시, 다중 줄 항목의 줄 단위 history 이동, `History` 삭제 API 부재로 인한 진행형 교체 우회)은 편차·우회로 남겼다.
+- **readline 라이브러리 포크**: `xterm-readline` 소스를 저장소에 포팅하지 않기로 확정(npm 패키지 그대로 사용).
+  - 포팅했다면 풀렸을 항목은 편차·우회로 남겼다.
+  - 해당 항목: `... ` 접두사 미표시, 다중 줄 항목의 줄 단위 history 이동, `History` 삭제 API 부재로 인한 진행형 교체 우회.
 - **v1 범위 밖으로 처음부터 제외**: 히스토리 영구 저장(`~/.python_history` 상당), Ctrl+R 역검색(`xterm-readline`에 없음), syntax highlighting·bracket matching, session export/import, 패키지 설치 UI, 파일시스템, 터미널 명령, 디버거, 정적 호스팅/Service Worker COOP/COEP 우회, 자동화 E2E(Playwright를 상시 CI로 두는 것), 서버 CPython 프로세스 아키텍처.
 
 ### 3.3 후속 후보 등록 규칙 (재개발에도 적용 권장)
@@ -509,7 +546,7 @@
 | `auto-indent-reader.ts` | `Readline.read()`/`readKey` 래핑. 프리필·Backspace·Shift+Enter·Ctrl+C 취소·`cancelSettling` |
 | `block-history.ts`      | `history.append` 래핑. 블록 여러 줄을 history 항목 하나로 묶음(`beginRead`/`discard`)       |
 | `history-filter.ts`     | `skipBlankHistory` — 공백만 있는 제출을 history에서 제외                                    |
-| `paste-tabs.ts`         | `readPaste` 래핑. 붙여넣은 `\t` 보존(TRP-006)                                               |
+| `paste-tabs.ts`         | `readPaste` 래핑. 붙여넣은 `\t` 보존(TRAP-13)                                               |
 
 ### 실행/제출(worker)
 

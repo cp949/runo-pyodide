@@ -19,4 +19,4 @@ TRP-008과 근본 원인(뷰포트 밖 DOM 소실)은 같지만 실패 형태가
 - 회피: 반복되는 문구·행 개수 대신, 스크롤과 무관한 단일 상태 엘리먼트(예: `data-testid="status"`의 텍스트 전이, `loading` → `ready`/`load-failed`)로 "이번 회차가 끝났다"를 판정한다.
 - 탐지: 반복 횟수를 늘려(예 N=10) 실행해 본다 — 1~3회차는 통과하고 그 뒤부터 막히면 이 트랩이다.
 
-참고: RD-010 DELTA-06(`_works/_completed/20260922-11-rd-010-session-reset/`, `session-reset-check.mjs`의 `ccreset` N=10 절).
+참고: RD-010(`session-reset-check.mjs`의 `ccreset` N=10 절).

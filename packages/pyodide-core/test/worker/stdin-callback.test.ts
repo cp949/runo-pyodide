@@ -1,7 +1,10 @@
 /**
- * 동기 stdin 콜백(`createStdinCallback`) 시험. 취소 변환 순서(`requestInput` → `wait` → `signalInterrupt` →
- * `checkInterrupt`)와 `checkInterrupt()`가 던지지 않을 때의 EOF 폴백 경고를 본다(04-stdin-input.md 3.1).
- * 경고 접두어는 core 로그 규칙(`[worker]`)을 따른다 — core는 REPL 없이도 쓰이므로(`14-runner.md`) `[repl.worker]`를 쓰지 않는다.
+ * 동기 stdin 콜백(`createStdinCallback`) 시험(04-stdin-input.md 3.1).
+ * - 취소 변환 순서: `requestInput` → `wait` → `signalInterrupt` → `checkInterrupt`.
+ * - `checkInterrupt()`가 던지지 않을 때의 EOF 폴백 경고.
+ *
+ * 경고 접두어는 core 로그 규칙(`[worker]`)을 따른다.
+ * core는 REPL 없이도 쓰이므로(`14-runner.md`) `[repl.worker]`를 쓰지 않는다.
  */
 import { afterEach, expect, test, vi } from "vitest";
 import { createStdinCallback } from "../../src/worker/stdin-callback";

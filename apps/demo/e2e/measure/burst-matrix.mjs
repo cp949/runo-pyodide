@@ -8,7 +8,7 @@
 //   HANG   프롬프트 미복귀
 //   DIRTY  트레이스백이 2 이상이거나(트레이스백 생성 중 또 중단), 스크롤되지 않았는데 0이거나,
 //          뒤이은 `for … pass` + `print('ok')`의 `ok`가 없거나, 핸들러 문자열이 샜다
-// 출처 RD-007, `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/`에서 이관(RD-018 DELTA-04).
+// 출처 RD-007에서 이관(RD-018).
 // 사용: N=20 COMBOS=a,b5 node burst-matrix.mjs <url>(생략 시 http://localhost:5173)
 // 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev. 판정선은 이 DELTA에서 재측정하지 않는다(배선 확인만).
 import { mkdirSync, writeFileSync } from "node:fs";

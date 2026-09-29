@@ -1,10 +1,10 @@
-// RD-013 브라우저 검증. 출처 RD-013, `_works/_completed/20260923-14-rd-013-auto-indent/verify/`에서
+// RD-013 브라우저 검증. 출처 RD-013에서
 // 이관(RD-018). ROADMAP 시나리오(prefill·backspace·unit·history) + RD-019(이전 구현)
-// B1·B2·C1~C4·D1~D3·E1·F1~F4·G1·G2 + RD-012b 이월(G1·C1·D1~D3, RD-008 skipped-ids.md) + input() 원본 동작 +
+// B1·B2·C1~C4·D1~D3·E1·F1~F4·G1·G2 + RD-012b 이월(G1·C1·D1~D3, RD-008 건너뜀 ID) + input() 원본 동작 +
 // multiline-check.mjs shift 절 복원.
 // ONLY=<절 이름,…>로 절만 분리 실행한다: prefill,backspace,unit,history,shift,alt,paste,cancel,input,multiline-shift
 // 사용: node auto-indent-check.mjs <devURL> [previewURL]
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 import { open, same, show } from "../lib.mjs";
 import { checkEntry, exitWith, runDevPreview, serverLabel } from "../check-runner.mjs";
 
@@ -289,7 +289,7 @@ async function run(url) {
     if (!(await rows()).some((r) => r === "KeyboardInterrupt")) throw new Error(show(await tail(4)));
   });
 
-  // ── cancel(RD-012b 이월, RD-008 skipped-ids.md): 취소해도 들여쓰기 단위·형식은 그대로 ──
+  // ── cancel(RD-012b 이월, RD-008 건너뜀 ID): 취소해도 들여쓰기 단위·형식은 그대로 ──
   await step("cancel G1 2칸 블록을 취소해도 다음 블록의 프리필이 2칸이다", async () => {
     await reset();
     await openBlock();

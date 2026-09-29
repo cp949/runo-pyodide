@@ -1,9 +1,11 @@
 // @vitest-environment node
 /**
- * core `bootWorker`의 부팅 불변식 시험(00-architecture.md 3.1, 01-protocols.md 5절 S1). driver는 실제 `runDriver`(RD-022,
- * 실제 부팅)를 그대로 쓰고, 단언은 REPL 타임라인(배너·`readLine` 각본)에 기대지 않는 driver 중립 값(`ready`|`loadFailed`|
- * `crashed` 알림, 호출 순번, 인터럽트 버퍼 상태)만 본다. 규칙 ID B1~B8은 `00-architecture.md` 3.1에서 정의하고
- * (RD-040), 원 repl 시험 7건과의 대응은 `_works/_completed/20260927-54-rd-040-boot-harness/verify/title-map.md`에 있다.
+ * core `bootWorker`의 부팅 불변식 시험(00-architecture.md 3.1, 01-protocols.md 5절 S1).
+ * - driver는 실제 `runDriver`(RD-022)를 그대로 쓴다. 부팅도 실제로 돈다.
+ * - 단언은 driver 중립 값만 본다: `ready`·`loadFailed`·`crashed` 알림, 호출 순번, 인터럽트 버퍼 상태.
+ * - REPL 타임라인(배너·`readLine` 각본)에는 기대지 않는다.
+ *
+ * 규칙 ID B1~B8은 `00-architecture.md` 3.1에서 정의한다(RD-040).
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import {
@@ -38,7 +40,8 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  // B3·B4가 공유 인스턴스에 건 버퍼가 남으면 다음 시험의 부팅이 그 버퍼를 폴링한다(repl boot.test.ts와 같은 이유).
+  // B3은 버퍼 연결 뒤 setStdin에서 던져 공유 인스턴스에 버퍼가 남는다.
+  // 남은 버퍼는 다음 시험의 부팅이 폴링한다. 그래서 매번 연결을 푼다.
   pyodide.setInterruptBuffer(
     undefined as unknown as Parameters<
       PyodideInterface["setInterruptBuffer"]
@@ -46,13 +49,14 @@ afterEach(() => {
   );
 });
 
+/** `ms` 밀리초 기다린다. `loadFailed` 뒤에 다른 알림이 더 오지 않는지 볼 때 쓴다. */
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * `runDriver`(실제 부팅)를 감싸 `bootWorker`를 부른다. `options.run`을 주면 그 세션의 `run`만 바꾼다(B8 전용 —
- * `ready` 뒤 catch 경로를 여는 최소 조작, 나머지 세션 동작은 그대로). `session()`은 시험이 `end()`로 세션을 끝낼 때
- * 쓴다. `onTestFinished`가 시험이 스스로 끝내지 않은 세션도 정리한다(`end()`는 이미 끝난 세션에도 안전 — 두 번째
- * `resolve`는 no-op).
+ * `runDriver`(실제 부팅)를 감싸 `bootWorker`를 부른다.
+ * - `options.run`을 주면 그 세션의 `run`만 바꾼다. B8 전용이다. `ready` 뒤 catch 경로를 여는 최소 조작이고, 나머지 세션 동작은 그대로다.
+ * - `session()`은 시험이 `end()`로 세션을 끝낼 때 쓴다.
+ * - `onTestFinished`가 시험이 끝내지 않은 세션도 정리한다. `end()`를 다시 불러도 안전하다(두 번째 `resolve`는 no-op).
  */
 function bootRun(
   frame: InitFrame,
@@ -98,8 +102,8 @@ describe("core 부팅 불변식", () => {
   test("[B2] 콘솔 생성(pyimport)이 던지면 loadFailed만 오고 ready는 오지 않으며 driver 실행에 들어가지 않는다", async () => {
     const main = createMainSide();
     const run = vi.fn(async () => {});
-    // 공유 인스턴스를 pyimport만 던지는 Proxy로 감싼다(콘솔 생성은 `createCoreConsole`의
-    // `pyodide.pyimport("pyodide.console")` 한 곳뿐 — repl 시험과 같은 기법).
+    // 공유 인스턴스를 pyimport만 던지는 Proxy로 감싼다.
+    // 콘솔 생성에서 pyimport를 부르는 곳은 `createCoreConsole`의 `pyodide.pyimport("pyodide.console")` 한 곳뿐이다.
     const broken = new Proxy(pyodide, {
       get(target, key) {
         if (key === "pyimport") {
@@ -167,7 +171,8 @@ describe("core 부팅 불변식", () => {
     });
     await main.waitFor(() => main.events.some((e) => e[0] === "ready"));
 
-    // 세 호출의 전역 호출 순번(invocationCallOrder)을 비교한다. `ready`는 포트로 나간 알림 메시지에서 찾는다.
+    // 세 호출의 전역 호출 순번(invocationCallOrder)을 비교한다.
+    // `ready`는 포트로 나간 알림 메시지에서 찾는다.
     const readyIndex = postMessage.mock.calls.findIndex(
       ([message]) => (message as { name?: string }).name === "ready",
     );
@@ -178,8 +183,8 @@ describe("core 부팅 불변식", () => {
     expect(connectOrder).toBeLessThan(stdinOrder);
     expect(stdinOrder).toBeLessThan(readyOrder);
 
-    // 세션 종료(driver 실행·감시 타이머 정지)까지 끝난 뒤에도 연결은 한 번뿐이다(repl 시험과 같은 관찰점 —
-    // ready 직후만 보면 그 뒤 run·teardown 중의 재연결을 놓친다).
+    // 세션 종료(driver 실행·감시 타이머 정지)까지 끝난 뒤에도 연결은 한 번뿐이다.
+    // ready 직후만 보면 그 뒤 run·teardown 중의 재연결을 놓친다.
     session()!.end();
     await booted;
     expect(setInterruptBufferSpy!).toHaveBeenCalledTimes(1);
@@ -191,7 +196,7 @@ describe("core 부팅 불변식", () => {
   test("[B6] 부팅 전에 쓰인 눌림은 연결 단계에서 폐기·ack되고 시작 코드를 죽이지 않는다", async () => {
     const main = createMainSide();
     signalInterrupt(main.frame.interruptBuffer); // SEQ 1, SIGNAL 2
-    // 연결 단계가 끝난 시점을 그 다음 단계인 `setStdin` 호출에서 잡는다(repl 시험과 같은 관찰점).
+    // 연결 단계가 끝난 시점을 다음 단계인 `setStdin` 호출에서 잡는다.
     let atSetStdin: number[] | undefined;
 
     bootRun(main.frame, async () => {
@@ -209,9 +214,10 @@ describe("core 부팅 불변식", () => {
     expect(atSetStdin).toEqual([0, 1, 1, 0]);
     expect([...main.frame.interruptBuffer]).toEqual([0, 1, 1, 0]);
 
-    // 시작 코드가 죽지 않았다는 것을 실제 실행 결말로 본다(driver 중립 — REPL 배너·프롬프트가 아니다). 이 뒤에 켜지는
-    // 감시 타이머(20ms)도 idle 상태에서 낡은 눌림을 지울 수 있어 이 단언과 위 버퍼 대조가 서로 겹친다(원 repl 시험도
-    // 같은 한계였다 — 연결 단계의 폐기만 따로 떼어 보는 유일한 관찰점은 `atSetStdin`이다).
+    // 시작 코드가 죽지 않았다는 것을 실제 실행 결말로 본다(driver 중립. REPL 배너·프롬프트가 아니다).
+    // 이 뒤에 켜지는 감시 타이머(20ms)도 idle 상태에서 낡은 눌림을 지울 수 있다.
+    // 그래서 이 단언과 위 버퍼 대조는 서로 겹친다(원 repl 시험도 같은 한계였다).
+    // 연결 단계의 폐기만 따로 보는 관찰점은 `atSetStdin`뿐이다.
     await expect(main.rpc.call("runCode", "1 + 1")).resolves.toEqual({
       kind: "ok",
     });
@@ -228,7 +234,8 @@ describe("core 부팅 불변식", () => {
     session()!.end();
     await booted;
 
-    // 감시 타이머는 tickMs 기본값 20으로 건다. 다른 setInterval 호출과 섞여도 간격으로 골라낸다.
+    // 감시 타이머는 tickMs 기본값 20으로 건다.
+    // 다른 setInterval 호출과 섞여도 간격으로 골라낸다.
     const watchCallIndex = setIntervalSpy.mock.calls.findIndex(
       ([, ms]) => ms === 20,
     );

@@ -1,6 +1,6 @@
 /**
  * 개행이 든 제출 문자열을 top-level 문장 단위 chunk로 나누는 분할기 로더(RD-011, 02-console-core.md 5.2).
- * 본체는 multiline.py(`.py?raw`), 별도 namespace에서 실행해 사용자 globals를 오염시키지 않는다.
+ * 본체는 multiline.py(`.py?raw`)다. 별도 namespace에서 실행한다. 사용자 globals를 오염시키지 않는다.
  */
 import type { PyodideInterface } from "pyodide";
 import type { PyProxy } from "pyodide/ffi";

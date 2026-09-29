@@ -1,7 +1,11 @@
 /**
- * `tab-completion.ts` 순수 함수 시험(docs/design/07-tab-completion.md 7.2~7.4). worker·xterm-readline
- * 의존이 없어 문자열만으로 단정한다. 후보 문자열과 목록 화면의 기대값은 CPython 3.14 `_pyrepl`을
- * pty로 실측한 결과(DELTA-01 측정 하니스)에서 가져왔다.
+ * `tab-completion.ts` 순수 함수 시험(`docs/design/07-tab-completion.md` 7.2~7.5).
+ * - `planTab`: 공백 삽입과 완성 요청 판정, import 게이트.
+ * - `resolveCompletion`: 후보를 삽입·목록·무동작으로 바꾸는 규칙.
+ * - `formatCompletionList`: 목록 화면 배치.
+ *
+ * worker·xterm-readline 의존이 없어 문자열만으로 단정한다.
+ * 후보 문자열과 목록 화면의 기대값은 CPython 3.14 `_pyrepl`을 pty로 실측한 결과(측정 하니스)에서 가져왔다.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -10,8 +14,11 @@ import {
   resolveCompletion,
 } from "../../src/terminal/tab-completion";
 
-// pyodide `Console.completer_word_break_characters`와 같은 스템 구분자 33자. `tab-completion.ts`의
-// 내부 상수를 그대로 옮긴 것이 아니라, 구현이 지켜야 할 요구사항을 독립적으로 적어 둔 것이다.
+/**
+ * pyodide `Console.completer_word_break_characters`와 같은 스템 구분자 33자.
+ * `tab-completion.ts`의 내부 상수를 옮긴 것이 아니다.
+ * 구현이 지켜야 할 요구사항을 독립적으로 적어 둔 것이다.
+ */
 const STEM_DELIMITERS = ` \t\n\`~!@#$%^&*()-=+[{]}\\|;:'",<>/?`;
 
 describe("planTab: 스템이 빈 곳에서는 다음 4칸 단위까지 공백을 넣는다", () => {
@@ -41,16 +48,16 @@ describe("planTab: 스템이 빈 곳에서는 다음 4칸 단위까지 공백을
   });
 
   it("여러 줄 버퍼는 커서가 있는 논리 줄만 열로 센다", () => {
-    // 첫 줄 "x = 1"(길이 5)을 논리 줄 분리 없이 전체 길이로 세면 "x = 1\n  "는 8글자라 4 - 8%4 = 4가
-    // 나온다. 둘째(현재) 줄만 "  "(공백 2칸, 구분자로 끝남)로 세면 4 - 2%4 = 2다 — 두 계산이 갈리므로
-    // 논리 줄 분리(`lastIndexOf("\n")`)를 빼는 변이를 실제로 잡는다.
+    // 논리 줄 분리 없이 전체 길이로 세면 "x = 1\n  "는 8글자라 4 - 8%4 = 4가 나온다.
+    // 둘째(현재) 줄 "  "(공백 2칸, 구분자로 끝남)만 세면 4 - 2%4 = 2다.
+    // 두 계산이 갈리므로 논리 줄 분리(`lastIndexOf("\n")`)를 빼는 변이를 잡는다.
     expect(planTab("x = 1\n  ", 8)).toEqual({ kind: "indent", text: "  " });
   });
 
   it("열은 코드포인트로 센다: 이모지는 1칸으로 센다", () => {
-    // "😀 "는 이모지(코드포인트 1개, UTF-16 2유닛) + 공백(구분자) = 코드포인트 2개, UTF-16 3유닛.
-    // 코드포인트로 세면 4 - 2%4 = 2인데, UTF-16 길이로 세면 4 - 3%4 = 1이라 다른 값이 나온다 — `column =
-    // [...line].length`를 `line.length`로 바꾸는 변이를 실제로 잡는다.
+    // "😀 "는 이모지(코드포인트 1개, UTF-16 2유닛) + 공백(구분자)이다. 코드포인트 2개, UTF-16 3유닛이다.
+    // 코드포인트로 세면 4 - 2%4 = 2다. UTF-16 길이로 세면 4 - 3%4 = 1이다.
+    // 두 값이 갈리므로 `column = [...line].length`를 `line.length`로 바꾸는 변이를 잡는다.
     expect(planTab("😀 ", 3)).toEqual({ kind: "indent", text: "  " });
   });
 
@@ -137,7 +144,7 @@ describe("planTab: import·from 게이트가 참이면 스템이 비어도 완�
   });
 });
 
-/** worker가 돌려준 후보를 붙여 resolveCompletion 인자를 만든다. 기본은 커서가 버퍼 끝, 첫 Tab이다. */
+/** worker가 돌려준 후보를 붙여 `resolveCompletion` 인자를 만든다. 기본은 커서가 버퍼 끝, 첫 Tab이다. */
 function resume(
   buf: string,
   completions: string[],
@@ -219,8 +226,9 @@ describe("resolveCompletion", () => {
   });
 
   it("start는 코드포인트 인덱스다: 스템 앞에 이모지가 있어도 스템이 밀리지 않는다", () => {
-    // 이모지는 JS에서 2칸(서로게이트 쌍)이지만 Python str에서는 1칸이라, "a"의 코드포인트 인덱스는
-    // 10이고 같은 위치의 UTF-16 인덱스는 11이다. UTF-16 slice로 자르면 스템이 한 칸 밀린다(TRP-031).
+    // 이모지는 JS에서 2유닛(서로게이트 쌍)이고 Python str에서는 1칸이다.
+    // "a"의 코드포인트 인덱스는 10이고 같은 위치의 UTF-16 인덱스는 11이다.
+    // UTF-16 slice로 자르면 스템이 한 칸 밀린다(TRAP-32).
     const source = 'x = "😀" ; a.at';
     expect(
       resolveCompletion(resume(source, ["a.attr_one", "a.attr_two"], 10)),
@@ -231,18 +239,19 @@ describe("resolveCompletion", () => {
   });
 
   it("공통 접두사는 코드포인트 단위로 자른다: 서로게이트 쌍의 절반만 남기지 않는다", () => {
-    // U+20000과 U+20001은 상위 서로게이트가 같고 하위만 달라, UTF-16 단위 비교는 반쪽을 남길 수 있다.
+    // U+20000과 U+20001은 상위 서로게이트가 같고 하위만 다르다.
+    // UTF-16 단위로 비교하면 서로게이트 쌍의 반쪽만 공통 접두사로 남을 수 있다.
     expect(
       resolveCompletion(resume("a", ["a\u{20000}", "a\u{20001}"])),
     ).toEqual({ kind: "none" });
   });
 
   it("공통 접두사를 스템 길이만큼 자르는 것도 코드포인트 단위다: 스템이 공통 접두사로 시작하지 않는 아스트랄 케이스", () => {
-    // 스템 "ab"(코드포인트 2개)와 후보 두 개("\u{20000}cd", "\u{20000}ce")의 공통 접두사는
-    // "\u{20000}c"(코드포인트 2개, UTF-16 3유닛)다. UTF-16 `slice(stem.length)` = `slice(2)`는
-    // 서로게이트 쌍(2유닛)의 두 번째 유닛에서 시작해 "c"만 남기지만(고아 서로게이트가 없는 우연한
-    // 경우라도 잘못된 위치), 코드포인트 `slice([...stem].length)` = `slice(2)`는 코드포인트 2개를
-    // 통째로 건너뛰어 ""가 남는다 — kind가 "insert"(UTF-16)와 "none"(코드포인트)으로 갈린다.
+    // 스템 "ab"는 코드포인트 2개다.
+    // 후보 "\u{20000}cd"·"\u{20000}ce"의 공통 접두사는 "\u{20000}c"다. 코드포인트 2개, UTF-16 3유닛이다.
+    // 코드포인트로 자르면 `slice([...stem].length)` = `slice(2)`가 코드포인트 2개를 건너뛰어 ""가 남는다.
+    // UTF-16으로 자르면 `slice(stem.length)` = `slice(2)`가 "c"를 남긴다.
+    // kind가 "none"(코드포인트)과 "insert"(UTF-16)로 갈린다.
     expect(
       resolveCompletion(resume("ab", ["\u{20000}cd", "\u{20000}ce"])),
     ).toEqual({ kind: "none" });

@@ -12,7 +12,7 @@
 ## 원인
 
 - reflected-ffi 원격 프록시는 자기 target이 비어 있는데도 `getOwnPropertyDescriptor`가 실제 창의 설명자를 돌려준다. 실제 `window.document`·`location`은 비설정(non-configurable) own 속성이라, 원격 프록시에 설명자를 묻는 순간 "target에 없거나 설정 가능한 속성을 비설정으로 보고"한 것이 되어 원격 프록시 자신의 불변식 위반(`TypeError`)으로 던진다.
-- 설명자를 묻는 쪽은 Python `JsProxy`가 아니라 **바깥 `Proxy`의 `[[Get]]` 불변식 검사**다. 원격 프록시를 target으로 둔 감싸는 `Proxy`는 `get` trap 결과를 검사하려고 target에 `getOwnPropertyDescriptor`를 묻는다. 그래서 `get` trap만 있는 감싸기로도 순수 JS에서 재현된다: `new Proxy(remote, { get: (t, k) => Reflect.get(t, k) }).document`(실제 reflected-ffi 0.7.2 local/remote 쌍, `_works/_completed/20260925-32-rd-023-dom-bridge/verify/post-review/a1-defect-probe.mjs`). Python에서는 `window.document` 읽기가 이 경로로 실패한다.
+- 설명자를 묻는 쪽은 Python `JsProxy`가 아니라 **바깥 `Proxy`의 `[[Get]]` 불변식 검사**다. 원격 프록시를 target으로 둔 감싸는 `Proxy`는 `get` trap 결과를 검사하려고 target에 `getOwnPropertyDescriptor`를 묻는다. 그래서 `get` trap만 있는 감싸기로도 순수 JS에서 재현된다: `new Proxy(remote, { get: (t, k) => Reflect.get(t, k) }).document`(실제 reflected-ffi 0.7.2 local/remote 쌍). Python에서는 `window.document` 읽기가 이 경로로 실패한다.
 
 ## 탐지/회피
 

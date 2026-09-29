@@ -1,13 +1,15 @@
 /**
- * `createReplMainDriver` 시험(RD-029, `docs/design/08-session.md` 8.1 REPL 읽기 phase. 전이표는
- * `_works/_completed/20260926-43-rd-029-repl-read-cycle/design.md` §3).
- * worker·RPC·메일박스를 거치지 않고 `driver.driver.handlers.readLine`·`isIdle`·`inputRequested`·`inputResumed`·
- * `terminate`·`readInput`·`sourcePrompt`·`sendSource`를 직접 부른다. 조립은 실제
- * `createTerminalSurface` + `@repo/pyodide-testkit`의 `createFakeTerminal`·`VtScreen`으로 한다(terminal `test/surface-setup.ts`와
- * 같은 관례). `interruptSender`·`complete`·`source`(`SourceLink`)만 가짜다.
+ * `createReplMainDriver` 시험(RD-029). REPL 읽기 phase 규칙과 전이는 `docs/design/08-session.md` 8.1이다.
  *
- * 시험 제목의 `[Pn]`은 design.md §3 표의 규칙 ID다. `source-bridge.ts`를 흡수해 읽기 phase 하나로 합친 뒤의
- * `repl-main-driver.ts`를 대상으로 한다(관측 가능한 화면 바이트·응답·게이트 값을 검증하지, 내부 변수 이름을 보지 않는다).
+ * 조립:
+ * - worker·RPC·메일박스를 거치지 않는다.
+ * - `driver.driver.handlers.readLine`·`isIdle`·`inputRequested`·`inputResumed`·`terminate`·`readInput`·`sourcePrompt`·`sendSource`를 직접 부른다.
+ * - 실제 `createTerminalSurface` + `@repo/pyodide-testkit`의 `createFakeTerminal`·`VtScreen`으로 조립한다. terminal `test/surface-setup.ts`와 같은 관례다.
+ * - 가짜는 `interruptSender`·`complete`·`source`(`SourceLink`)뿐이다.
+ *
+ * 시험 제목의 `[Pn]`은 규칙 ID다.
+ * 대상은 `source-bridge.ts`를 흡수해 읽기 phase 하나로 합친 뒤의 `repl-main-driver.ts`다.
+ * 관측 가능한 화면 바이트·응답·게이트 값을 검증한다. 내부 변수 이름은 보지 않는다.
  */
 import type { InterruptSender } from "@cp949/runo-pyodide-core";
 import { describe, expect, test, vi } from "vitest";
@@ -24,7 +26,7 @@ import type { ReadLineOutcome, ReadLineReply } from "../src/repl-protocol";
 import type { SourceLink } from "../src/run-source";
 import type { SourceCompletion } from "../src/worker/complete-source";
 
-/** `complete` 호출을 기록하고 시험이 원하는 시점에 응답을 끝낼 수 있게 하는 가짜. 기본은 빈 목록으로 즉시 resolve한다. */
+/** `complete` 호출을 기록하는 가짜. 시험이 원하는 시점에 응답을 끝낼 수 있다. 기본은 빈 목록으로 즉시 resolve한다. */
 function createCompleteSpy() {
   let impl: (
     source: string,
@@ -36,14 +38,14 @@ function createCompleteSpy() {
   );
   return {
     complete,
-    /** 다음 호출부터 이 함수로 응답한다(왕복 시점을 시험이 통제할 때 쓴다, 예: Tab 왕복 중 busy 판정). */
+    // 다음 호출부터 이 함수로 응답한다. 왕복 시점을 시험이 통제할 때 쓴다(예: Tab 왕복 중 busy 판정).
     setImpl(next: typeof impl) {
       impl = next;
     },
   };
 }
 
-/** `SourceLink` 가짜. `claim`은 기본 `undefined`(대기 슬롯 없음)이고 시험이 `mockReturnValue`로 채운다. */
+/** `SourceLink` 가짜. `claim`은 기본 `undefined`(대기 슬롯 없음)다. 시험이 `mockReturnValue`로 채운다. */
 function createSourceLinkSpy(): SourceLink & {
   claim: ReturnType<typeof vi.fn<() => string | undefined>>;
 } {
@@ -55,8 +57,9 @@ function createSourceLinkSpy(): SourceLink & {
 }
 
 /**
- * `createReplMainDriver`를 실제 surface + 가짜 터미널로 조립한다. `asyncWrite`는 write 콜백을 동기/비동기 어느 쪽으로
- * 돌릴지 고른다(terminal `test/prompt-row/read.test.ts`의 `$mode` 관례, TRP-008 — 동기만 쓰면 콜백 안에서 입력 상태를 만드는 경합을 놓친다).
+ * `createReplMainDriver`를 실제 surface + 가짜 터미널로 조립한다.
+ * `asyncWrite`는 write 콜백을 동기·비동기 중 어느 쪽으로 돌릴지 고른다.
+ * 동기만 쓰면 콜백 안에서 입력 상태를 만드는 경합을 놓친다(TRAP-14). terminal `test/prompt-row/read.test.ts`의 `$mode` 관례다.
  */
 function setup(asyncWrite: boolean) {
   const fake = createFakeTerminal({ asyncWrite });
@@ -79,8 +82,9 @@ function setup(asyncWrite: boolean) {
     complete: completeSpy.complete,
     source,
   });
-  // `RpcHandlers`는 `Record<string, (...args: never[]) => unknown>`이라 `readLine`이 컴파일 타임에 optional·`never[]`로
-  // 좁혀진다. 실제 계약(`repl-protocol.ts`)으로 한 번만 캐스팅해 시험 본문은 구체 타입으로 부른다.
+  // `RpcHandlers`는 `Record<string, (...args: never[]) => unknown>`이다.
+  // 그래서 `readLine`이 컴파일 타임에 optional·`never[]`로 좁혀진다.
+  // 실제 계약(`repl-protocol.ts`)으로 한 번만 캐스팅한다. 시험 본문은 구체 타입으로 부른다.
   const readLineHandler = driver.driver.handlers.readLine as (
     prompt: string,
     pending: string | undefined,
@@ -100,7 +104,7 @@ function setup(asyncWrite: boolean) {
     source,
     complete: completeSpy,
     readSpy,
-    /** `readLine` 핸들러를 직접 부른다. 반환 promise에 빈 `catch`를 붙여 처리되지 않은 rejection 경고를 막는다. */
+    // `readLine` 핸들러를 직접 부른다. 반환 promise에 빈 `catch`를 붙여 처리되지 않은 rejection 경고를 막는다.
     callReadLine(
       prompt: string,
       pending?: string,
@@ -125,7 +129,7 @@ describe.each([
         const { fake, interruptSender, callReadLine } = setup(asyncWrite);
         callReadLine(">>> ");
         expect(interruptSender.cancel).toHaveBeenCalledTimes(1);
-        callReadLine(">>> "); // 겹침(P2) — 그래도 cancel은 불린다
+        callReadLine(">>> "); // 겹침(P2)이어도 cancel은 불린다
         expect(interruptSender.cancel).toHaveBeenCalledTimes(2);
         await drain(fake);
       });
@@ -172,7 +176,7 @@ describe.each([
         const outcome: ReadLineOutcome = { kind: "ok" };
         const reply = callReadLine(">>> ", undefined, true, outcome);
         await drain(fake);
-        await drain(fake); // settleOnDraw의 두 번째 write("", cb)
+        await drain(fake); // 두 번째 write("", cb)가 settleOnDraw를 처리한다
         expect(source.receive).toHaveBeenCalledWith(outcome);
         expect(source.settle).toHaveBeenCalledTimes(1);
         fake.type("ok\r");
@@ -231,12 +235,12 @@ describe.each([
         expect(driver.sourcePrompt()).toBe("open");
 
         fake.type("ok\r");
-        // 벤더 promise에 직접 붙은 콜백이 드라이버의 바깥 promise 처리보다 먼저 돈다(design.md §5 P-a).
-        // `promptRow.read`가 `async` 함수라 바깥 promise는 벤더 원시 promise보다 정확히 1틱 늦게 정착한다 —
-        // 그 사이(1틱)만 관찰한다. 2틱을 기다리면 바깥 promise까지 이미 끝나 이 시험이 무력해진다.
+        // 벤더 promise에 직접 붙은 콜백이 드라이버의 바깥 promise 처리보다 먼저 돈다(`08-session.md` 8.1 `closing` 항목, P-a).
+        // `promptRow.read`가 `async` 함수라 바깥 promise는 벤더 원시 promise보다 정확히 1틱 늦게 정착한다.
+        // 그 사이 1틱만 관찰한다. 2틱을 기다리면 바깥 promise까지 끝나 이 시험이 무력해진다.
         await Promise.resolve();
         expect(driver.sourcePrompt()).toBe("busy");
-        // closing도 읽기 대기 중이다(P16): 바깥 promise가 phase를 `idle`로 내리기 전까지 게이트가 닫혀 있다.
+        // closing도 읽기 대기 중이다(P16). 바깥 promise가 phase를 `idle`로 내리기 전까지 게이트가 닫혀 있다.
         expect(driver.driver.isIdle()).toBe(true);
 
         await drain(fake);
@@ -355,7 +359,7 @@ describe.each([
         await drain(fake);
         expect(driver.sendSource("y = 1")).toBe(true);
         await drain(fake);
-        // ReadCancelledError가 아니라 taken 경로임을 확인한다: null이 아니라 {source}로 응답된다(P11과 대조).
+        // ReadCancelledError가 아니라 taken 경로다. null이 아니라 {source}로 응답된다(P11과 대조).
         await expect(first).resolves.toEqual({ source: "y = 1" });
       });
 
@@ -469,8 +473,9 @@ describe.each([
         await drain(fake);
         await expect(first).resolves.toBe("if 1:");
 
-        // 이어지는 블록 줄을 제출해 진행형 history 항목을 만든다 — blockBase는 discard() 없이는 지워지지 않는
-        // 상태로 남는다(worker가 이 뒤로 readLine을 다시 부르지 않는 경우, 예: exit()·무한루프).
+        // 이어지는 블록 줄을 제출해 진행형 history 항목을 만든다.
+        // blockBase는 discard() 없이는 지워지지 않고 남는다.
+        // worker가 이 뒤로 readLine을 다시 부르지 않는 경우다(예: exit()·무한루프).
         const second = callReadLine("... ", "if 1:");
         await drain(fake);
         fake.type("x = 1\r");
@@ -495,8 +500,9 @@ describe.each([
         const second = callReadLine("... ", "if 1:");
         await drain(fake);
         fake.type("\r"); // 빈 줄로 블록을 끝낸다.
-        // 벤더 promise는 여기서 이미 끝났지만(phase: closing) 바깥 promise 처리(P9, discard 호출)는 아직 안 돌았다
-        // (`[P6] (a)`와 같은 1틱 창, design.md §5 P-a).
+        // 벤더 promise는 이미 끝났다(phase: closing).
+        // 바깥 promise 처리(P9, discard 호출)는 아직 안 돌았다.
+        // `[P6] (a)`와 같은 1틱 창이다(`08-session.md` 8.1 `closing` 항목, P-a).
         await Promise.resolve();
         driver.driver.terminate?.();
         expect(surface.readline.getHistory().entries).not.toContain("if 1:");
@@ -541,16 +547,17 @@ describe.each([
         const { fake, callReadLine } = setup(asyncWrite);
         const first = callReadLine(">>> ");
         await drain(fake);
-        // 열린 괄호는 `:`로 끝나지 않아 autoIndent 프리필이 없다 — 이어지는 읽기의 버퍼가 정말로 비어
-        // 있어야 이 시험이 eof 옵션 자체를 본다("if 1:"의 4칸 프리필로는 버퍼가 비지 않는다).
+        // 열린 괄호는 `:`로 끝나지 않아 autoIndent 프리필이 없다.
+        // 이어지는 읽기의 버퍼가 비어 있어야 이 시험이 eof 옵션 자체를 본다.
+        // "if 1:"은 4칸 프리필이 생겨 버퍼가 비지 않는다.
         fake.type("x = (\r");
         await drain(fake);
         await expect(first).resolves.toBe("x = (");
 
         const second = callReadLine("... ", "x = (");
         await drain(fake);
-        fake.type("\x04"); // eof 없음 — 원본 동작(무동작)이라 읽기가 끝나지 않는다.
-        fake.type("\r"); // 빈 줄로 블록을 끝낸다(EOF 응답이 아니라 보통의 빈 줄 제출).
+        fake.type("\x04"); // eof 없음. 원본 동작(무동작)이라 읽기가 끝나지 않는다.
+        fake.type("\r"); // 빈 줄로 블록을 끝낸다. EOF 응답이 아니라 보통의 빈 줄 제출이다.
         await drain(fake);
 
         await expect(second).resolves.toBe("");

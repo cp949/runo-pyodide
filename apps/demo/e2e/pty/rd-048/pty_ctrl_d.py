@@ -1,9 +1,9 @@
-"""3.14.4 실제 REPL의 빈 입력줄 Ctrl+D(EOF)를 pty로 실측한다(RD-048 DELTA-01, 가설 H3).
+"""3.14.4 실제 REPL의 빈 입력줄 Ctrl+D(EOF)를 pty로 실측한다(RD-048, 가설 H3).
 
 `../tools/ptyrepl.py`의 `Session`을 라이브러리로 쓴다(pty·pyte, 인터프리터 해석·버전 게이트는 그쪽이 한다). 케이스마다
 새 `Session`을 띄운다(`../README.md` 실행 전제: TERM=xterm, 24x80, PYTHON_COLORS=0 등은 `Session.__init__`이 이미 맞춘다).
 
-케이스(계획 DELTA-01.md)
+케이스
   P1 `>>>` 빈 줄 Ctrl+D → 화면·종료 코드
   P2 `if True:` Enter → `...` 빈 줄 Ctrl+D → 화면(무동작 여부), `pass` Enter Enter로 블록 생존 확인
   P3 `x = input("p: ")` → 빈 줄 Ctrl+D → 화면(EOFError 트레이스백 위치), 다음 `>>>`

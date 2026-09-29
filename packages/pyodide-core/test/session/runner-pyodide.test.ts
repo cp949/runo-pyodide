@@ -1,12 +1,19 @@
 // @vitest-environment node
 /**
- * `createRunner` 통합 시험(실제 pyodide). worker 스레드에 `runDriver`를 올리고(`test/roles/run-worker.ts`) main 역할의 `createRunner`가
- * 그 스레드를 `Worker`처럼 쓴다. 가짜 worker 시험(`runner.test.ts`)이 못 보는 것을 본다: 실제 stdin 메일박스 왕복(`input()` →
- * `readInput` 알림 → `InputProvider` → 응답 → 출력), 실제 SIGINT 폴링(`while True` + `stop()`), 폴백 terminate 뒤 새 worker 부팅.
- * 시험마다 새 worker 스레드와 새 `loadPyodide()`를 쓴다.
+ * `createRunner` 통합 시험(실제 pyodide).
+ * - worker 스레드에 `runDriver`를 올린다(`test/roles/run-worker.ts`).
+ * - main 역할의 `createRunner`가 그 스레드를 `Worker`처럼 쓴다.
+ * - 시험마다 새 worker 스레드와 새 `loadPyodide()`를 쓴다.
  *
- * 시간: `stop()` 폴백(1000ms)은 제품의 실제 타이머라 그 시험만 실시간으로 그 시간을 지난다. 판정은 이벤트(결과·상태)로 하고
- * ms 상한 단언은 없다(`docs/design/09-testing.md` 9.7).
+ * 가짜 worker 시험(`runner.test.ts`)이 못 보는 것을 본다.
+ * - 실제 stdin 메일박스 왕복: `input()` → `readInput` 알림 → `InputProvider` → 응답 → 출력.
+ * - 실제 SIGINT 폴링: `while True` + `stop()`.
+ * - 폴백 terminate 뒤 새 worker 부팅.
+ * - 옛 worker가 살아 있을 때 재시작한 worker의 interrupt(TRP-049).
+ *
+ * 시간:
+ * - `stop()` 폴백(`STOP_FALLBACK_MS` = 1000ms)은 제품의 실제 타이머다. 그 시험만 실시간으로 그 시간을 지난다.
+ * - 판정은 이벤트(결과·상태)로 한다. ms 상한 단언은 없다(`docs/design/09-testing.md` 9.7).
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spawnWorkerLike, type WorkerLike } from "@repo/pyodide-testkit/thread";
@@ -20,11 +27,13 @@ import {
   type RunnerStatus,
 } from "../../src/session/runner";
 
+// `runDriver`를 올리는 worker 역할 스크립트.
 const RUN_WORKER_ROLE = new URL("../roles/run-worker.ts", import.meta.url);
 
 /** 부팅·폴백 재생성이 느린 장비에서도 정지를 잡는 시험 시간 제한(판정선 아님). */
 const TEST_TIMEOUT_MS = 90_000;
 
+// 시험 중 만든 runner. `afterEach`가 dispose한다.
 const runners: RunnerHandle[] = [];
 
 beforeEach(() => {
@@ -36,14 +45,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** `start()`가 돌려주는 시험 도구 묶음. */
 interface Started {
+  /** 시험 대상 runner */
   runner: RunnerHandle;
+
+  /** `onStatus`로 받은 상태 기록 */
   statuses: RunnerStatus[];
+
+  /** `onOutput`으로 받은 조각 기록 */
   chunks: OutputChunk[];
-  /** 지금까지 나온 stdout 전체. */
+
+  /** 지금까지 나온 stdout 전체 */
   stdout(): string;
+
+  /** 지금까지 나온 stderr 전체 */
   stderr(): string;
+
+  /** runner가 `status`가 될 때까지 기다린다. 다른 끝 상태(`crashed`·`load-failed`)면 던진다. */
   waitStatus(status: RunnerStatus): Promise<void>;
+
+  /** stdout에 `text`가 나올 때까지 기다린다. */
   waitOutput(text: string): Promise<void>;
 }
 
@@ -53,6 +75,7 @@ async function until(predicate: () => boolean): Promise<void> {
     await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
+/** 실제 worker 스레드로 runner를 만들고 `ready`까지 기다린다. `options`로 기본 옵션을 덮어쓴다. */
 async function start(options: Partial<RunnerOptions> = {}): Promise<Started> {
   const statuses: RunnerStatus[] = [];
   const chunks: OutputChunk[] = [];
@@ -77,7 +100,7 @@ async function start(options: Partial<RunnerOptions> = {}): Promise<Started> {
         .filter((chunk) => chunk.stream === "stderr")
         .map((chunk) => chunk.text)
         .join(""),
-    // 부팅 실패·크래시는 기다리던 상태가 영영 오지 않는다는 뜻이라 바로 실패시킨다.
+    // 부팅 실패·크래시면 기다리던 상태가 영영 오지 않는다. 바로 실패시킨다.
     waitStatus: (status) =>
       until(() => {
         if (runner.status === "crashed" || runner.status === "load-failed") {
@@ -228,7 +251,7 @@ describe("createRunner + 실제 pyodide", () => {
 
       const outcome = await started.runner.run("input()");
 
-      // null 응답은 메일박스 cancel이고 worker의 stdin 콜백이 그것을 KeyboardInterrupt로 바꾼다(EOFError가 아니다).
+      // null 응답은 메일박스 cancel이다. worker의 stdin 콜백이 그것을 KeyboardInterrupt로 바꾼다(EOFError가 아니다).
       expect(outcome).toMatchObject({ kind: "interrupted" });
     },
     TEST_TIMEOUT_MS,
@@ -321,11 +344,13 @@ describe("createRunner + 실제 pyodide", () => {
 });
 
 /**
- * 옛 worker가 `terminate()` 뒤에도 한동안 살아 있는 상황(브라우저 재현). Chromium은 Python 루프처럼 스크립트가 끝나지 않는 worker의
- * `terminate()`를 즉시 반영하지 않고 최대 약 2초 뒤에 강제로 끝낸다(실측: `_works/…-rd-022-…/verify/probe-buffer2-delta03a.mjs`의 `worker
- * close` 이벤트가 `terminate()`로부터 약 2초). 그 사이 옛 worker의 SIGINT 폴링이 새 worker와 같은 눌림을 두고 경쟁하면 눌림 하나가 옛
- * worker에 가로채여 새 worker의 첫 interrupt가 사라진다(node의 `worker.terminate()`는 즉시라 이 구간이 없다). 이 공장의 worker는
- * `terminate()`를 무시한다(시험이 끝나면 `spawnWorkerLike`가 실제로 끝낸다). `crash()`는 살아 있는 worker에 `error` 이벤트를 보낸다.
+ * `terminate()` 뒤에도 살아 있는 옛 worker를 만드는 `createWorker` 공급자(브라우저 상황 재현, TRP-049).
+ * - Chromium은 Python 루프처럼 스크립트가 끝나지 않는 worker의 `terminate()`를 즉시 반영하지 않는다. 최대 약 2초 뒤에 강제로 끝낸다.
+ *   실측: `worker close` 이벤트가 `terminate()`로부터 약 2초 뒤에 온다(`docs/traps/TRP-049`).
+ * - 그 사이 옛 worker의 SIGINT 폴링이 새 worker와 같은 눌림을 두고 경쟁하면 눌림 하나를 가로챈다. 새 worker의 첫 interrupt가 사라진다.
+ * - node의 `worker.terminate()`는 즉시라 이 구간이 없다.
+ * - 이 헬퍼가 만든 worker는 `terminate()`를 무시한다. 시험이 끝나면 `spawnWorkerLike`가 실제로 끝낸다.
+ * - 반환한 `workers[n].fireError()`는 살아 있는 n번째 worker에 `error` 이벤트를 보낸다.
  */
 function lingeringWorkers() {
   const workers: {
@@ -349,7 +374,7 @@ function lingeringWorkers() {
           entry.frame ??= message as { interruptBuffer: Int32Array };
           real.postMessage(message, transfer);
         },
-        // 옛 worker가 살아 있다: 종료를 요청받아도 아무것도 하지 않는다.
+        // 옛 worker가 살아 있는 상황을 재현한다. 종료를 요청받아도 아무것도 하지 않는다.
         terminate: () => {},
         addEventListener: (type, listener) => {
           if (type === "error") listeners.add(listener);
@@ -365,17 +390,20 @@ function lingeringWorkers() {
   };
 }
 
-/** 정지 감지용 상한(판정선이 아니다). 눌림을 잃은 실행은 끝나지 않으므로 이 시간 뒤 "정지"로 판정해 시험을 실패시킨다. */
+/** 정지 감지용 상한(판정선이 아니다). 눌림을 잃은 실행은 끝나지 않는다. 이 시간 뒤 "정지"로 판정해 시험을 실패시킨다. */
 const STALL_MS = 15_000;
 const STALLED = Symbol("stalled");
 
+/** `STALL_MS` 뒤 `STALLED`로 resolve한다. 실행 결과와 `Promise.race`로 겨룬다. */
 function stall(): Promise<typeof STALLED> {
   return new Promise((resolve) => setTimeout(() => resolve(STALLED), STALL_MS));
 }
 
-// 표지 `삼킨다`는 `try` 본문 안에서 찍는다(TRP-012). `try` 앞에서 찍으면 `stop()`의 눌림이 표지 직후·`try` 진입 전에 처리될 때
-// `KeyboardInterrupt`가 `except`를 지나쳐 실행이 끝나고 `stop()`이 폴백 없이 `"stopped"`가 된다(이슈 sigint-test-isolation/07).
-// 삼킬 때마다 다시 찍힌다.
+// `KeyboardInterrupt`를 삼키는 실행 소스.
+// 표지 `삼킨다`는 `try` 본문 안에서 찍는다(TRP-012).
+// `try` 앞에서 찍으면 `stop()`의 눌림이 표지 직후·`try` 진입 전에 처리될 수 있다.
+// 그러면 `KeyboardInterrupt`가 `except`를 지나쳐 실행이 끝나고, `stop()`이 폴백 없이 `"stopped"`가 된다(이슈 sigint-test-isolation/07).
+// 삼킬 때마다 표지가 다시 찍힌다.
 const SWALLOW_SOURCE = [
   "while True:",
   "    try:",
@@ -386,6 +414,7 @@ const SWALLOW_SOURCE = [
   "        pass",
 ].join("\n");
 
+// 끝나지 않는 실행 소스. run마다 표지 `돈다`가 한 번 찍힌다.
 const SPIN_SOURCE = 'print("돈다", flush=True)\nwhile True:\n    pass';
 
 /** 새 run마다 `돈다`가 한 번씩 찍히므로 stdout에서 센다. */
@@ -393,12 +422,12 @@ function spinCount(started: Started): number {
   return started.stdout().split("돈다").length - 1;
 }
 
-/** `삼킨다` 표지 수. 누적 stdout이라 두 번째 run은 이 수가 늘기를 기다려야 새 run이 `try` 안에 들어간 뒤다. */
+/** `삼킨다` 표지 수. stdout이 누적되므로 이 수가 늘어야 새 run이 `try` 안에 들어간 것이다. */
 function swallowCount(started: Started): number {
   return started.stdout().split("삼킨다").length - 1;
 }
 
-/** `KeyboardInterrupt`를 삼키는 루프를 `stop()`해 1000ms 폴백(terminate → 새 worker)으로 재시작하고 `ready`까지 기다린다. */
+/** `KeyboardInterrupt`를 삼키는 루프를 `stop()`해 폴백(terminate → 새 worker)으로 재시작하고 `ready`까지 기다린다. */
 async function fallbackRestart(started: Started): Promise<void> {
   const before = swallowCount(started);
   const result = started.runner.run(SWALLOW_SOURCE);
@@ -518,7 +547,7 @@ describe("재시작한 worker의 첫 interrupt(옛 worker가 종료 전까지 �
       const started = await start({ createWorker: lingering.createWorker });
       const running = started.runner.run(SWALLOW_SOURCE);
       await started.waitOutput("삼킨다");
-      // worker 스레드는 살아 있는 채로 `error` 이벤트만 온 경우(worker 전역 오류).
+      // worker 스레드는 살아 있고 `error` 이벤트만 온 경우다(worker 전역 오류).
       lingering.workers[0]!.fireError("시험용 worker 오류");
       await expect(running).rejects.toMatchObject({ reason: "crashed" });
       await started.waitStatus("crashed");

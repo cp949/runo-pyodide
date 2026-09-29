@@ -100,14 +100,14 @@ def e_rows():
 n_match = sum(r["match"] for r in E)
 c = BM["counts"]
 bo = BM["counts_by_origin"]
-md = f"""# RD-016a DELTA-01 3.14 실측 재현 (import/from 줄 Tab 완성)
+md = f"""# RD-016a 3.14 실측 재현 (import/from 줄 Tab 완성)
 
 - 측정 일자: 2026-09-21. 기준: CPython {BM['native']['python'].split()[0]}(네이티브 pty·직접 호출) 대 pyodide {BM['pyodide']['version']}(Python {BM['pyodide']['python'].split()[0]}, Node).
 - 이 파일은 `make_summary.py`가 JSON에서 생성한다. 원자료: `res_import.json`(A), `native_vs_pyodide.json`(B), `gate_corpus.json`(C).
 
 ## 1. 결론
 
-- 케이스 수: 측정 A {len(A)}(+추가 {len(AX)}), 측정 B {BM['cases']}, 측정 C {CM['cases']}. 모두 DELTA-01 계획 이상.
+- 케이스 수: 측정 A {len(A)}(+추가 {len(AX)}), 측정 B {BM['cases']}, 측정 C {CM['cases']}. 모두 계획 이상.
 - 기대값 {len(E)}항목 중 일치 {n_match}, 불일치 {len(E) - n_match}. 후보·화면 기대값은 전부 재현됐다. 불일치는 측정 B 카운트 5항목(사전 조사의 65케이스 줄 목록이 저장되지 않아 케이스 집합이 다름)과
   네이티브 전용 밑줄 모듈 17개(기대 목록에 없음) 1항목이다. 7절.
 - 측정 B: {BM['cases']}케이스 중 동일 {c['same']}, 차이 {c['diff']}(환경 모듈 집합 {c['env']}, zip stdlib 로직 {c['zip stdlib']}, 기타 {c['기타']}). `ImportParser` 파싱 결과는 {BM['cases']}줄 전부 네이티브와 pyodide가 같다(불일치 {c['parse 불일치']}).
@@ -123,7 +123,7 @@ md = f"""# RD-016a DELTA-01 3.14 실측 재현 (import/from 줄 Tab 완성)
    `import os.pa  # c` Tab -> `import os.pa  # cs.path`, `from os import path,` Tab -> `from os import path,path`, `import os.pa\\n` Tab -> 둘째 줄에 `os.path`, `import os  # c\\n` Tab -> 둘째 줄에 `os`. 4절 표.
 3. **zip stdlib 차이는 4줄이다**(기대는 2줄). `from xml.parsers.expat import `, `import xml.parsers.expat.`도 pyodide에서 `[]`이다. 원인은 같다(`_is_stdlib_module`이 `FileFinder`만 stdlib로 인정해
    `zipimporter`인 pyodide에서 `HARDCODED_SUBMODULES`가 빠진다). 참고 진단: `_is_stdlib_module`만 오버라이드한 서브클래스로 {len(ZP['fixed_by_patch'])}줄이 네이티브와 같아지고 퇴행 {len(ZP['regressed'])}줄
-   (`pyodide_zip_patch_check.json`; 채택 여부는 DELTA-02a에서 판단).
+   (`pyodide_zip_patch_check.json`; 채택 여부는 별도 판단).
 4. **`sys.modules`는 변하지 않는다.** 측정 B {BM['cases']}줄·C {CM['cases']}줄 실행 전후 추가·삭제 모듈 0개(네이티브·pyodide 모두). 설계 Q4 전제 확인.
 5. **`ModuleCompleter()`와 `ModuleCompleter(namespace={{'__package__': None}})`(pty가 쓰는 `make_default_module_completer()`)는 {BM['cases']}+{CM['cases']}줄에서 결과가 같다**(네이티브·pyodide 모두 차이 0줄).
    pty 훅의 `mc`(ModuleCompleter 원시 결과)와 측정 B 네이티브 직접 호출 결과도 A {len(A)}줄 + 추가 {len(AX)}줄에서 전부 같다.

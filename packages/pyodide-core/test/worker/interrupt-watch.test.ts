@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 /**
  * 감시 타이머(`startInterruptWatch`) 시험(03-ctrl-c.md 2.5, 09-testing.md 9.2).
- * `protocol/interrupt-protocol`의 실제 함수를 buffer에 묶어 deps로 주입하고, `interruptIdle`·`atPrompt`만
- * `vi.fn`으로 흉내낸다. `startInterruptWatch`는 `protocol/`을 import하지 않아 자체로는 버퍼를
- * 모르고 deps 클로저로만 움직인다 — 이 시험이 그 배선(주입)을 대신 맡는다.
+ * - `protocol/interrupt-protocol`의 실제 함수를 buffer에 묶어 deps로 주입한다.
+ * - `interruptIdle`·`atPrompt`만 `vi.fn`으로 흉내낸다.
+ * - 가짜 타이머(`vi.useFakeTimers`)로 20ms 틱을 진행한다.
+ *
+ * `startInterruptWatch`는 `protocol/`을 import하지 않는다.
+ * 버퍼를 모르고 deps 클로저로만 움직인다.
+ * 이 시험이 그 배선(주입)을 대신 맡는다.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -17,6 +21,7 @@ import {
 } from "../../src/protocol/interrupt-protocol";
 import { startInterruptWatch } from "../../src/worker/interrupt-watch";
 
+/** `setup`이 돌려주는 시험 도구 묶음. */
 interface Rig {
   buffer: Int32Array;
   interruptIdle: ReturnType<typeof vi.fn<() => boolean>>;
@@ -24,6 +29,11 @@ interface Rig {
   stop: () => void;
 }
 
+/**
+ * 실제 버퍼 함수를 deps로 묶어 감시 타이머를 켠다.
+ * `buffer`·`interruptIdle`·`atPrompt`를 안 주면 새 버퍼와 항상 거짓인 `vi.fn`을 쓴다.
+ * `stop`은 타이머 중지 함수다.
+ */
 function setup(
   options: {
     buffer?: Int32Array;

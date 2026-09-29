@@ -21,7 +21,7 @@ def build(cfg):
     for c in cfg["import"]:
         add(c["text"], c["id"], c["group"])
 
-    # 2) DELTA-01.md 측정 B의 추가 패턴
+    # 2) 측정 B의 추가 패턴
     for line, note in [
         ("import _", ""),
         ("import os.", ""),

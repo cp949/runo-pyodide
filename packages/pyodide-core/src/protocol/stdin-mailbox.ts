@@ -1,12 +1,18 @@
 /**
- * stdin 메일박스(01-protocols.md 2절, ADR-0002). `input()`·`sys.stdin` 읽기 한 건의 응답을 main이 `Atomics.wait`로 정지한
- * worker에 동기적으로 넘기는 단방향 우편함이다. 세션(worker)마다 새로 만든다.
+ * stdin 메일박스(01-protocols.md 2절, ADR-0002).
+ * - `input()`·`sys.stdin` 읽기 한 건의 응답을 main이 worker에 동기적으로 넘긴다. worker는 `Atomics.wait`로 정지해 있다.
+ * - 단방향 우편함이다. 세션(worker)마다 새로 만든다.
  *
- * worker `wait()`(2.2)와 main 쪽 시험용 take·peek(2.5, `./test-utils`로만 나간다)가 아래 `consumeReady` 해석
- * 단계 하나를 공유한다.
+ * 공유하는 해석 단계:
+ * - worker `wait()`(2.2)와 main 쪽 시험용 `takeMailboxResponse`(2.5)는 `consumeReady` 하나를 공유한다.
+ * - 시험용 `peekMailbox`(2.5)는 소비하지 않는다. `readReadyChunk`·`readErrorMessage`만 공유한다.
+ * - take·peek는 `./test-utils`로만 나간다.
  *
- * 배치: 제어 `Int32Array(4)` = [STATE, BYTE_LENGTH, FLAGS, 예약] + 데이터 `Uint8Array(CAPACITY)`. growable
- * `SharedArrayBuffer`는 쓰지 않고 고정 할당한다. STATE 값: IDLE 0·READY 1·CANCELLED 2·ERROR 3·EOF 4.
+ * 배치:
+ * - 제어 `Int32Array(4)` = [STATE, BYTE_LENGTH, FLAGS, 예약].
+ * - 데이터 `Uint8Array(CAPACITY)`.
+ * - growable `SharedArrayBuffer`는 쓰지 않고 고정 할당한다.
+ * - STATE 값: IDLE 0·READY 1·CANCELLED 2·ERROR 3·EOF 4.
  */
 const CAPACITY = 64 * 1024;
 const HEADER_BYTES = 16;
@@ -31,10 +37,14 @@ const FLAG_LAST = 1;
 
 /** 초기화 프레임의 `stdinCtrl`·`stdinData`가 되는 두 뷰. 같은 SharedArrayBuffer를 가리킨다. */
 export interface StdinMailboxBuffers {
+  /** 제어 슬롯 [STATE, BYTE_LENGTH, FLAGS, 예약] */
   ctrl: Int32Array;
+
+  /** 청크 데이터. 최대 `CAPACITY`바이트 */
   data: Uint8Array;
 }
 
+/** 빈 메일박스(STATE = IDLE)를 새로 만든다. */
 export function createStdinMailbox(): StdinMailboxBuffers {
   const sab = new SharedArrayBuffer(HEADER_BYTES + CAPACITY);
   return {
@@ -65,8 +75,10 @@ type WaitAsync = (
   | { async: true; value: Promise<"ok" | "timed-out"> };
 
 /**
- * `isWaiting(현재 STATE)`가 참인 동안 기다린다. `Atomics.waitAsync`가 있으면 그것으로, 없으면 `POLL_INTERVAL_MS`
- * 폴링으로 기다린다. 깨어날 때마다 값을 다시 읽어 확인한다(스퓨리어스 웨이크에도 안전).
+ * `isWaiting(현재 STATE)`가 참인 동안 기다린다.
+ * - `Atomics.waitAsync`가 있으면 그것으로 기다린다.
+ * - 없으면 `POLL_INTERVAL_MS` 폴링으로 기다린다.
+ * - 깨어날 때마다 값을 다시 읽어 확인한다(스퓨리어스 웨이크에도 안전).
  */
 async function waitWhile(
   ctrl: Int32Array,
@@ -93,12 +105,13 @@ async function untilIdle(ctrl: Int32Array): Promise<void> {
   await waitWhile(ctrl, (state) => state !== IDLE);
 }
 
-/** STATE를 바꾸고 그 값을 기다리는 쪽을 깨운다. 양쪽이 IDLE 복귀를 기다리므로 IDLE로 되돌릴 때도 부른다. */
+/** STATE를 바꾸고 기다리는 쪽을 깨운다. 양쪽이 서로의 전이를 기다리므로 IDLE로 되돌릴 때도 부른다. */
 function setState(ctrl: Int32Array, state: number): void {
   Atomics.store(ctrl, STATE, state);
   Atomics.notify(ctrl, STATE);
 }
 
+/** main 쪽 writer를 만든다. 모든 쓰기는 먼저 STATE가 IDLE로 돌아오길 기다린다. */
 export function createMailboxWriter({
   ctrl,
   data,
@@ -107,6 +120,7 @@ export function createMailboxWriter({
     async deliver(text) {
       const bytes = new TextEncoder().encode(text);
       // 빈 문자열도 빈 청크 하나로 보낸다(do-while).
+      // 마지막 청크에만 FLAG_LAST를 세운다.
       let offset = 0;
       do {
         await untilIdle(ctrl);
@@ -136,14 +150,14 @@ export function createMailboxWriter({
   };
 }
 
-/** 규칙: `docs/design/01-protocols.md` 2.2. `input()` 읽기 한 건에 main이 돌려준 결말(`deliver`·`cancel`·`eof`·`fail`). */
+/** `input()` 읽기 한 건에 main이 돌려준 결말(`deliver`·`cancel`·`eof`·`fail`). 규칙은 `docs/design/01-protocols.md` 2.2. */
 export type MailboxResponse =
   | { kind: "line"; text: string }
   | { kind: "cancelled" }
   | { kind: "eof" }
   | { kind: "error"; message: string };
 
-/** 소비하지 않고 본 현재 메일박스. `chunk`는 줄 일부일 수 있다(`last`가 false면 다음 청크가 남았다). */
+/** 소비하지 않고 본 현재 메일박스 상태. `chunk`는 줄 일부일 수 있다(`last`가 false면 다음 청크가 남았다). */
 export type MailboxPeek =
   | { kind: "none" }
   | { kind: "chunk"; text: string; last: boolean }
@@ -156,8 +170,8 @@ type ReadyStep =
   { kind: "idle" } | { kind: "pending"; text: string } | MailboxResponse;
 
 /**
- * 현재 READY 청크(바이트·마지막 여부)를 읽는다. TextDecoder는 SharedArrayBuffer 뷰를 받지 않는 브라우저가 있어
- * 복사한 뒤 디코드한다. STATE·데이터는 바꾸지 않는다.
+ * 현재 READY 청크(바이트·마지막 여부)를 읽는다. STATE·데이터는 바꾸지 않는다.
+ * `TextDecoder`가 SharedArrayBuffer 뷰를 받지 않는 브라우저가 있어 바이트를 복사해 돌려준다.
  */
 function readReadyChunk(
   ctrl: Int32Array,
@@ -177,9 +191,13 @@ function readErrorMessage(ctrl: Int32Array, data: Uint8Array): string {
 }
 
 /**
- * STATE가 IDLE이 아닐 때 한 번 소비한다: READY는 청크 하나(스트리밍 디코더에 이어 붙이고 마지막이면 응답),
- * CANCELLED/EOF/ERROR는 응답. 소비하면 STATE를 IDLE로 되돌리고 notify한다(`setState`). `wait()`(동기 `Atomics.wait` 뒤)와
- * `takeMailboxResponse()`(비동기 `waitWhile` 뒤)가 이 함수 하나를 공유한다.
+ * 현재 STATE를 한 번 소비한다.
+ * - IDLE: 소비할 것이 없다(`idle`). 스퓨리어스 웨이크다.
+ * - READY: 청크 하나. 스트리밍 디코더에 이어 붙이고, 마지막 청크면 응답(`line`), 아니면 `pending`.
+ * - CANCELLED/EOF/ERROR: 응답.
+ *
+ * 소비하면 STATE를 IDLE로 되돌리고 notify한다(`setState`).
+ * `wait()`(동기 `Atomics.wait` 뒤)와 `takeMailboxResponse()`(비동기 `waitWhile` 뒤)가 이 함수 하나를 공유한다.
  */
 function consumeReady(
   { ctrl, data }: StdinMailboxBuffers,
@@ -208,11 +226,16 @@ function consumeReady(
   }
 }
 
-/** worker 쪽. `Atomics.wait`는 worker에서만 허용된다. 오류는 `Error`로 던진다(`MailboxResponse`에서 `error`를 뺀 나머지). */
+/** worker 쪽 reader. `Atomics.wait`는 worker에서만 허용된다. */
 export interface MailboxReader {
+  /**
+   * 응답 한 건이 올 때까지 정지한다.
+   * `error` 응답은 반환하지 않고 `Error`로 던진다(반환 타입은 `MailboxResponse`에서 `error`를 뺀 나머지).
+   */
   wait(): Exclude<MailboxResponse, { kind: "error" }>;
 }
 
+/** worker 쪽 reader를 만든다. */
 export function createMailboxReader(
   buffers: StdinMailboxBuffers,
 ): MailboxReader {
@@ -227,6 +250,7 @@ export function createMailboxReader(
         const step = consumeReady(buffers, decoder);
         switch (step.kind) {
           case "idle":
+            // 스퓨리어스 웨이크. 다시 기다린다.
             break;
           case "pending":
             text += step.text;
@@ -246,8 +270,9 @@ export function createMailboxReader(
 }
 
 /**
- * 규칙: `docs/design/01-protocols.md` 2.5. main 쪽(시험용) 응답 수신. 실제 worker의 `wait()`처럼 청크를 모두
- * 가져가고 IDLE로 되돌린다. 시간 상한 없음 — 멈추면 시험 timeout이 잡는다.
+ * main 쪽(시험용) 응답 수신. 규칙은 `docs/design/01-protocols.md` 2.5.
+ * - 실제 worker의 `wait()`처럼 청크를 모두 가져가고 STATE를 IDLE로 되돌린다.
+ * - 시간 상한은 없다. 멈추면 시험 timeout이 잡는다.
  */
 export async function takeMailboxResponse(
   buffers: StdinMailboxBuffers,
@@ -273,7 +298,7 @@ export async function takeMailboxResponse(
   }
 }
 
-/** 규칙: `docs/design/01-protocols.md` 2.5. 현재 STATE를 해석만 한다. STATE·데이터를 바꾸지 않는다. */
+/** main 쪽(시험용) 엿보기. 현재 STATE를 해석만 한다. STATE·데이터는 바꾸지 않는다. 규칙은 `docs/design/01-protocols.md` 2.5. */
 export function peekMailbox({ ctrl, data }: StdinMailboxBuffers): MailboxPeek {
   switch (Atomics.load(ctrl, STATE)) {
     case READY: {

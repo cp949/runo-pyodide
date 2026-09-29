@@ -1,7 +1,12 @@
 /**
- * `createRepl`의 `input()` 읽기 시험(RD-006). worker의 `readInput` 알림 → 꼬리 프롬프트로 stdin 읽기 → 메일박스 `deliver`·`fail`,
- * 열린 REPL 읽기와의 순서(read-guard), stdin 읽기 취소(CANCELLED)를 write 콜백 동기/비동기 모드로 본다. 실제 `Atomics.wait`
- * 왕복은 core `protocol/thread-scenario.test.ts`가 본다.
+ * `createRepl`의 `input()` 읽기 시험(RD-006). 각 시험을 write 콜백 동기·비동기 두 모드로 돌린다.
+ *
+ * 대상:
+ * - worker의 `readInput` 알림 → 꼬리 프롬프트로 stdin 읽기 → 메일박스 `deliver`·`fail`.
+ * - 열린 REPL 읽기와의 순서(read-guard).
+ * - stdin 읽기 취소(CANCELLED).
+ *
+ * 실제 `Atomics.wait` 왕복은 core `test/protocol/thread-scenario.test.ts`가 본다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { Readline } from "@cp949/runo-xterm-readline";
@@ -27,7 +32,8 @@ describe.each([
   { mode: "동기", asyncWrite: false },
   { mode: "비동기", asyncWrite: true },
 ])("input() 읽기(write 콜백이 $mode 모드일 때)", ({ asyncWrite }) => {
-  /** 실제 `Readline.read`를 그대로 부르면서 받은 프롬프트를 기록한다(프로토타입 메서드라 addon 인스턴스에도 적용된다). */
+  // 실제 `Readline.read`를 그대로 부르면서 받은 프롬프트를 기록한다.
+  // 프로토타입 메서드라 addon 인스턴스에도 적용된다.
   function spyPrompts() {
     const read = vi.spyOn(Readline.prototype, "read");
     return () => read.mock.calls.map(([prompt]) => prompt);
@@ -44,7 +50,7 @@ describe.each([
 
     expect(prompts()).toEqual(["x: "]);
     expect(response).toEqual({ kind: "line", text: "abc" });
-    // 프롬프트와 입력이 Enter 때 한 조각으로 다시 그려진다 — 화면에는 `x: abc` 한 줄이 남는다.
+    // 프롬프트와 입력이 Enter 때 한 조각으로 다시 그려진다. 화면에는 `x: abc` 한 줄이 남는다.
     expect(session.fake.written).toContain("x: abc");
   });
 
@@ -63,8 +69,11 @@ describe.each([
     expect(peek(session)).toEqual({ kind: "none" });
     expect(outcome().state).toBe("pending");
 
-    // 사용자가 REPL 줄을 친다. 이 줄은 REPL 응답이 되고 stdin 읽기는 그 뒤에 배경 프롬프트(`bg> `)로 시작한다.
-    // 배경 출력의 재그리기(write 콜백)를 먼저 끝낸다. 비동기 모드에서 남겨 두면 친 키가 벤더 큐에 쌓인다(실 xterm은 콜백이 스스로 온다).
+    // 사용자가 REPL 줄을 친다.
+    // - 이 줄은 REPL 응답이 된다.
+    // - stdin 읽기는 그 뒤에 배경 프롬프트(`bg> `)로 시작한다.
+    // 배경 출력의 재그리기(write 콜백)를 먼저 끝낸다.
+    // 비동기 모드에서 남겨 두면 친 키가 벤더 큐에 쌓인다. 실 xterm은 콜백이 스스로 온다.
     fake.flush();
     const before = flushRequestCount(fake);
     fake.type("x = 41\r");
@@ -89,7 +98,8 @@ describe.each([
     const second = observe(workerRpc.call("readLine", ">>> ", undefined, true));
     await waitFor(() => second().state === "rejected");
 
-    // 거절된 요청을 가드가 활성 읽기로 추적하면 진짜 활성 REPL 읽기를 잃어 stdin 읽기가 앞당겨진다.
+    // 거절된 요청을 가드가 활성 읽기로 추적하면 진짜 활성 REPL 읽기를 잃는다.
+    // 그러면 stdin 읽기가 앞당겨진다.
     workerRpc.notify("readInput", true);
     await settle();
     expect(prompts()).toEqual([">>> "]);
@@ -114,7 +124,8 @@ describe.each([
     session.workerRpc.notify("write", "x: ");
     await startInputRead(session);
 
-    // `readline.dispose()`가 대기 중인 읽기를 reject한다. dispose된 세션의 worker는 이미 terminate됐으므로 `fail`하지 않는다.
+    // `readline.dispose()`가 대기 중인 읽기를 reject한다.
+    // dispose된 세션의 worker는 이미 terminate됐으므로 `fail`하지 않는다.
     session.handle.dispose();
     session.fake.flush();
     await settle();
@@ -149,7 +160,8 @@ describe.each([
 
     expect(session.bytes()).toContain("ab");
     expect(session.bytes()).not.toContain("^C");
-    // 취소는 main이 메일박스로 알린다. main은 어느 취소 경로에서도 SIGINT를 쓰지 않는다(DELTA-03이 worker에서 쓴다).
+    // 취소는 main이 메일박스로만 알린다. 이 경로에서 main은 SIGINT를 쓰지 않는다.
+    // stdin 취소의 SIGINT는 worker의 stdin 콜백이 쓴다(03-ctrl-c.md 2.2).
     expect(slots(session).seq).toBe(0);
   });
 
@@ -166,7 +178,8 @@ describe.each([
 
     fake.type("\x03");
 
-    // 취소 뒤에도 사용자 코드(`except KeyboardInterrupt` 뒤 계산)가 계속 돌 수 있으므로 이 구간은 중단 경로다.
+    // 취소 뒤에도 사용자 코드(`except KeyboardInterrupt` 뒤 계산)가 계속 돌 수 있다.
+    // 그래서 이 구간의 Ctrl+C는 중단 경로다.
     expect(echoes(session)).toBe(1);
     expect(slots(session).seq).toBe(1);
   });

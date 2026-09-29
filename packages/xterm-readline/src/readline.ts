@@ -19,7 +19,10 @@ interface ActiveRead {
   eof: boolean;
 }
 
-/** write 콜백을 기다리는 읽기 하나. `cancelled`는 콜백 도착 전에 `cancelRead()`·`takeRead()`·`dispose()`가 먼저 끝냈는지 표시한다. */
+/**
+ * write 콜백을 기다리는 읽기 하나.
+ * `cancelled`는 콜백 도착 전에 `cancelRead()`·`takeRead()`·`dispose()`가 먼저 끝냈는지 표시한다.
+ */
 interface PendingRead {
   reject: (e: unknown) => void;
   cancelled: boolean;
@@ -34,8 +37,9 @@ export class ReadCancelledError extends Error {
 }
 
 /**
- * `takeRead()`가 읽기를 끝낼 때 reject 사유로 쓰는 오류. 제출(resolve)도 취소(`ReadCancelledError`)도
- * 아니라 "호출자가 입력 상태를 가져갔다"는 뜻이라 별도 클래스로 구분한다.
+ * `takeRead()`가 읽기를 끝낼 때 reject 사유로 쓰는 오류.
+ * 제출(resolve)도 취소(`ReadCancelledError`)도 아니다.
+ * "호출자가 입력 상태를 가져갔다"는 뜻이라 별도 클래스로 구분한다.
  */
 export class ReadTakenError extends Error {
   constructor() {
@@ -49,8 +53,9 @@ type CtrlCHandler = () => void;
 type PauseHandler = (resume: boolean) => void;
 
 /**
- * `read(prompt, { eof: true })`가 빈 버퍼 Ctrl+D를 만나 읽기를 끝낼 때 돌려주는 값. 문자열도 `null`도 아닌
- * 벤더 자체 값이라 `unique symbol`로 만든다 — 호출자가 실수로 다른 값과 겹치지 않는다.
+ * `read(prompt, { eof: true })`가 빈 버퍼 Ctrl+D를 만나 읽기를 끝낼 때 돌려주는 값.
+ * 문자열도 `null`도 아닌 벤더 자체 값이다.
+ * `unique symbol`로 만들어 호출자의 다른 값과 겹치지 않게 한다.
  */
 export const READ_EOF: unique symbol = Symbol("READ_EOF");
 
@@ -63,16 +68,18 @@ export interface ReadlineOptions {
    */
   skipBlankHistory?: boolean;
   /**
-   * 모든 `keydown`/`keypress`/`keyup`에서 벤더 `handleKeyEvent` 처리 앞에서 부른다. `true`를
-   * 돌려주면 벤더 처리를 생략하고 `handleKeyEvent` 자체도 xterm에 `false`를 돌려준다(xterm의
-   * 기본 처리도 생략됨). 활성 읽기 유무와 무관하게 항상 불린다.
+   * 모든 `keydown`/`keypress`/`keyup`에서 벤더 `handleKeyEvent` 처리 앞에서 부른다.
+   * `true`를 돌려주면 벤더 처리를 생략한다.
+   * `handleKeyEvent` 자체도 xterm에 `false`를 돌려준다(xterm의 기본 처리도 생략됨).
+   * 활성 읽기 유무와 무관하게 항상 불린다.
    */
   onKeyEvent?: (event: KeyboardEvent) => boolean;
   /**
    * false면 활성 읽기가 없는 구간(실행 중·`read()` write 콜백 대기 중·부팅 중)에 들어온 입력을 쌓지 않고
-   * 버린다(키·붙여넣기·IME 조합 완성 덩어리·Shift+Enter). Ctrl+C·Ctrl+L 단독 입력은 그대로 즉시 처리한다.
-   * 활성 읽기 중 `printAbove` 재그리기 동안 쌓는 `queued`는 이 옵션의 대상이 아니다. 기본값은 true
-   * (type-ahead 동작). `=== false`일 때만 끈다.
+   * 버린다(키·붙여넣기·IME 조합 완성 덩어리·Shift+Enter).
+   * Ctrl+C·Ctrl+L 단독 입력은 그대로 즉시 처리한다.
+   * 활성 읽기 중 `printAbove` 재그리기 동안 쌓는 `queued`는 이 옵션의 대상이 아니다.
+   * 기본값은 true(type-ahead 동작). `=== false`일 때만 끈다.
    */
   typeAhead?: boolean;
 }
@@ -82,19 +89,22 @@ export interface ReadOptions {
   cancelable?: boolean;
   /**
    * write 콜백 안에서 새 입력 상태(State)를 만든 직후 1회 채워 넣는 텍스트. 커서는 끝에 놓인다.
-   * `read()` 호출 직후(콜백 밖)의 `updateLine()`은 이 타이밍보다 앞서 실행되어 사라지므로 이 옵션으로만
-   * 넣는다.
+   * `read()` 호출 직후(콜백 밖)의 `updateLine()`은 이 타이밍보다 앞서 실행되어 사라진다.
+   * 그래서 이 옵션으로만 넣는다.
    */
   prefill?: string;
   /**
-   * `prefill`을 채운 직후 커서를 둘 위치(UTF-16 인덱스). `[0, prefill 길이]`로 자른다. `prefill`이 없거나
-   * 빈 문자열이면 무시한다. 생략하면 커서는 끝에 놓인다. `takeRead()`가 돌려준 커서를 그대로 넘기면 된다.
+   * `prefill`을 채운 직후 커서를 둘 위치(UTF-16 인덱스). `[0, prefill 길이]`로 자른다.
+   * `prefill`이 없거나 빈 문자열이면 무시한다.
+   * 생략하면 커서는 끝에 놓인다.
+   * `takeRead()`가 돌려준 커서를 그대로 넘기면 된다.
    */
   prefillCursor?: number;
   /**
    * 활성 읽기의 키마다 벤더 처리 앞에서 부른다. `true`를 돌려주면 벤더 처리를 생략한다(소비).
-   * 활성 읽기가 없을 때(write 콜백 대기 중 포함)는 부르지 않는다. `readPaste`가 `editInsert`로 바로
-   * 넣는 `Text` 토큰은 거치지 않는다(코드로 흘러들어온 텍스트에는 훅이 반응하지 않는다).
+   * 활성 읽기가 없을 때(write 콜백 대기 중 포함)는 부르지 않는다.
+   * `readPaste`가 `editInsert`로 바로 넣는 `Text` 토큰은 거치지 않는다.
+   * 코드로 흘러들어온 텍스트에는 훅이 반응하지 않는다.
    */
   onKey?: (input: Input) => boolean;
   /**
@@ -104,22 +114,27 @@ export interface ReadOptions {
    */
   historyEntry?: (line: string) => string;
   /**
-   * `false`면 이 읽기에서 Enter로 제출된 줄을 history에 넣지 않는다(`historyEntry`도 부르지 않는다). history 탐색 커서는
-   * `skipBlankHistory`가 거른 공백 제출처럼 처음으로 되돌린다. 읽는 동안 ↑·↓ 탐색은 그대로 된다. 생략하면 기록한다(원본 동작).
+   * `false`면 이 읽기에서 Enter로 제출된 줄을 history에 넣지 않는다(`historyEntry`도 부르지 않는다).
+   * history 탐색 커서는 `skipBlankHistory`가 거른 공백 제출처럼 처음으로 되돌린다.
+   * 읽는 동안 ↑·↓ 탐색은 그대로 된다.
+   * 생략하면 기록한다(원본 동작).
    */
   history?: false;
   /**
    * true면 이 읽기 중 빈 버퍼(커서 위치 무관, 전체 버퍼가 빈 문자열)에서 실제로 친 Ctrl+D가 읽기를
-   * `READ_EOF`로 끝낸다(취소 가능한 Ctrl+C와 같은 순서: 커서를 끝으로 옮기고 강조 없이 다시 그린 뒤 개행,
-   * history에 넣지 않는다). type-ahead 재생·붙여넣기 덩어리 안의 Ctrl+D는 대상이 아니다(그 경우는 지금처럼
-   * 커서 뒤 글자를 지운다). 기본값은 false(원본 동작).
+   * `READ_EOF`로 끝낸다.
+   * 끝내는 순서는 취소 가능한 Ctrl+C와 같다: 커서를 끝으로 옮기고 강조 없이 다시 그린 뒤 개행한다.
+   * history에 넣지 않는다.
+   * type-ahead 재생·붙여넣기 덩어리 안의 Ctrl+D는 대상이 아니다. 그 경우는 지금처럼 커서 뒤 글자를 지운다.
+   * 기본값은 false(원본 동작).
    */
   eof?: boolean;
 }
 
 /**
- * 활성 읽기가 없는 구간에 친 키를 쌓아 두는 버퍼의 상한(UTF-16 코드 유닛 합계). Linux tty
- * `N_TTY_BUF_SIZE`와 같다. 넘치는 덩어리는 통째로 버린다.
+ * 활성 읽기가 없는 구간에 친 키를 쌓아 두는 버퍼의 상한(UTF-16 코드 유닛 합계).
+ * Linux tty `N_TTY_BUF_SIZE`와 같다.
+ * 넘치는 덩어리는 통째로 버린다.
  */
 const TYPE_AHEAD_LIMIT = 4096;
 
@@ -147,15 +162,21 @@ export class Readline implements ITerminalAddon {
   /** false면 활성 읽기가 없을 때 들어온 입력을 `pushTypeAhead`에서 버린다. `options.typeAhead === false`일 때만 false. */
   private typeAheadEnabled: boolean;
   /**
-   * `printAbove`·`printAboveRaw`가 기다리는 재그리기 하나(`line-view.ts` `Offscreen`). 활성 읽기가 있을 때만
-   * 있다(생성: `printAbove`·`printAboveRaw`가 `activeRead` 확인 뒤, 제거: `finishRedraw`·`endOpenReads`). 있는
-   * 동안 들어온 키는 벤더가 바로 처리하지 않고 `offscreen.queued`에 쌓는다.
+   * `printAbove`·`printAboveRaw`가 기다리는 재그리기 하나(`line-view.ts` `Offscreen`).
+   * 활성 읽기가 있을 때만 있다.
+   * - 생성: `printAbove`·`printAboveRaw`가 `activeRead` 확인 뒤.
+   * - 제거: `finishRedraw`·`endOpenReads`.
+   *
+   * 있는 동안 들어온 키는 벤더가 바로 처리하지 않고 `offscreen.queued`에 쌓는다.
    */
   private offscreen: Offscreen | undefined;
   /**
    * 활성 읽기가 없을 때(실행 중·`read()` write 콜백 대기 중·부팅 중) 들어온 입력을 순서대로 쌓아 둔다
-   * (type-ahead). `onData` 덩어리는 원본 문자열째, Shift+Enter는 `Input`째 쌓는다. 다음 `read()`의 write
-   * 콜백이 재생하고, Ctrl+C·`cancelRead()`·`dispose()`가 비운다. Ctrl+C·Ctrl+L 단독 입력은 쌓지 않는다.
+   * (type-ahead).
+   * - `onData` 덩어리는 원본 문자열째, Shift+Enter는 `Input`째 쌓는다.
+   * - 다음 `read()`의 write 콜백이 재생한다.
+   * - Ctrl+C·`cancelRead()`·`dispose()`가 비운다.
+   * - Ctrl+C·Ctrl+L 단독 입력은 쌓지 않는다.
    */
   private typeAhead: (string | Input)[] = [];
   /** `typeAhead`에 쌓인 덩어리 길이(UTF-16 코드 유닛) 합계. `TYPE_AHEAD_LIMIT` 검사에 쓴다. */
@@ -180,10 +201,9 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Activate this addon - this function is called by xterm's
-   * loadAddon().
+   * addon을 활성화한다. xterm의 loadAddon()이 이 함수를 부른다.
    *
-   * @param term - The terminal this readline is attached to.
+   * @param term - 이 readline이 붙는 터미널.
    */
   public activate(term: Terminal): void {
     this.term = term;
@@ -194,7 +214,8 @@ export class Readline implements ITerminalAddon {
         tty.col = cols;
         tty.row = rows;
         if (tty.anchorRow >= rows) tty.anchorRow = Math.max(0, rows - 1);
-        // 재그리기 대기 중에는 입력줄이 화면에 없다. 지금 그리면 출력 아래에 흔적 행이 남고 콜백이 한 번 더 그린다.
+        // 재그리기 대기 중에는 입력줄이 화면에 없다.
+        // 지금 그리면 출력 아래에 흔적 행이 남고 콜백이 한 번 더 그린다.
         // 크기는 위에서 이미 갱신했으므로 콜백(`finishRedraw`)이 새 크기로 그린다.
         if (this.activeRead !== undefined && this.offscreen === undefined) {
           this.state.refresh();
@@ -205,10 +226,10 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Dispose
+   * addon을 해제한다.
    *
    * 리스너를 해제하고 term을 비운다. 대기 중인 읽기(write 콜백 대기 중인 것 포함)는 Error로 reject한다.
-   * term.dispose()도 addon을 dispose하므로 두 번 불릴 수 있어 두 번째 호출은 아무것도 하지 않는다.
+   * term.dispose()도 addon을 dispose하므로 두 번 불릴 수 있다. 두 번째 호출은 아무것도 하지 않는다.
    */
   public dispose(): void {
     this.disposables.forEach((d) => d.dispose());
@@ -220,10 +241,12 @@ export class Readline implements ITerminalAddon {
 
   /**
    * 열린 읽기(활성 읽기 + write 콜백을 기다리는 읽기)를 `ReadCancelledError`로 끝낸다.
-   * `dispose()`와 달리 리스너·term·history·state는 건드리지 않는다. 열린 읽기가 없으면 읽기 쪽은 아무것도 하지 않는다.
+   * `dispose()`와 달리 리스너·term·history·state는 건드리지 않는다.
+   * 열린 읽기가 없으면 읽기 쪽은 아무것도 하지 않는다.
    *
-   * `settle`을 주지 않으면(또는 `false`) 화면에 아무것도 쓰지 않고 `false`를 돌려준다(개행·안내 줄 여부는 호출자가
-   * 결정한다). `settle: true`면 읽기를 끝내기 전에 취소 시점 상태를 보고 화면을 정리한다.
+   * `settle`을 주지 않으면(또는 `false`) 화면에 아무것도 쓰지 않고 `false`를 돌려준다.
+   * 개행·안내 줄 여부는 호출자가 결정한다.
+   * `settle: true`면 읽기를 끝내기 전에 취소 시점 상태를 보고 화면을 정리한다.
    *
    * | 취소 시점 상태 | 쓰는 것 | 반환 |
    * | --- | --- | --- |
@@ -232,21 +255,25 @@ export class Readline implements ITerminalAddon {
    * | 그려진 활성 읽기 | 커서를 입력 끝으로 옮기고 강조 없이 다시 그린 뒤 `"\r\n"`(취소 가능한 Ctrl+C와 같은 바이트) | `true` |
    * | write 콜백을 기다리는 읽기만 / 열린 읽기 없음 / `term` 없음(`dispose()` 뒤) | 없음 | `false` |
    *
-   * 반환값은 "호출 뒤 커서가 입력·접두 아래 행 머리임을 Readline이 보장했는가"다. `false`면 행 머리 여부를 Readline이
-   * 모르므로(그리기 전 읽기는 화면에 이전 출력 꼬리가 있을 수 있다) 필요한 개행은 호출자가 정한다.
+   * 반환값은 "호출 뒤 커서가 입력·접두 아래 행 머리임을 Readline이 보장했는가"다.
+   * `false`면 Readline은 행 머리 여부를 모른다. 그리기 전 읽기는 화면에 이전 출력 꼬리가 있을 수 있다.
+   * 필요한 개행은 호출자가 정한다.
    */
   public cancelRead(options?: { settle?: boolean }): boolean {
     // 상태 판정은 activeRead·offscreen을 비우기 전이어야 한다.
     const settled = options?.settle === true ? this.settleScreen() : false;
-    // 리셋은 새 프로세스라 옛 맥락에서 쌓인 키(type-ahead)를 다음 읽기에 넘기지 않는다. 취소 이전에 offscreen.queued에
-    // 쌓인 키도 옛 맥락이라 폐기하고, 이후 도착하는 키는 activeRead가 없으므로 type-ahead로 간다.
+    // 리셋은 새 프로세스라 옛 맥락에서 쌓인 키(type-ahead)를 다음 읽기에 넘기지 않는다.
+    // 취소 이전에 offscreen.queued에 쌓인 키도 옛 맥락이라 폐기한다.
+    // 이후 도착하는 키는 activeRead가 없으므로 type-ahead로 간다.
     this.endOpenReads(new ReadCancelledError(), "drop", "drop");
     return settled;
   }
 
   /**
-   * 열린 읽기를 끝내기 전 화면 정리(`cancelRead({ settle: true })`의 상태표). 커서를 입력·접두 아래 행 머리에 두었으면
-   * `true`, 정리할 수 없는 상태(그려진 활성 읽기 없음·`term` 없음)면 아무것도 쓰지 않고 `false`다. 읽기 상태는 바꾸지 않는다.
+   * 열린 읽기를 끝내기 전 화면 정리(`cancelRead({ settle: true })`의 상태표).
+   * 커서를 입력·접두 아래 행 머리에 두었으면 `true`.
+   * 정리할 수 없는 상태(그려진 활성 읽기 없음·`term` 없음)면 아무것도 쓰지 않고 `false`다.
+   * 읽기 상태는 바꾸지 않는다.
    */
   private settleScreen(): boolean {
     if (this.term === undefined || this.activeRead === undefined) return false;
@@ -261,9 +288,11 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 그려진 활성 읽기의 입력줄을 화면에 확정한다: 감긴 입력의 마지막 행 끝으로 옮기고 커서 위치 강조를 벗겨 다시 그린 뒤
-   * 개행한다. 커서는 입력 아래 행 머리에 온다. `settleScreen()`(settle 취소)과 `endActiveRead()`가 같이 쓴다. 읽기 상태는
-   * 바꾸지 않는다.
+   * 그려진 활성 읽기의 입력줄을 화면에 확정한다.
+   * 감긴 입력의 마지막 행 끝으로 옮기고 커서 위치 강조를 벗겨 다시 그린 뒤 개행한다.
+   * 커서는 입력 아래 행 머리에 온다.
+   * `settleScreen()`(settle 취소)과 `endActiveRead()`가 같이 쓴다.
+   * 읽기 상태는 바꾸지 않는다.
    */
   private commitDrawnLine(): void {
     this.state.moveCursorToEnd();
@@ -272,8 +301,9 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 활성 읽기를 제출 없이 `value`로 끝낸다(취소 가능한 Ctrl+C의 `null`, `eof` 읽기 Ctrl+D의 `READ_EOF`): 줄을 확정하고
-   * history에는 넣지 않는다. resolve 콜백이 동기로 다음 read()를 불러도 상태가 꼬이지 않게 먼저 비운다.
+   * 활성 읽기를 제출 없이 `value`로 끝낸다(취소 가능한 Ctrl+C의 `null`, `eof` 읽기 Ctrl+D의 `READ_EOF`).
+   * 줄을 확정하고 history에는 넣지 않는다.
+   * resolve 콜백이 동기로 다음 read()를 불러도 상태가 꼬이지 않게 먼저 비운다.
    */
   private endActiveRead(
     activeRead: ActiveRead,
@@ -285,23 +315,27 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 열린 읽기를 제출·history 없이 끝내고 입력 상태를 가져간다. 열린 읽기가 없으면 아무것도 하지 않고
-   * `undefined`를 돌려준다.
+   * 열린 읽기를 제출·history 없이 끝내고 입력 상태를 가져간다.
+   * 열린 읽기가 없으면 아무것도 하지 않고 `undefined`를 돌려준다.
    *
    * - 활성 읽기: 프롬프트 첫 행부터 입력 마지막 행까지(감긴 행·멀티라인 버퍼 포함) 화면에서 지우고 커서를
-   *   프롬프트 첫 행 열 0에 둔다. 프롬프트 앞에 붙은 꼬리(`a>>> `의 `a`)도 프롬프트라 함께 지워지므로 복원은
-   *   호출자가 한다. 돌려주는 값은 지우기 전의 텍스트·커서다.
+   *   프롬프트 첫 행 열 0에 둔다. 프롬프트 앞에 붙은 꼬리(`a>>> `의 `a`)도 프롬프트라 함께 지워진다.
+   *   복원은 호출자가 한다. 돌려주는 값은 지우기 전의 텍스트·커서다.
    * - write 콜백을 기다리는 읽기(아직 그려지지 않음): 화면에 그린 것이 없으므로 `{ text: "", cursor: 0 }`이다.
    *   늦게 오는 콜백은 읽기를 되살리지 않는다(`cancelRead()`와 같은 `cancelled` 표시).
-   * - `printAbove` 재그리기 중: 입력줄은 이미 출력 위에 남았고 그 아래에 출력이 있어 지울 수 없다. 재그리기
-   *   콜백 전의 텍스트·저장 커서(`offscreen.cursor`)를 돌려준다 — 재그리기 대기 중 공개 편집 API(`editInsert`·
-   *   `editBackspace`·`updateLine`)가 화면 밖에서 고친 버퍼·커서를 반영한 값이다. 늦게 오는 재그리기 콜백은
-   *   재그리기가 무효가 되어 입력줄을 다시 그리지 않는다.
-   * - `printAboveRaw` 재그리기 중: 입력줄·접두는 이미 지워졌고 아직 다시 그려지지 않아 지울 것이 없다. 처리는
-   *   위와 같다. 접두는 화면에 없으므로 필요하면 호출자가 이 호출 전에 `abovePrefix()`로 읽어 다시 쓴다.
+   * - `printAbove` 재그리기 중: 입력줄은 이미 출력 위에 남았고 그 아래에 출력이 있어 지울 수 없다.
+   *   재그리기 콜백 전의 텍스트·저장 커서(`offscreen.cursor`)를 돌려준다.
+   *   재그리기 대기 중 공개 편집 API(`editInsert`·`editBackspace`·`updateLine`)가 화면 밖에서 고친
+   *   버퍼·커서를 반영한 값이다.
+   *   늦게 오는 재그리기 콜백은 재그리기가 무효가 되어 입력줄을 다시 그리지 않는다.
+   * - `printAboveRaw` 재그리기 중: 입력줄·접두는 이미 지워졌고 아직 다시 그려지지 않아 지울 것이 없다.
+   *   처리는 위와 같다.
+   *   접두는 화면에 없으므로 필요하면 호출자가 이 호출 전에 `abovePrefix()`로 읽어 다시 쓴다.
    *
-   * 읽기 promise는 `ReadTakenError`로 reject한다(`ReadCancelledError`와 구분). 재그리기 중 쌓인 키(`offscreen.queued`)는
-   * type-ahead로 옮겨 다음 읽기가 재생한다. 이미 쌓인 type-ahead는 그대로 둔다. history는 건드리지 않는다.
+   * 읽기 promise는 `ReadTakenError`로 reject한다(`ReadCancelledError`와 구분).
+   * 재그리기 중 쌓인 키(`offscreen.queued`)는 type-ahead로 옮겨 다음 읽기가 재생한다.
+   * 이미 쌓인 type-ahead는 그대로 둔다.
+   * history는 건드리지 않는다.
    */
   public takeRead(): { text: string; cursor: number } | undefined {
     const active = this.activeRead;
@@ -324,8 +358,8 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 열린 읽기(활성 읽기 + write 콜백을 기다리는 읽기)를 모두 떼고 `error`로 reject한다. `cancelRead()`·`takeRead()`·
-   * `dispose()`의 공통 상태 정리다. 화면에는 쓰지 않는다.
+   * 열린 읽기(활성 읽기 + write 콜백을 기다리는 읽기)를 모두 떼고 `error`로 reject한다.
+   * `cancelRead()`·`takeRead()`·`dispose()`의 공통 상태 정리다. 화면에는 쓰지 않는다.
    *
    * - write 콜백을 기다리는 읽기에 `cancelled`를 세워 늦은 콜백이 활성 읽기를 되살리지 않게 한다.
    * - 기다리던 재그리기를 무효로 해 늦은 콜백이 그리지 않게 한다(다음 읽기의 재그리기는 건드리지 않는다).
@@ -333,8 +367,8 @@ export class Readline implements ITerminalAddon {
    *   뒤에 붙인다.
    * - type-ahead(읽기 밖에서 쌓인 입력): `"drop"`은 비우고 `"keep"`은 둔다. `"drop"`은 `queued` 이동보다 먼저 한다.
    *
-   * 상태를 모두 바꾼 뒤 reject한다. 순서는 write 콜백 대기 읽기가 먼저, 활성 읽기가 나중이다. 호출자는 활성 읽기에서
-   * 읽을 것(`takeRead()`의 버퍼·커서·`state.erase()`)을 이 호출 전에 끝낸다.
+   * 상태를 모두 바꾼 뒤 reject한다. 순서는 write 콜백 대기 읽기가 먼저, 활성 읽기가 나중이다.
+   * 호출자는 활성 읽기에서 읽을 것(`takeRead()`의 버퍼·커서·`state.erase()`)을 이 호출 전에 끝낸다.
    */
   private endOpenReads(
     error: Error,
@@ -362,9 +396,9 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Manually append a line to the top of the readline's history.
+   * readline history 맨 위에 줄을 직접 추가한다.
    *
-   * @param text - The text to append to history.
+   * @param text - history에 추가할 텍스트.
    */
   public appendHistory(text: string) {
     this.history.append(text);
@@ -378,62 +412,60 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Set the highlighter handler for this readline. This is used to
-   * create custom highlighting functionality (e.g. for syntax highlighting
-   * or bracket matching).
+   * 이 readline의 highlighter 핸들러를 설정한다.
+   * 사용자 정의 강조 기능(예: 구문 강조, 괄호 짝 강조)을 만드는 데 쓴다.
    *
-   * @param highlighter - A handler to handle all highlight callbacks.
+   * @param highlighter - 모든 highlight 콜백을 처리하는 핸들러.
    */
   public setHighlighter(highlighter: Highlighter) {
     this.highlighter = highlighter;
   }
 
   /**
-   * Set the check callback. This callback is used by readline to determine if input
-   * requires additiona lines when the user presses 'enter'.
+   * check 콜백을 설정한다.
+   * 사용자가 'enter'를 눌렀을 때 입력에 줄이 더 필요한지 readline이 판정하는 데 쓴다.
    *
-   * @param fn - A function (string) -> boolean that should return true if the input
-   *             is complete, and false if a line (\n) should be added to the input.
+   * @param fn - (string) -> boolean 함수. 입력이 완성됐으면 true,
+   *             줄(\n)을 입력에 추가해야 하면 false를 돌려준다.
    */
   public setCheckHandler(fn: CheckHandler) {
     this.checkHandler = fn;
   }
 
   /**
-   * Set the ctrl-c handler. This function will be called if ctrl-c is encountered
-   * between readline reads. This may be used in circumstances where input from the
-   * user may result in a long running task that can be cancelled.
+   * ctrl-c 핸들러를 설정한다.
+   * readline 읽기 사이에 ctrl-c가 들어오면 이 함수를 부른다.
+   * 사용자 입력이 오래 걸리는 작업을 일으키고 그 작업을 취소할 수 있는 경우에 쓴다.
    *
-   * @param fn - The ctrl-c handler.
+   * @param fn - ctrl-c 핸들러.
    */
   public setCtrlCHandler(fn: CtrlCHandler) {
     this.ctrlCHandler = fn;
   }
 
   /**
-   * Set the callback to be called when the user presses ctrl-s/ctrl-q.
+   * 사용자가 ctrl-s/ctrl-q를 누를 때 부를 콜백을 설정한다.
    *
-   * @param fn - The pause handler
+   * @param fn - pause 핸들러.
    */
   public setPauseHandler(fn: PauseHandler) {
     this.pauseHandler = fn;
   }
 
   /**
-   * writeReady() may be used to implement basic output flow control. This function
-   * will return false if the writes to the terminal initiated by Readline have
-   * reached a highwater mark.
+   * writeReady()는 간단한 출력 흐름 제어를 구현하는 데 쓴다.
+   * Readline이 시작한 터미널 쓰기가 highwater mark에 도달하면 false를 돌려준다.
    *
-   * @returns true if this terminal is accepting more input.
+   * @returns 이 터미널이 입력을 더 받을 수 있으면 true.
    */
   public writeReady(): boolean {
     return !this.highWater;
   }
 
   /**
-   * Write text to the terminal.
+   * 터미널에 텍스트를 쓴다.
    *
-   * @param text - The text to write to the terminal.
+   * @param text - 터미널에 쓸 텍스트.
    */
   public write(text: string) {
     if (text === "\n") {
@@ -458,18 +490,18 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Write text to the terminal.
+   * 터미널에 텍스트를 쓴다.
    *
-   * @param text - The text to write to the terminal
+   * @param text - 터미널에 쓸 텍스트.
    */
   public print(text: string) {
     return this.write(text);
   }
 
   /**
-   * Write text to the terminal and append with "\r\n".
+   * 터미널에 텍스트를 쓰고 "\r\n"을 덧붙인다.
    *
-   * @param text - The text to write to the terminal./
+   * @param text - 터미널에 쓸 텍스트.
    * @returns
    */
   public println(text: string) {
@@ -477,17 +509,20 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 활성 입력줄 위에 `text`를 출력하고 입력줄을 같은 읽기로 다시 그린다. 활성 읽기가 없으면
-   * `println`과 같다. 출력이 끝나기 전에 들어온 입력은 큐에 두었다가 순서대로 재생한다(TRP-008).
-   * 돌려주는 프로미스는 재그리기(활성 읽기가 없으면 `println`)가 실제로 끝난 뒤 resolve한다 —
+   * 활성 입력줄 위에 `text`를 출력하고 입력줄을 같은 읽기로 다시 그린다.
+   * 활성 읽기가 없으면 `println`과 같다.
+   * 출력이 끝나기 전에 들어온 입력은 큐에 두었다가 순서대로 재생한다(TRAP-14).
+   * 돌려주는 프로미스는 재그리기(활성 읽기가 없으면 `println`)가 실제로 끝난 뒤 resolve한다.
    * 호출자(코어 `tab-reader.ts`)가 재그리기 도중에 큐의 다음 키를 벤더 큐를 우회해 처리하지
-   * 않도록 순서를 맞추는 용도다(DELTA-04a). 조기 반환 두 경로(`term`·`activeRead` 없음)도
-   * 매달리지 않게 각각 resolve한다.
+   * 않도록 순서를 맞추는 용도다.
+   * 조기 반환 두 경로(`term`·`activeRead` 없음)도 매달리지 않게 각각 resolve한다.
    *
-   * 옛 입력행(접두 포함)은 화면에 남기므로 새 입력행은 접두 없이 그린다(접두를 비운다). 재그리기를 기다리는
-   * 중(앞선 `printAbove`·`printAboveRaw`)에 불리면 그 재그리기에 합류한다: 입력줄은 화면에 없고 커서는 앞 출력
-   * 아래 행 머리이므로 앞 `\r\n` 없이 `text`를 쓰고, 아직 그리지 않은 접두는 먼저 자기 행으로 쓴다. 저장 커서는
-   * 처음 값을 유지하고 프로미스는 합친 재그리기가 끝날 때 resolve한다.
+   * 옛 입력행(접두 포함)은 화면에 남기므로 새 입력행은 접두 없이 그린다(접두를 비운다).
+   * 재그리기를 기다리는 중(앞선 `printAbove`·`printAboveRaw`)에 불리면 그 재그리기에 합류한다.
+   * - 입력줄은 화면에 없고 커서는 앞 출력 아래 행 머리다. 앞 `\r\n` 없이 `text`를 쓴다.
+   * - 아직 그리지 않은 접두는 먼저 자기 행으로 쓴다.
+   * - 저장 커서는 처음 값을 유지한다.
+   * - 프로미스는 합친 재그리기가 끝날 때 resolve한다.
    *
    * @param text - 입력줄 위에 찍을 텍스트. 여러 줄이면 `\n`으로 잇는다(`write`가 `\r\n`으로 정규화).
    */
@@ -496,13 +531,15 @@ export class Readline implements ITerminalAddon {
       this.println(text);
       return Promise.resolve();
     }
-    // moveCursorToEnd()는 물리적 커서를 버퍼 끝(여러 줄로 감긴 경우 마지막 행)으로 옮겨야 그 아래에 원시
-    // 텍스트를 안전하게 쓸 수 있지만, 논리 커서(line.pos)도 함께 옮긴다. 재그리기 뒤에는 원래 위치로
-    // 돌려놓아야 하므로 새 `Offscreen`을 만들 때 쓸 값을 먼저 읽어 둔다(합류 중이면 버려진다 — 처음 값 유지).
+    // moveCursorToEnd()는 물리적 커서를 버퍼 끝(여러 줄로 감긴 경우 마지막 행)으로 옮긴다.
+    // 그래야 그 아래에 원시 텍스트를 안전하게 쓸 수 있다. 논리 커서(line.pos)도 함께 옮긴다.
+    // 재그리기 뒤에는 원래 위치로 돌려놓아야 하므로 새 `Offscreen`을 만들 때 쓸 값을 먼저 읽어 둔다.
+    // 합류 중이면 버려진다 — 처음 값 유지.
     const cursor = this.state.cursor();
     if (this.offscreen !== undefined) {
-      // moveCursorToEnd()를 부르지 않는다: 입력줄이 화면에 없어 refresh()가 엉뚱한 행에 그리고, 논리 커서도
-      // 끝으로 옮겨 처음 커서를 잃는다(이슈 02).
+      // moveCursorToEnd()를 부르지 않는다.
+      // 입력줄이 화면에 없어 refresh()가 엉뚱한 행에 그린다.
+      // 논리 커서도 끝으로 옮겨 처음 커서를 잃는다(이슈 02).
       const prefix = this.state.promptPrefix();
       if (prefix !== "") this.write(prefix + "\x1b[0m\r\n");
       this.write(text + "\r\n");
@@ -516,8 +553,8 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 활성 읽기가 있는가(`printAbove`·`printAboveRaw` 재그리기 대기 중 포함). `read()`의 write 콜백을 기다리는
-   * 읽기(아직 그리지 않음)는 포함하지 않는다.
+   * 활성 읽기가 있는가(`printAbove`·`printAboveRaw` 재그리기 대기 중 포함).
+   * `read()`의 write 콜백을 기다리는 읽기(아직 그리지 않음)는 포함하지 않는다.
    */
   public isReading(): boolean {
     return this.activeRead !== undefined;
@@ -525,8 +562,9 @@ export class Readline implements ITerminalAddon {
 
   /**
    * write 콜백을 기다리는 읽기(아직 그리지 않음)가 있으면 true. 활성 읽기는 세지 않는다(`isReading()`과 짝).
-   * `cancelRead()`·`takeRead()`·`dispose()`는 write 콜백이 오기 전에 `pendingReads`를 즉시 비우므로, 그 호출
-   * 직후에는 항상 false다 — "그리기 전 읽기가 있었는가"를 판정하려면 그 호출보다 먼저 읽어야 한다.
+   * `cancelRead()`·`takeRead()`·`dispose()`는 write 콜백이 오기 전에 `pendingReads`를 즉시 비운다.
+   * 그래서 그 호출 직후에는 항상 false다.
+   * "그리기 전 읽기가 있었는가"를 판정하려면 그 호출보다 먼저 읽어야 한다.
    */
   public hasPendingRead(): boolean {
     return this.pendingReads.size > 0;
@@ -538,10 +576,12 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * `abovePrefix()` 중 아직 화면에 그리지 않은 것. 재그리기(`printAboveRaw`)의 write 콜백을 기다리는 동안에만 접두가 있으면
-   * 접두를 돌려주고(입력줄이 접두째 지워진 상태), 그 밖에는 `""`다. `cancelRead({ settle: true })`(`settleScreen()`)가 취소 전에
-   * 이 값을 자기 행으로 다시 쓴다. 재그리기가 끝난 뒤의 접두는 이미 프롬프트 행에 그려져 있으므로 이 값이 `""`이고, 다시 쓰면
-   * 중복된다. `settle` 없는 `cancelRead()`는 화면에 쓰지 않으므로 콜백 전에 취소하면 이 접두가 사라진다.
+   * `abovePrefix()` 중 아직 화면에 그리지 않은 것.
+   * 재그리기(`printAboveRaw`)의 write 콜백을 기다리는 동안에만 접두가 있으면 접두를 돌려준다(입력줄이 접두째 지워진 상태).
+   * 그 밖에는 `""`다.
+   * `cancelRead({ settle: true })`(`settleScreen()`)가 취소 전에 이 값을 자기 행으로 다시 쓴다.
+   * 재그리기가 끝난 뒤의 접두는 이미 프롬프트 행에 그려져 있다. 그래서 이 값이 `""`이고, 다시 쓰면 중복된다.
+   * `settle` 없는 `cancelRead()`는 화면에 쓰지 않는다. 콜백 전에 취소하면 이 접두가 사라진다.
    *
    * 재그리기 대기 중 동작: `line-view.ts` `Offscreen`.
    */
@@ -555,15 +595,19 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 열린 읽기 위에 배경 출력을 쓴다. 입력줄(프롬프트 첫 행부터 입력 마지막 행까지, 접두 포함)을 지우고 그 자리에
-   * `lines`를 쓴 뒤, 프롬프트 앞에 `prefix`를 붙여 같은 읽기(버퍼·커서)를 그 아래에 다시 그린다. 다시 그리기는
-   * write 콜백에서 앵커를 새 커서 행으로 옮긴 뒤 하고, 그동안 들어온 키는 `queued`에 쌓았다가 재생한다.
+   * 열린 읽기 위에 배경 출력을 쓴다.
+   * 입력줄(프롬프트 첫 행부터 입력 마지막 행까지, 접두 포함)을 지우고 그 자리에 `lines`를 쓴다.
+   * 그 뒤 프롬프트 앞에 `prefix`를 붙여 같은 읽기(버퍼·커서)를 그 아래에 다시 그린다.
+   * 다시 그리기는 write 콜백에서 앵커를 새 커서 행으로 옮긴 뒤 한다.
+   * 그동안 들어온 키는 `queued`에 쌓았다가 재생한다.
    *
-   * - `lines`: 완성된 행. 빈 문자열이거나 `\n`으로 끝나야 한다. 앞 접두가 화면에서 지워지므로 이어 쓰려면 호출자가
-   *   앞 접두를 `lines` 앞에 붙인다(`abovePrefix()`). 비어 있지 않으면 뒤에 `\x1b[0m`을 쓴다.
+   * - `lines`: 완성된 행. 빈 문자열이거나 `\n`으로 끝나야 한다.
+   *   앞 접두가 화면에서 지워진다. 이어 쓰려면 호출자가 앞 접두를 `lines` 앞에 붙인다(`abovePrefix()`).
+   *   비어 있지 않으면 뒤에 `\x1b[0m`을 쓴다.
    * - `prefix`: 개행 없이 끝난 나머지. `\n`·`\r`이 없어야 한다(`State.setPromptPrefix`). 빈 문자열이면 접두 없음.
-   * - 재그리기를 기다리는 중(앞선 `printAboveRaw`·`printAbove`)이면 입력줄은 화면에 없으므로 지우지 않고 `lines`만
-   *   쓰고 접두를 바꿔 그 재그리기에 합류한다. 마지막 호출의 콜백만 다시 그린다.
+   * - 재그리기를 기다리는 중(앞선 `printAboveRaw`·`printAbove`)이면 그 재그리기에 합류한다.
+   *   입력줄은 화면에 없으므로 지우지 않고 `lines`만 쓰고 접두를 바꾼다.
+   *   마지막 호출의 콜백만 다시 그린다.
    * - 활성 읽기가 없거나 `term`이 없으면 `write(lines + prefix)`와 같다.
    *
    * 돌려주는 프로미스는 합친 재그리기가 끝난 뒤(무효가 됐으면 콜백이 온 뒤) resolve한다.
@@ -601,8 +645,9 @@ export class Readline implements ITerminalAddon {
 
   /** `scheduleRedraw`의 write 콜백. */
   private finishRedraw(run: Offscreen, call: number) {
-    // cancelRead()·takeRead()·dispose()가 무효로 했으면 그리지 않는다. 해제된 터미널의 buffer도 읽지 않는다
-    // (TRP-004). 뒤 읽기가 시작한 재그리기(`this.offscreen`)는 건드리지 않는다.
+    // cancelRead()·takeRead()·dispose()가 무효로 했으면 그리지 않는다.
+    // 해제된 터미널의 buffer도 읽지 않는다(TRP-004).
+    // 뒤 읽기가 시작한 재그리기(`this.offscreen`)는 건드리지 않는다.
     if (run !== this.offscreen) {
       settleRun(run);
       return;
@@ -617,13 +662,14 @@ export class Readline implements ITerminalAddon {
     }
     this.state.getTty().anchorRow = this.term.buffer.active.cursorY;
     this.state.restoreCursor(run.cursor);
-    // moveCursorToEnd()가 남긴 옛 레이아웃(감긴 경우 마지막 행 기준)을 새 앵커 기준
-    // 레이아웃으로 되돌린다. 이게 없으면 refresh()가 옛 커서 행 기준으로 위로 올라가
-    // 방금 쓴 원시 텍스트나 입력줄 일부를 \x1b[J로 지운다(다중 행 블록 입력 회귀).
+    // moveCursorToEnd()가 남긴 옛 레이아웃(감긴 경우 마지막 행 기준)을 새 앵커 기준 레이아웃으로 되돌린다.
+    // 이게 없으면 refresh()가 옛 커서 행 기준으로 위로 올라간다.
+    // 그러면 방금 쓴 원시 텍스트나 입력줄 일부를 \x1b[J로 지운다(다중 행 블록 입력 회귀).
     this.state.resetLayout();
     this.state.refresh();
-    // `run.queued`를 이 뒤에 비우지 않는다: 재생 중 `dispatch`가 새 재그리기를 시작하면 새 `Offscreen`의
-    // `queued`로 가지 옛 `run`에는 더 쌓이지 않는다(위 `this.offscreen = undefined`가 이미 갈라놓았다).
+    // `run.queued`를 이 뒤에 비우지 않는다.
+    // 재생 중 `dispatch`가 새 재그리기를 시작하면 새 `Offscreen`의 `queued`로 간다. 옛 `run`에는 더 쌓이지 않는다.
+    // 위 `this.offscreen = undefined`가 이미 갈라놓았다.
     // 각 항목을 큐에 넣을 때 받은 origin 그대로 재생한다(dispatch의 JSDoc 참고).
     for (const { entry, origin } of run.queued) {
       this.dispatch(entry, origin);
@@ -632,18 +678,18 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Get the current line.
+   * 현재 줄을 가져온다.
    *
-   * @returns string - The current line
+   * @returns string - 현재 줄.
    */
   public getLine() {
     return this.state.buffer();
   }
 
   /**
-   * Update the current line.
+   * 현재 줄을 갱신한다.
    *
-   * @param text - The text to write to the terminal./
+   * @param text - 터미널에 쓸 텍스트.
    * @returns
    */
   public updateLine(text: string) {
@@ -651,10 +697,11 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 재그리기 대기 중 들어와 큐(`queued`)에 쌓인 입력이 있는가. 큐의 키는 콜백에서 재생되기 전까지 버퍼에 없어
-   * `getLine`·`getCursor` 비교로는 보이지 않으므로, 버퍼 비교로 경합을 판정하는 호출자(Tab 완성 응답)가 이 값을
-   * 함께 봐야 한다. 재그리기 중이 아니거나 큐가 비었으면 false다. 읽기 밖 type-ahead 버퍼는 활성 읽기가 없을 때의 것이라
-   * 포함하지 않는다.
+   * 재그리기 대기 중 들어와 큐(`queued`)에 쌓인 입력이 있는가.
+   * 큐의 키는 콜백에서 재생되기 전까지 버퍼에 없어 `getLine`·`getCursor` 비교로는 보이지 않는다.
+   * 버퍼 비교로 경합을 판정하는 호출자(Tab 완성 응답)는 이 값을 함께 봐야 한다.
+   * 재그리기 중이 아니거나 큐가 비었으면 false다.
+   * 읽기 밖 type-ahead 버퍼는 활성 읽기가 없을 때의 것이라 포함하지 않는다.
    *
    * 재그리기 대기 중 동작: `line-view.ts` `Offscreen`.
    */
@@ -663,9 +710,10 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 현재 버퍼의 커서 위치(UTF-16 인덱스)를 돌려준다. `getLine`/`updateLine`과 같은 수준으로 활성
-   * 읽기가 없어도 현재 state에 작용한다. 재그리기 대기 중이면 저장 커서(`offscreen.cursor`)다 — Tab `printAbove`의
-   * `moveCursorToEnd()`가 논리 커서를 끝으로 옮겨 두어도 공개 편집 API가 쓰는 자리와 같은 값을 돌려준다.
+   * 현재 버퍼의 커서 위치(UTF-16 인덱스)를 돌려준다.
+   * `getLine`/`updateLine`과 같은 수준으로 활성 읽기가 없어도 현재 state에 작용한다.
+   * 재그리기 대기 중이면 저장 커서(`offscreen.cursor`)다.
+   * Tab `printAbove`의 `moveCursorToEnd()`가 논리 커서를 끝으로 옮겨 두어도 공개 편집 API가 쓰는 자리와 같은 값을 돌려준다.
    *
    * 재그리기 대기 중 동작: `line-view.ts` `Offscreen`.
    */
@@ -674,9 +722,10 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 현재 커서 위치에 텍스트를 끼워 넣는다(원본 편집 경로와 같은 `State.editInsert`). `printAbove`·`printAboveRaw` 재그리기를
-   * 기다리는 중이면 입력줄이 화면에 없으므로 그리지 않고 저장 커서(`offscreen.cursor`) 자리의 버퍼에만 넣은 뒤 저장 커서를 삽입
-   * 뒤로 옮긴다 — 재그리기 콜백이 그 커서로 다시 그린다(Tab 완성 삽입이 배경 출력 재그리기와 겹칠 때, 이슈 10).
+   * 현재 커서 위치에 텍스트를 끼워 넣는다(원본 편집 경로와 같은 `State.editInsert`).
+   * `printAbove`·`printAboveRaw` 재그리기를 기다리는 중이면 입력줄이 화면에 없으므로 그리지 않는다.
+   * 이때는 저장 커서(`offscreen.cursor`) 자리의 버퍼에만 넣고 저장 커서를 삽입 뒤로 옮긴다.
+   * 재그리기 콜백이 그 커서로 다시 그린다(Tab 완성 삽입이 배경 출력 재그리기와 겹칠 때, 이슈 10).
    *
    * 재그리기 대기 중 동작: `line-view.ts` `Offscreen`.
    */
@@ -694,7 +743,7 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Obtain an output interface to this terminal.
+   * 이 터미널의 출력 인터페이스를 얻는다.
    *
    * @returns Output
    */
@@ -703,9 +752,9 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Obtain a tty interface to this terminal.
+   * 이 터미널의 tty 인터페이스를 얻는다.
    *
-   * @returns A tty
+   * @returns tty
    */
   public tty(): Tty {
     if (this.term?.options?.tabStopWidth !== undefined) {
@@ -723,12 +772,11 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * Display the given prompt and wait for one line of input from the
-   * terminal. The returned promise will be executed when a line has been
-   * read from the terminal.
+   * 주어진 프롬프트를 표시하고 터미널에서 한 줄 입력을 기다린다.
+   * 반환된 promise는 터미널에서 한 줄을 읽었을 때 실행된다.
    *
-   * @param prompt The prompt to use.
-   * @returns A promise to be called when the input has been read.
+   * @param prompt 사용할 프롬프트.
+   * @returns 입력을 읽었을 때 호출될 promise.
    */
   public read(prompt: string): Promise<string>;
   /**
@@ -743,7 +791,8 @@ export class Readline implements ITerminalAddon {
     options: ReadOptions & { eof?: false },
   ): Promise<string | null>;
   /**
-   * `eof`를 켤 수 있는 읽기. `eof`가 true면 빈 버퍼의 실제로 친 Ctrl+D가 읽기를 `READ_EOF`로 끝낸다(`ReadOptions.eof`).
+   * `eof`를 켤 수 있는 읽기.
+   * `eof`가 true면 빈 버퍼의 실제로 친 Ctrl+D가 읽기를 `READ_EOF`로 끝낸다(`ReadOptions.eof`).
    * `eof`가 `boolean`으로만 알려진 옵션도 이 모양이다.
    *
    * @param prompt 프롬프트.
@@ -765,10 +814,9 @@ export class Readline implements ITerminalAddon {
         reject("addon is not active");
         return;
       }
-      // term.write is buffered, so any prior prints (e.g. an animated logo)
-      // may not have updated buffer.active.cursorY by the time we read it
-      // synchronously. Wait for the buffer to flush so the anchor row
-      // accurately reflects where the prompt will land.
+      // term.write는 버퍼링된다.
+      // 앞선 출력(예: 애니메이션 로고)은 동기로 읽는 시점에 buffer.active.cursorY를 아직 갱신하지 않았을 수 있다.
+      // 버퍼가 flush되길 기다려야 앵커 행이 프롬프트가 놓일 위치를 정확히 반영한다.
       const pending: PendingRead = { reject, cancelled: false };
       this.pendingReads.add(pending);
       this.term.write("", () => {
@@ -829,17 +877,19 @@ export class Readline implements ITerminalAddon {
   }
 
   /**
-   * 입력 하나(`onData` 원본 문자열 또는 Shift+Enter `Input`)를 상태에 맞게 보낸다. `onData`·Shift+Enter·
-   * 두 재생 경로(`replayTypeAhead`, `printAbove` 콜백의 `queued`)가 모두 이 분기를 탄다. `origin`은 Ctrl+D
-   * EOF 판정(`readKey`)만 쓴다 — 재그리기 창에서 실제로 친 키는 `"live"`, `typeAhead` 재생은 `"replay"`다.
-   * `queued`로 넘어가는 항목은 받은 origin 그대로 들고 있다가 재그리기 뒤 그 origin으로 재생한다
-   * (`finishRedraw`) — `replayTypeAhead` 도중 `onKey`가 동기로 `printAbove`를 불러 뒤 항목이 `queued`로
-   * 넘어가도 `"replay"`가 `"live"`로 둔갑하지 않는다.
+   * 입력 하나(`onData` 원본 문자열 또는 Shift+Enter `Input`)를 상태에 맞게 보낸다.
+   * `onData`·Shift+Enter·두 재생 경로(`replayTypeAhead`, `printAbove` 콜백의 `queued`)가 모두 이 분기를 탄다.
+   * `origin`은 Ctrl+D EOF 판정(`readKey`)만 쓴다.
+   * 재그리기 창에서 실제로 친 키는 `"live"`, `typeAhead` 재생은 `"replay"`다.
+   * `queued`로 넘어가는 항목은 받은 origin 그대로 들고 있다가 재그리기 뒤 그 origin으로 재생한다(`finishRedraw`).
+   * `replayTypeAhead` 도중 `onKey`가 동기로 `printAbove`를 불러 뒤 항목이 `queued`로 넘어간다.
+   * 이때도 `"replay"`가 `"live"`로 둔갑하지 않는다.
    */
   private dispatch(entry: string | Input, origin: Origin) {
     if (this.offscreen !== undefined) {
-      // 재그리기(printAbove) 중 도착한 입력은 원본째 쌓아 둔다. 붙여넣기 덩어리도 하나로 보관해 재생 시
-      // readPaste 경로를 그대로 타게 하고, Shift+Enter도 여기 쌓아 앞서 친 키보다 먼저 적용되지 않게 한다.
+      // 재그리기(printAbove) 중 도착한 입력은 원본째 쌓아 둔다.
+      // 붙여넣기 덩어리도 하나로 보관해 재생 시 readPaste 경로를 그대로 타게 한다.
+      // Shift+Enter도 여기 쌓아 앞서 친 키보다 먼저 적용되지 않게 한다.
       this.offscreen.queued.push({ entry, origin });
       return;
     }
@@ -882,8 +932,9 @@ export class Readline implements ITerminalAddon {
    * 합계가 상한을 넘으면 그 항목만 버린다(앞에 쌓인 것은 유지, 알림 없음).
    */
   private pushTypeAhead(entry: string | Input) {
-    // typeAhead: false면 쌓지 않고 버린다. 활성 읽기 없는 구간의 입력(onData 키·붙여넣기·IME, Shift+Enter)은
-    // 모두 dispatch를 거쳐 여기로 오므로 이 한 곳에서 막는다. onKeyEvent는 KeyboardEvent에만 불려 붙여넣기·IME를 못 막는다.
+    // typeAhead: false면 쌓지 않고 버린다.
+    // 활성 읽기 없는 구간의 입력(onData 키·붙여넣기·IME, Shift+Enter)은 모두 dispatch를 거쳐 여기로 온다. 그래서 이 한 곳에서 막는다.
+    // onKeyEvent는 KeyboardEvent에만 불려 붙여넣기·IME를 못 막는다.
     if (!this.typeAheadEnabled) return;
     const length = typeof entry === "string" ? entry.length : 1;
     if (this.typeAheadLength + length > TYPE_AHEAD_LIMIT) return;
@@ -898,9 +949,9 @@ export class Readline implements ITerminalAddon {
 
   /**
    * 쌓인 항목을 `dispatch`로 하나씩 재생한다(`onKey` 훅·붙여넣기 경로 포함, Shift+Enter는 `readKey`).
-   * 스냅샷을 먼저 꺼내 비우므로 Enter로 읽기가 끝난 뒤의 항목은 `activeRead` 없음 → 다시 `typeAhead`로
-   * 들어가 순서가 보존되고 다음 읽기가 받는다. 재생 키가 `printAbove`로 재그리기를 시작하면 남은 항목은
-   * `queued`가 이어받는다.
+   * 스냅샷을 먼저 꺼내 비운다.
+   * 그래서 Enter로 읽기가 끝난 뒤의 항목은 `activeRead` 없음 → 다시 `typeAhead`로 들어가 순서가 보존되고 다음 읽기가 받는다.
+   * 재생 키가 `printAbove`로 재그리기를 시작하면 남은 항목은 `queued`가 이어받는다.
    */
   private replayTypeAhead() {
     const entries = this.typeAhead;
@@ -929,7 +980,7 @@ export class Readline implements ITerminalAddon {
       if (it.inputType === InputType.Text) {
         this.state.editInsert(it.data.join(""));
       } else {
-        // 붙여넣기 덩어리 안 제어 문자는 실제로 친 키가 아니다 — origin "paste"라 Ctrl+D는 EOF가 아니다.
+        // 붙여넣기 덩어리 안 제어 문자는 실제로 친 키가 아니다. origin "paste"라 Ctrl+D는 EOF가 아니다.
         this.readKey(it, "paste");
       }
     }
@@ -965,8 +1016,8 @@ export class Readline implements ITerminalAddon {
       case InputType.Enter:
         if (this.checkHandler(this.state.buffer())) {
           this.state.moveCursorToEnd();
-          // Strip any cursor-driven highlight (e.g. matching brackets)
-          // before committing so the line frozen in scrollback is plain.
+          // 커서에 따라 붙는 강조(예: 괄호 짝)를 확정 전에 벗긴다.
+          // scrollback에 굳는 줄은 강조 없는 평문이어야 한다.
           this.state.refreshUnhighlighted();
           this.term?.write("\r\n");
           if (
@@ -986,7 +1037,7 @@ export class Readline implements ITerminalAddon {
         break;
       case InputType.CtrlC:
         if (this.activeRead.cancelable) {
-          // 취소: settle 취소와 같은 줄 확정(Enter와 같은 순서)이되 ^C를 찍지 않고 history에도 넣지 않는다.
+          // 취소: settle 취소와 같은 줄 확정(Enter와 같은 순서). ^C를 찍지 않고 history에도 넣지 않는다.
           this.endActiveRead(this.activeRead, null);
           break;
         }

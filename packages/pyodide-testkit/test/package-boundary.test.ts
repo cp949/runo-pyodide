@@ -1,7 +1,8 @@
 // @vitest-environment node
 /**
- * 의존 트리 수집 도우미(`package-boundary.ts`) 시험. 가짜 매니페스트·임시 `node_modules` 배치로 도우미 자체를
- * 검증한다. 실제 core·repl 패키지에 대한 단언은 각 패키지의 `package-boundary.test.ts`에 있다.
+ * 의존 트리 수집 도우미(`src/package-boundary.ts`) 시험.
+ * - 가짜 매니페스트와 임시 `node_modules` 배치로 도우미 자체를 검증한다.
+ * - 실제 패키지에 대한 단언은 각 패키지의 `package-boundary.test.ts`에 있다.
  */
 import {
   mkdirSync,
@@ -171,13 +172,14 @@ describe("findForbiddenDependencies", () => {
 });
 
 describe("collectInstalledDependencyNames", () => {
+  // 시험마다 만든 임시 폴더. 끝나면 지운다.
   const roots: string[] = [];
   afterEach(() => {
     for (const dir of roots.splice(0))
       rmSync(dir, { recursive: true, force: true });
   });
 
-  /** `dir/package.json`을 쓴다. */
+  /** `dir/package.json`에 매니페스트를 쓴다. 폴더가 없으면 만든다. */
   function writeManifest(
     dir: string,
     manifest: PackageManifest & { name: string },
@@ -189,7 +191,7 @@ describe("collectInstalledDependencyNames", () => {
   test("node_modules를 위로 올라가며 의존을 해석하고 심볼릭 링크 너머의 의존도 따라간다", () => {
     const base = mkdtempSync(join(tmpdir(), "boundary-fs-"));
     roots.push(base);
-    // 작업공간처럼 실제 위치(real)와 소비 위치(app/node_modules의 링크)를 나눈다.
+    // 작업공간처럼 실제 위치(real)와 소비 위치(app/node_modules의 심볼릭 링크)를 나눈다.
     writeManifest(join(base, "app"), {
       name: "app",
       dependencies: { lib: "1" },
@@ -210,7 +212,7 @@ describe("collectInstalledDependencyNames", () => {
       join(base, "real", "lib"),
       join(base, "app", "node_modules", "lib"),
     );
-    // lib의 실제 위치(real/lib) 기준으로 leaf를 찾는다(real/node_modules/leaf).
+    // leaf는 lib의 실제 위치(real/lib) 기준으로 찾는다(real/node_modules/leaf).
 
     const { names } = collectInstalledDependencyNames(join(base, "app"));
 

@@ -1,10 +1,10 @@
-// RD-007 브라우저 검증(실행 중 Ctrl+C). 출처 RD-007, `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/`에서
+// RD-007 브라우저 검증(실행 중 Ctrl+C). 출처 RD-007에서
 // 이관(RD-018). ROADMAP 시나리오와 이전 구현 브라우저 ID 중
-// 이 RD가 맡는 것(G1·G2·S1·S08)을 새 데모(하니스 lib.mjs)에 맞춰 옮겼다. 건너뛴 ID는 skipped-ids.md.
-// 기대 바이트는 DELTA-02가 node에서 고정한 것과 같다:
+// 이 RD가 맡는 것(G1·G2·S1·S08)을 새 데모(하니스 lib.mjs)에 맞춰 옮겼다.
+// 기대 바이트는 node 시험에서 고정한 것과 같다:
 //   'Traceback (most recent call last):\n  File "<console>", line 1, in <module>\nKeyboardInterrupt\n'
 // 규칙(TRP-005·006·008·011): 각 확인은 Ctrl+L로 시작하고, 새 프롬프트가 보인 뒤 입력하며, 정확한 행 목록으로 단언한다.
-// RD-018 DELTA-02 갱신: S1a·S1·RM2는 다단 중첩(try/while/except/pass)이라 RD-013 자동 들여쓰기 프리필과 수동 들여쓰기가
+// RD-018 갱신: S1a·S1·RM2는 다단 중첩(try/while/except/pass)이라 RD-013 자동 들여쓰기 프리필과 수동 들여쓰기가
 // 겹치면 실제로 IndentationError/SyntaxError가 난다. dev 서버 프로브(cursorCol 실측, 이 DELTA)로 확인한 규칙:
 //   - `:`로 끝나는 줄을 제출하면 다음 줄 프리필이 한 단위(4칸) 늘어난다. `:`로 끝나지 않는 줄(인라인 복합문 등)은 같은
 //     레벨을 유지한다.
@@ -13,7 +13,7 @@
 //     (프리필 끝에서, 추가로 친 문자가 없을 때).
 // 화면 기대값 자체는 원래 스크립트가 4칸 단위로 손으로 들여썼던 것과 우연히 같아 문자열은 바뀌지 않는다.
 // 사용: node ctrl-c-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=RM1,S1 node ctrl-c-check.mjs <url>
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 

@@ -12,17 +12,17 @@ export class LineBuffer {
     return this.buf.slice(0, this.pos);
   }
 
-  // Return length of buffer in bytes
+  // 버퍼 길이를 UTF-16 코드 유닛 단위로 돌려준다.
   public length(): number {
     return this.buf.length;
   }
 
-  // Return length of buffer in characters
+  // 버퍼 길이를 코드 포인트(문자) 단위로 돌려준다.
   public char_length(): number {
     return [...this.buf].length;
   }
 
-  // Set text and position
+  // 텍스트와 위치를 설정한다.
   public update(text: string, pos: number) {
     this.buf = text;
     this.pos = pos;
@@ -101,9 +101,8 @@ export class LineBuffer {
     if (off === -1) {
       return false;
     }
-    // Current cursor isn't on buffer line 0 (we just confirmed there's
-    // a `\n` before pos), so its buffer column equals its visual column
-    // for the purposes of vertical alignment.
+    // 현재 커서는 버퍼 0번 줄에 있지 않다(`pos` 앞에 `\n`이 있음을 방금 확인했다).
+    // 그래서 세로 정렬에서는 버퍼 열이 시각 열과 같다.
     const visualCol = [...this.buf.slice(off + 1, this.pos)].length;
 
     let destStart = this.buf.slice(0, off).lastIndexOf("\n");
@@ -129,10 +128,9 @@ export class LineBuffer {
       }
     }
 
-    // Line 0 has the prompt rendered before it, so its buffer column N
-    // sits at visual column N + promptCols. To land on the same visual
-    // column we started at, subtract promptCols when the destination is
-    // line 0.
+    // 0번 줄은 앞에 프롬프트가 그려진다.
+    // 그래서 버퍼 열 N은 시각 열 N + promptCols에 놓인다.
+    // 출발한 시각 열에 그대로 내리려면 도착 줄이 0번 줄일 때 promptCols를 뺀다.
     const destBufCol = destIsLine0
       ? Math.max(0, visualCol - promptCols)
       : visualCol;
@@ -163,9 +161,9 @@ export class LineBuffer {
     }
 
     const column = [...this.buf.slice(lineStart, this.pos)].length;
-    // The cursor's visual column. Buffer line 0 is rendered after the
-    // prompt, so its visual column is column + promptCols; any other
-    // line starts at visual column 0.
+    // 커서의 시각 열.
+    // 버퍼 0번 줄은 프롬프트 뒤에 그려지므로 시각 열이 column + promptCols다.
+    // 다른 줄은 시각 열 0에서 시작한다.
     const visualCol = currentIsLine0 ? column + promptCols : column;
     let destStart = this.pos + off + 1;
 
@@ -189,8 +187,8 @@ export class LineBuffer {
       }
     }
 
-    // Destination is below the current line, so it can't be line 0.
-    // Its buffer column equals its visual column.
+    // 도착 줄은 현재 줄 아래이므로 0번 줄일 수 없다.
+    // 버퍼 열이 시각 열과 같다.
     const slice = [...this.buf.slice(destStart, destEnd)];
     if (visualCol < slice.length) {
       this.pos =
@@ -205,13 +203,12 @@ export class LineBuffer {
     return true;
   }
 
-  // Set position of cursor
+  // 커서 위치를 설정한다.
   public set_pos(pos: number) {
     this.pos = pos;
   }
 
-  // Return the position of the character preceding
-  // pos
+  // `pos` 바로 앞 문자의 위치를 돌려준다.
   public prevPos(n: RepeatCount): number | undefined {
     if (this.pos === 0) {
       return undefined;
@@ -226,8 +223,7 @@ export class LineBuffer {
     );
   }
 
-  // Return the position of the character following the
-  // current pos
+  // 현재 `pos` 바로 뒤 문자의 위치를 돌려준다.
   public nextPos(n: RepeatCount): number | undefined {
     if (this.pos === this.buf.length) {
       return undefined;

@@ -1,9 +1,15 @@
 // @vitest-environment node
 /**
- * CSP 정적 검사(RD-023 확정 11). 소스의 coincident import는 `coincident/window/main`·`coincident/window/worker`뿐이고
- * `evaluate`·`serviceWorker`·`coincident/sync`·`window.import` 사용은 0건이다. 이 규칙이 `worker-src 'self'` 같은 CSP에서 위반을
- * 내지 않는 진입점만 쓴다는 근거다(canvas 저장소 실측 F23). 검사기는 `scripts/check-dist.mjs --allow-sync-bridge`이고, 빌드 산출물
- * 검사는 패키지 `check-dist` 스크립트가 같은 옵션으로 한다. 규칙 자체(합성 파일)는 testkit `check-dist-script.test.ts`가 본다.
+ * dom-bridge 소스의 CSP 정적 검사(RD-023 확정 11).
+ *
+ * - 소스의 coincident import는 `coincident/window/main`·`coincident/window/worker`뿐이다.
+ * - `evaluate`·`serviceWorker`·`coincident/sync`·`window.import` 사용은 0건이다.
+ * - 이 규칙은 `worker-src 'self'` 같은 CSP에서 위반을 내지 않는 진입점만 쓴다는 근거다.
+ *   위반 0건 실측(F23)은 canvas 저장소 것이다. 이 저장소는 CSP 헤더를 걸어 확인하지 않았다.
+ *
+ * 검사기는 `scripts/check-dist.mjs --allow-sync-bridge`다.
+ * 빌드 산출물 검사는 패키지 `check-dist` 스크립트가 같은 옵션으로 한다.
+ * 규칙 자체(합성 파일)는 testkit `check-dist-script.test.ts`가 본다.
  */
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, appendFileSync, rmSync } from "node:fs";
@@ -17,12 +23,14 @@ const SCRIPT = fileURLToPath(
 );
 const SRC_DIR = fileURLToPath(new URL("../src/", import.meta.url));
 
+/** 시험이 만든 임시 폴더. `afterEach`가 지운다. */
 const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0))
     rmSync(dir, { recursive: true, force: true });
 });
 
+/** `check-dist.mjs --allow-sync-bridge`를 자식 프로세스로 실행한다. 종료 코드와 stdout·stderr를 돌려준다. */
 function check(dir: string) {
   const result = spawnSync(
     process.execPath,
@@ -32,7 +40,7 @@ function check(dir: string) {
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
-/** 소스 폴더를 임시 폴더로 복사하고 `guard.ts` 등에 한 줄을 덧붙인다(변이 확인용). */
+/** 소스 폴더를 임시 폴더로 복사하고 `file`(`index.ts`·`worker.ts` 등)에 한 줄을 덧붙인다. 변이 확인용이다. */
 function copySrcWith(file: string, line: string): string {
   const dir = mkdtempSync(join(tmpdir(), "csp-src-"));
   dirs.push(dir);

@@ -1,16 +1,22 @@
 /**
- * 출력 꼬리 추적(04-stdin-input.md 3.3, 05-output.md 4.1). 화면에 낸 바이트를 먹여 두었다가, 읽기 시작 때
- * "마지막 `\n` 뒤이면서 그 안에서 마지막 `\r` 뒤" 텍스트를 프롬프트로 다시 그릴 수 있게 한다.
- * 줄 경계를 넘어 열린 SGR(색) 시퀀스는 꼬리 앞에 이어 붙인다. 커서 이동 없이 줄 위에서 글자만 바꾸는 제어 문자는
- * 폭 계산이 어긋나지 않게 정규화한다 — BS(`\b`)는 본문 마지막 글자를 지우고, BEL 등 나머지 C0와 DEL은 제거한다.
- * 예외로 문자열 시퀀스(OSC·DCS 등) 안은 손대지 않는다: 종료자 BEL을 지우면 시퀀스가 열린 채 남는다.
+ * 출력 꼬리 추적(04-stdin-input.md 3.3, 05-output.md 4.1).
+ * 화면에 낸 바이트를 먹여 두었다가, 읽기 시작 때 "마지막 `\n` 뒤이면서 그 안에서 마지막 `\r` 뒤" 텍스트를 프롬프트로 다시 그릴 수 있게 한다.
+ * 줄 경계를 넘어 열린 SGR(색) 시퀀스는 꼬리 앞에 이어 붙인다.
+ *
+ * 커서 이동 없이 줄 위에서 글자만 바꾸는 제어 문자는 폭 계산이 어긋나지 않게 정규화한다.
+ * - BS(`\b`): 본문 마지막 글자를 지운다.
+ * - BEL 등 나머지 C0와 DEL: 제거한다.
+ *
+ * 예외로 문자열 시퀀스(OSC·DCS 등) 안은 손대지 않는다. 종료자 BEL을 지우면 시퀀스가 열린 채 남는다.
  * 터미널·pyodide에 의존하지 않는 순수 모듈이다.
  */
 export interface OutputTail {
   /** 화면에 낸 바이트를 그대로 먹인다. println 계열은 `text + "\n"`을 먹인다. */
   feed(text: string): void;
+
   /** 꼬리와 SGR 상태를 모두 비운다. */
   reset(): void;
+
   /** 이어받은 열린 SGR + 꼬리 본문. 개행·`\r`로 끝났으면 "". */
   value(): string;
 }
@@ -46,9 +52,9 @@ function isDroppedControl(code: number): boolean {
 }
 
 /**
- * ESC 다음 바이트가 문자열 시퀀스(OSC `]`·DCS `P`·SOS `X`·PM `^`·APC `_`)를 여는가. 이 시퀀스는 BEL이나
- * ST(`ESC \`)가 닫으므로 그 안의 제어 문자는 정규화하지 않는다 — 종료자를 지우면 시퀀스가 열린 채 남아
- * 터미널이 뒤따르는 프롬프트·입력까지 삼킨다.
+ * ESC 다음 바이트가 문자열 시퀀스(OSC `]`·DCS `P`·SOS `X`·PM `^`·APC `_`)를 여는가.
+ * 이 시퀀스는 BEL이나 ST(`ESC \`)가 닫는다. 그 안의 제어 문자는 정규화하지 않는다.
+ * 종료자를 지우면 시퀀스가 열린 채 남아 터미널이 뒤따르는 프롬프트·입력까지 삼킨다.
  */
 function opensStringSequence(char: string | undefined): boolean {
   return (
@@ -70,8 +76,9 @@ function endsWithCsi(text: string, start: number): boolean {
 }
 
 /**
- * BS를 본문에 적용한다: 끝의 CSI 시퀀스(SGR 등)는 건너뛰고 그 앞 글자 하나를 지운다. 지울 글자가 없으면(본문이 비었거나
- * 시퀀스뿐) 그대로 돌려준다.
+ * BS를 본문에 적용한다.
+ * 끝의 CSI 시퀀스(SGR 등)는 건너뛰고 그 앞 글자 하나를 지운다.
+ * 지울 글자가 없으면(본문이 비었거나 시퀀스뿐) 그대로 돌려준다.
  */
 function eraseLastChar(body: string): string {
   let end = body.length;
@@ -95,10 +102,12 @@ function eraseLastChar(body: string): string {
 }
 
 /**
- * `feed`가 정규화한 뒤에도 화면에 남는 글자가 `segment`에 있는가. `\n`·`\r`이 없는 한 줄 구간을 받는다
- * (`\r` 구간이 화면에 무언가를 남기는지 보는 소비자용, `05-output.md` 4.4). SGR은 화면에 글자를 남기지 않으므로
- * 건너뛰고, SGR이 아닌 시퀀스는 본문에 남으므로 보이는 것으로 센다. 제거 대상 제어 문자는 세지 않고 BS는 앞 글자를
- * 하나 무른다 — 이 판정이 정규화와 어긋나면 접두가 빈 문자열이 되어 화면의 글자가 사라진다.
+ * `feed`가 정규화한 뒤에도 화면에 남는 글자가 `segment`에 있는가.
+ * `\n`·`\r`이 없는 한 줄 구간을 받는다(`\r` 구간이 화면에 무언가를 남기는지 보는 소비자용, `05-output.md` 4.4).
+ * SGR은 화면에 글자를 남기지 않으므로 건너뛴다.
+ * SGR이 아닌 시퀀스는 본문에 남으므로 보이는 것으로 센다.
+ * 제거 대상 제어 문자는 세지 않는다. BS는 앞 글자 하나를 지운 것으로 센다.
+ * 이 판정이 정규화와 어긋나면 접두가 빈 문자열이 되어 화면의 글자가 사라진다.
  */
 export function leavesVisibleText(segment: string): boolean {
   let index = 0;
@@ -118,11 +127,13 @@ export function leavesVisibleText(segment: string): boolean {
   return visible > 0;
 }
 
+/** 출력 꼬리 추적기를 만든다. 세션마다 하나 쓴다. */
 export function createOutputTail(): OutputTail {
   let active: string[] = []; // 커서 위치에서 열려 있는 SGR
   let carried: string[] = []; // 현재 줄이 시작될 때 열려 있던 SGR
+  // 현재 줄의 본문(정규화 뒤). `carried`는 포함하지 않는다.
   let body = "";
-  // 닫히지 않은 문자열 시퀀스(OSC 등) 안인가. 조각을 넘어 이어지고, 줄이 바뀌면 끝난 것으로 본다.
+  // 닫히지 않은 문자열 시퀀스(OSC 등) 안인가. 조각을 넘어 이어진다. 줄이 바뀌면 끝난 것으로 본다.
   let inString = false;
 
   const startLine = () => {

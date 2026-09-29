@@ -1,7 +1,14 @@
 /**
- * `createRepl`의 `reset()`과 크래시 감지 시험(RD-010). 리셋은 옛 세션을 cancelRead → rpc dispose → worker.terminate 순서로
- * 끝내고 새 interrupt buffer·메일박스·sink 세트로 새 worker를 시작한다. 화면·history는 리셋을 넘어 산다. worker `error`
- * 이벤트는 `onStatus('crashed')`·`onCrash`가 되고 그 뒤 Ctrl+C·미뤄진 stdin 읽기를 막는다.
+ * `createRepl`의 `reset()`과 크래시 감지 시험(RD-010). 규칙은 `docs/design/08-session.md` 8.1·8.4다.
+ *
+ * reset():
+ * - 옛 세션을 cancelRead → rpc dispose → worker.terminate 순서로 끝낸다.
+ * - 새 interrupt buffer·메일박스·sink 세트로 새 worker를 시작한다.
+ * - 화면·history는 리셋을 넘어 산다.
+ *
+ * 크래시:
+ * - worker `error` 이벤트가 `onStatus('crashed')`·`onCrash`가 된다.
+ * - 그 뒤 Ctrl+C와 미뤄진 stdin 읽기를 막는다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { Readline } from "@cp949/runo-xterm-readline";
@@ -40,7 +47,7 @@ describe("reset()(RD-010)", () => {
     session.workerRpc.notify("write", "t");
     await waitFor(() => session.bytes() === "t");
 
-    // 가짜 worker는 SIGINT를 소비(ack)하지 않는다 — 송신기가 살아 있다면 5ms마다 재전송한다.
+    // 가짜 worker는 SIGINT를 소비(ack)하지 않는다. 송신기가 살아 있으면 5ms마다 재전송한다.
     session.fake.type("\x03");
     const buffer = oldWorker.frame().interruptBuffer;
     await waitFor(() => Atomics.load(buffer, SIGNAL) === 2);
@@ -49,14 +56,16 @@ describe("reset()(RD-010)", () => {
 
     session.handle.reset();
 
-    // 옛 buffer는 아무도 지우지 않는다(옛 worker가 자기 buffer만 읽으므로 새 세션과 섞이지 않는다). 새 세션은 깨끗한 buffer로 시작한다.
+    // 옛 buffer는 아무도 지우지 않는다. 옛 worker가 자기 buffer만 읽으므로 새 세션과 섞이지 않는다.
+    // 새 세션은 깨끗한 buffer로 시작한다.
     expect(Atomics.load(buffer, SIGNAL)).toBe(2);
     expect(slotsOf(must(session.workers[1]).frame().interruptBuffer)).toEqual({
       signal: 0,
       ack: 0,
       seq: 0,
     });
-    // reset()의 settle 호출이 먼저, core 세션 terminate 훅의 호출(열린 읽기가 이미 끝나 무동작)이 뒤다.
+    // 호출 순서는 reset()의 settle 호출이 먼저, core 세션 terminate 훅의 호출이 뒤다.
+    // 훅 호출은 열린 읽기가 이미 끝나 무동작이다.
     expect(cancelReadSpy).toHaveBeenCalledTimes(2);
     expect(cancelReadSpy.mock.calls[0]).toEqual([{ settle: true }]);
     expect(cancelReadSpy.mock.calls[1]).toEqual([]);
@@ -68,7 +77,8 @@ describe("reset()(RD-010)", () => {
       must(oldWorker.terminate.mock.invocationCallOrder[0]),
     );
 
-    // 송신기가 멈췄으면 소실을 흉내 내도(SIGNAL만 0) 잠시 뒤에 되살아나지 않는다(재전송 없음, TRP-009 계승).
+    // 송신기가 멈췄으면 소실을 흉내 내도(SIGNAL만 0) 잠시 뒤에 되살아나지 않는다.
+    // 재전송이 없다(TRAP-30 계승).
     Atomics.store(buffer, SIGNAL, 0);
     await settle();
     expect(Atomics.load(buffer, SIGNAL)).toBe(0);
@@ -84,7 +94,8 @@ describe("reset()(RD-010)", () => {
     expect(session.createWorkerSpy).toHaveBeenCalledTimes(2);
     expect(session.workers).toHaveLength(2);
     const newWorker = must(session.workers[1]);
-    // 옛 worker는 terminate 뒤에도 한동안 살아 같은 buffer의 SIGINT를 가로챌 수 있다(TRP-049). 세션마다 다른 SharedArrayBuffer여야 한다.
+    // 옛 worker는 terminate 뒤에도 한동안 살아 같은 buffer의 SIGINT를 가로챌 수 있다(TRP-049).
+    // 그래서 세션마다 다른 SharedArrayBuffer여야 한다.
     const newBuffer = newWorker.frame().interruptBuffer;
     expect(newBuffer.buffer).toBeInstanceOf(SharedArrayBuffer);
     expect(newBuffer.buffer).not.toBe(buffer.buffer);
@@ -119,7 +130,8 @@ describe("reset()(RD-010)", () => {
     await startRead(session);
 
     expect(session.bytes()).toContain(RESET_NOTICE);
-    // 새 세션의 프롬프트가 옛 세션의 꼬리("t")를 이어 그리지 않는다(`t\x1b[0m>>> ` 형태가 되지 않는다, `line-editing.test.ts`의 꼬리 프롬프트 시험과 대조).
+    // 새 세션의 프롬프트가 옛 세션의 꼬리("t")를 이어 그리지 않는다.
+    // `t\x1b[0m>>> ` 형태가 되지 않는다. `line-editing.test.ts`의 꼬리 프롬프트 시험과 대조된다.
     expect(session.bytes()).not.toContain("t\x1b[0m>>> ");
     const afterNotice = session
       .bytes()
@@ -144,10 +156,11 @@ describe("reset()(RD-010)", () => {
     expect(session.onStatus.mock.calls.at(-1)).toEqual(["ready"]);
   });
 
-  test("리셋 안내 줄: 꼬리가 있으면 개행 뒤에, 없으면 바로 그려진다(TRP-006)", async () => {
+  test("리셋 안내 줄: 꼬리가 있으면 개행 뒤에, 없으면 바로 그려진다(TRAP-12)", async () => {
     const session = startResettableSession();
 
-    // 리셋 시점에 아직 열린 읽기가 없다(worker의 첫 readLine 요청 전) — 미종결 출력으로 현재 io 꼬리를 만든다.
+    // 리셋 시점에 아직 열린 읽기가 없다(worker의 첫 readLine 요청 전).
+    // 미종결 출력으로 현재 io 꼬리를 만든다.
     session.workerRpc.notify("write", "t");
     await waitFor(() => session.bytes().includes("t"));
     const before1 = session.fake.written.length;
@@ -164,12 +177,14 @@ describe("reset()(RD-010)", () => {
     expect(written2).toContain(RESET_NOTICE);
   });
 
-  // DELTA-05(최종 리뷰 발견): `promptRow.endRead`(reset 경로)도 breakLine·notice와 같은 꼬리 판정 함수를
-  // 쓴다 — SGR만 남은 꼬리를 "꼬리 있음"으로 잘못 보면 불필요한 개행이 안내 앞에 남는다(수정 전이면 RED).
+  // 최종 리뷰에서 발견한 결함의 회귀 시험.
+  // `promptRow.endRead`(reset 경로)도 breakLine·notice와 같은 꼬리 판정 함수를 쓴다.
+  // SGR만 남은 꼬리를 "꼬리 있음"으로 잘못 보면 불필요한 개행이 안내 앞에 남는다. 수정 전이면 RED다.
   test("SGR만 남은 꼬리(색 안 닫고 개행으로 끝난 출력)에서 reset해도 안내 앞에 불필요한 개행이 생기지 않는다(회귀)", async () => {
     const session = startResettableSession();
 
-    // 열린 읽기가 없다(worker의 첫 readLine 요청 전) — 색을 안 닫고 개행으로 끝난 출력으로 SGR-only 꼬리를 만든다.
+    // 열린 읽기가 없다(worker의 첫 readLine 요청 전).
+    // 색을 안 닫고 개행으로 끝난 출력으로 SGR-only 꼬리를 만든다.
     session.workerRpc.notify("write", "\x1b[31mred\n");
     await waitFor(() => session.bytes().includes("red"));
     const before = session.fake.written.length;
@@ -181,8 +196,9 @@ describe("reset()(RD-010)", () => {
     expect(written).toContain(RESET_NOTICE);
   });
 
-  // B1(design.md §5): 그리기 전 창(write 콜백 대기 중)에서 reset하면 그리기 전 읽기가 있었으므로 무조건 개행한다 —
+  // B1: 그리기 전 창(write 콜백 대기 중)에서 reset하면 그리기 전 읽기가 있었으므로 무조건 개행한다.
   // 열린 읽기가 없을 때(꼬리 기준)와 달리 꼬리가 비어 있어도 안내 앞에 개행이 하나 생긴다(Q3, 화면 바이트 변경 수용).
+  // 같은 규칙: `docs/design/08-session.md` 8.1 reset() 1번.
   test("B1: 그리기 전 창(>>> 읽기 콜백 전)에서 reset하면 꼬리가 비어 있어도 안내 앞에 개행이 하나 생긴다", async () => {
     const session = startResettableSession({}, { asyncWrite: true });
     const { fake, workerRpc } = session;
@@ -197,7 +213,8 @@ describe("reset()(RD-010)", () => {
     );
     void line.catch(() => {});
     await waitFor(() => flushRequests() > before);
-    // flush하지 않는다 — 프롬프트가 아직 그려지지 않은 상태(그리기 전 읽기, hasPendingRead() true)에서 reset한다.
+    // flush하지 않는다.
+    // 프롬프트가 아직 그려지지 않은 상태(그리기 전 읽기, hasPendingRead() true)에서 reset한다.
     const beforeWritten = fake.written.length;
 
     session.handle.reset();
@@ -217,7 +234,8 @@ describe("reset()(RD-010)", () => {
 
     expect(oldOutcome()).toEqual({ state: "pending" });
 
-    // "이미 읽는 중"으로 거절되지 않고 새 세션의 첫 readLine이 정상 시작된다(읽기 phase는 세션마다 새로 시작).
+    // "이미 읽는 중"으로 거절되지 않고 새 세션의 첫 readLine이 정상 시작된다.
+    // 읽기 phase는 세션마다 새로 시작한다.
     const { line: newLine } = await startRead(session);
     session.fake.type("ok\r");
 
@@ -226,7 +244,8 @@ describe("reset()(RD-010)", () => {
 
   test("리셋 뒤 새 세션의 prefill은 4칸이다(옛 세션이 2칸 블록을 본 뒤에도, RD-013)", async () => {
     const session = startResettableSession();
-    // 옛 세션에 2칸 들여쓰기 블록을 보여 lastUsedIndentation을 "  "로 만든다(worker가 보낼 pending을 하니스가 직접 준다).
+    // 옛 세션에 2칸 들여쓰기 블록을 보여 lastUsedIndentation을 "  "로 만든다.
+    // worker가 보낼 pending을 하니스가 직접 준다.
     const { line: old } = await startRead(session, "... ", "if True:\n  x=1");
     session.fake.type("\r");
     await old;
@@ -343,7 +362,7 @@ describe("reset()(RD-010)", () => {
     session.handle.reset();
 
     const { line: next } = await startRead(session);
-    session.fake.type("\x1b[A\r"); // ↑로 이전 history를 불러와 그대로 제출
+    session.fake.type("\x1b[A\r"); // ↑로 이전 history를 불러와 그대로 제출한다
     await expect(next).resolves.toBe("kept");
   });
 
@@ -374,7 +393,7 @@ describe("reset()(RD-010)", () => {
     const session = startResettableSession({}, { asyncWrite: true });
     await startRead(session);
     session.workerRpc.notify("readInput", true);
-    await settle(); // read-guard가 미룬다(접두를 뗀다)
+    await settle(); // read-guard가 stdin 읽기를 미룬다. 접두를 뗀다.
 
     session.handle.reset();
     session.fake.flush();
@@ -413,7 +432,7 @@ describe("크래시 감지(RD-010)", () => {
   test("크래시 뒤 Ctrl+C는 에코도 전송도 하지 않는다", () => {
     const session = startSession();
     session.fake.type("\x03");
-    expect(slots(session).seq).toBe(1); // 대조: 크래시 전에는 전송된다
+    expect(slots(session).seq).toBe(1); // 대조. 크래시 전에는 전송된다.
 
     session.fakeWorker.dispatchError("boom");
     session.fake.type("\x03");
@@ -426,7 +445,7 @@ describe("크래시 감지(RD-010)", () => {
     const session = startSession({}, { asyncWrite: true });
     await startRead(session);
     session.workerRpc.notify("readInput", true);
-    await settle(); // read-guard가 미룬다(접두를 뗀다)
+    await settle(); // read-guard가 stdin 읽기를 미룬다. 접두를 뗀다.
 
     session.fakeWorker.dispatchError("boom");
     await waitFor(() => session.onStatus.mock.calls.at(-1)?.[0] === "crashed");
@@ -437,6 +456,7 @@ describe("크래시 감지(RD-010)", () => {
     await settle();
 
     // 미뤄진 stdin 읽기가 REPL 읽기 뒤에 열리려 하면 빈 접두 읽기 그리기(`term.write("", cb)`)가 새로 생긴다.
+    // 그 횟수가 늘지 않아야 한다.
     expect(flushRequestCount(session.fake)).toBe(before);
     expect(session.bytes()).not.toContain(
       "\x1b[?25l\r\x1b[J\x1b[0m\r\x1b[?25h",
@@ -455,7 +475,7 @@ describe("크래시 감지(RD-010)", () => {
     session.workerRpc.notify("readInput", true);
     await settle();
     session.fake.flush();
-    await settle(); // read-guard가 미룬다(접두를 뗀다)
+    await settle(); // read-guard가 stdin 읽기를 미룬다. 접두를 뗀다.
 
     session.fakeWorker.dispatchError("boom");
     await waitFor(() => session.onStatus.mock.calls.at(-1)?.[0] === "crashed");

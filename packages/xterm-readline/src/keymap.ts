@@ -61,7 +61,7 @@ function* splitInput(data: string) {
         continue;
       }
 
-      // Console
+      // 콘솔
       let inputType = InputType.UnsupportedEscape;
       if (seq2.value !== "[") {
         switch (seq2.value) {
@@ -76,13 +76,13 @@ function* splitInput(data: string) {
         continue;
       }
 
-      // Ansi Escape
+      // ANSI 이스케이프
       const seq3 = it.next();
       if (seq3.done) {
         continue;
       }
 
-      // vt sequence
+      // vt 시퀀스
       if (seq3.value >= "0" && seq3.value <= "9") {
         let digit = seq3.value;
         const nextDigit = it.next();
@@ -180,7 +180,7 @@ function* splitInput(data: string) {
       continue;
     }
 
-    // else this is text
+    // 그 밖에는 텍스트다.
     text.push(c);
   }
 

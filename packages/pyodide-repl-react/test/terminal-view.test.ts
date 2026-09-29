@@ -1,8 +1,9 @@
 /**
- * `terminal-view.ts`의 `attachFit` 시험(jsdom, React 경유 없음). runner `fit` describe에 남았던 8건을 시험 대상
- * (`mountTerminalView`가 여는 fit 배선)과 파일을 맞추려고 여기로 옮겼다(DELTA-03). 마운트 배선 자체(FitAddon 부착·
- * ResizeObserver 생성·`fit={false}`·StrictMode observer 2개)는 계약 suite(`terminal-component.contract.test.tsx`)
- * C12~C15가 본다. followups/04(재개 시 addon 예외 주입 시험)도 이 파일이 자리다.
+ * `terminal-view.ts`의 fit 로직(`attachFit`) 시험. jsdom, React를 거치지 않는다.
+ * - 진입점: `mountTerminalView(container, { fit: true })`.
+ * - 확인: 크기 0 건너뜀, rAF 콜백의 실행 시점 크기 재확인, 연속 통지 합침, `dispose()`의 rAF 취소, `ResizeObserver` 없는 환경.
+ * - 다른 파일과의 분담: 마운트 배선(FitAddon 부착·ResizeObserver 생성·`fit={false}`·StrictMode observer 2개)은
+ *   `terminal-component.contract.test.tsx`의 "fit 배선" suite가 본다(`docs/design/15-react.md` 15.5).
  */
 import { FitAddon } from "@xterm/addon-fit";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -26,7 +27,7 @@ describe("terminal-view: fit", () => {
     hostSize = { width: 0, height: 0 };
     container = document.createElement("div");
     document.body.append(container);
-    // 실제 레이아웃이 없으므로 컨테이너의 크기만 시험이 정한다(xterm이 만드는 하위 요소는 0).
+    // jsdom은 레이아웃이 없다. 컨테이너 크기만 `hostSize`로 정하고 xterm이 만드는 하위 요소는 0으로 둔다.
     const sizeOf = (element: Element, axis: "width" | "height") =>
       element === container ? hostSize[axis] : 0;
     vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(
@@ -50,18 +51,20 @@ describe("terminal-view: fit", () => {
     vi.unstubAllGlobals();
   });
 
+  // `fit: true`로 마운트하고 `afterEach`가 정리하도록 `view`에 담는다.
   function mount(): TerminalView {
     view = mountTerminalView(container, { fit: true });
     return view;
   }
 
-  /** 마운트하고 xterm 자체가 예약한 rAF를 비워 이후 `raf.pending()`이 fit 것만 세게 한다. */
+  // 마운트한 뒤 xterm이 예약한 rAF를 비운다. 이후 `raf.pending()`은 fit이 예약한 것만 센다.
   function mountFit(): TerminalView {
     const created = mount();
     raf.flush();
     return created;
   }
 
+  // 컨테이너를 관찰하는 observer. xterm 내부 observer는 대상으로 걸러 뺀다.
   function hostObserver(): FakeResizeObserver {
     return FakeResizeObserver.instances.find((observer) =>
       observer.targets.includes(container),
@@ -92,11 +95,11 @@ describe("terminal-view: fit", () => {
     const observer = hostObserver();
     hostSize = { width: 400, height: 300 };
     observer.trigger();
-    // 통지와 프레임 사이에 숨겨졌다(`display: none`).
+    // 통지와 프레임 사이에 숨겨진 상황이다(`display: none`).
     hostSize = { width: 0, height: 0 };
     raf.flush();
     expect(fitSpy).not.toHaveBeenCalled();
-    // 같은 경로에서 크기가 남아 있으면 맞춘다(양성 구간).
+    // 대조: 같은 경로에서 크기가 남아 있으면 fit()을 부른다.
     hostSize = { width: 400, height: 300 };
     observer.trigger();
     raf.flush();
@@ -120,7 +123,7 @@ describe("terminal-view: fit", () => {
     expect(fitSpy).not.toHaveBeenCalled();
     raf.flush();
     expect(fitSpy).toHaveBeenCalledTimes(1);
-    // 합쳐진 뒤 다음 통지는 새 rAF를 예약한다.
+    // 합친 뒤의 다음 통지는 새 rAF를 예약한다.
     observer.trigger();
     expect(raf.pending()).toBe(1);
     raf.flush();

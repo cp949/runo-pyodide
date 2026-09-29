@@ -160,7 +160,7 @@ export function entrySpecifiers(name, exports) {
 
 /**
  * 도출한 진입점과 기대 export 선언(`scripts/pack-smoke.mjs` `ENTRY_EXPORTS`)을 양방향으로 대조한다. 진입점을 더하고 선언을 잊거나,
- * 진입점을 지우고 선언을 남기면 오류 메시지를 돌려준다(`.scratch/dom-bridge-followups/issues/02`).
+ * 진입점을 지우고 선언을 남기면 오류 메시지를 돌려준다(`docs/design/09-testing.md` 9.8.3).
  */
 export function compareEntryDeclarations(specifiers, declared) {
   const derived = new Set(specifiers);

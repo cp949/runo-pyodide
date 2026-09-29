@@ -1,8 +1,13 @@
 /**
- * `createRepl`의 선택 복사 배선 시험(RD-017 DELTA-03). `packages/pyodide-terminal/src/selection-copy.ts`(DELTA-02)의
- * `decideKey`·`createSelectionCopy` 자체는 여기서 다시 보지 않는다 — `createRepl`이 벤더 `Readline`의 `onKeyEvent`에 실제로
- * 연결했는지, `dispose()` 순서, `!isolated`·`setCopyOnSelect`·`copyOnSelect`·`onCopy`가 문서(DELTA-03.md "## 계획")대로인지만
- * 본다. `createRepl`이 `writeText`를 주입받지 않으므로(옵션 없음) `navigator.clipboard`를 jsdom에 심어 관찰한다.
+ * `createRepl`의 선택 복사 배선 시험(RD-017). 규칙은 `docs/design/06-editing.md` 6.6이다.
+ *
+ * 범위:
+ * - `packages/pyodide-terminal/src/selection-copy.ts`의 `decideKey`·`createSelectionCopy` 자체는 여기서 다시 보지 않는다.
+ * - `createRepl`이 벤더 `Readline`의 `onKeyEvent`에 실제로 연결했는지 본다.
+ * - `dispose()` 순서를 본다.
+ * - `!isolated`·`setCopyOnSelect`·`copyOnSelect`·`onCopy`가 6.6대로 동작하는지 본다.
+ *
+ * 관찰 방법: `createRepl`이 `writeText`를 주입받지 않는다(옵션 없음). `navigator.clipboard`를 jsdom에 심어 관찰한다.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createRepl, type CopyResult } from "../../src/index";
@@ -24,7 +29,7 @@ import {
 
 useReplHarness();
 
-describe("선택 복사 배선(RD-017 DELTA-03)", () => {
+describe("선택 복사 배선(RD-017)", () => {
   let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
   const originalClipboard = navigator.clipboard;
 
@@ -49,8 +54,8 @@ describe("선택 복사 배선(RD-017 DELTA-03)", () => {
 
     const handled = session.fake.keyDown({ key: "c", ctrlKey: true });
 
-    // 훅이 소비했다는 뜻(벤더 `handleKeyEvent`가 xterm에 `false`를 돌려준다) — 실제 브라우저에서는 ETX 자체가
-    // 발생하지 않으므로 이 시험도 `fake.type("\x03")`를 별도로 부르지 않는다.
+    // 훅이 소비했다는 뜻이다. 벤더 `handleKeyEvent`가 xterm에 `false`를 돌려준다.
+    // 실제 브라우저에서는 ETX 자체가 발생하지 않는다. 이 시험도 `fake.type("\x03")`를 따로 부르지 않는다.
     expect(handled).toBe(false);
     expect(slots(session).seq).toBe(0);
     expect(echoes(session)).toBe(0);
@@ -99,7 +104,8 @@ describe("선택 복사 배선(RD-017 DELTA-03)", () => {
     const session = startSession();
 
     const handled = session.fake.keyDown({ key: "c", ctrlKey: true });
-    // 선택이 없으면 훅이 pass를 돌려줘 vendor가 원본대로 처리한다 — 실제 브라우저의 ETX 도착을 흉내 낸다.
+    // 선택이 없으면 훅이 pass를 돌려줘 vendor가 원본대로 처리한다.
+    // 실제 브라우저의 ETX 도착을 흉내 낸다.
     session.fake.type("\x03");
 
     expect(handled).toBe(true);
@@ -111,7 +117,7 @@ describe("선택 복사 배선(RD-017 DELTA-03)", () => {
   test("dispose 뒤 Ctrl+C는 벤더 원본 경로로 돌아가고 복사하지 않는다", () => {
     const session = startSession();
     session.fake.select("hello");
-    // dispose 전에는 정상적으로 복사가 걸려야 한다(배선 전이면 여기서 이미 RED).
+    // dispose 전에는 정상적으로 복사가 걸려야 한다. 배선 전이면 여기서 이미 RED다.
     expect(session.fake.keyDown({ key: "c", ctrlKey: true })).toBe(false);
     expect(writeText).toHaveBeenCalledTimes(1);
 
@@ -119,7 +125,8 @@ describe("선택 복사 배선(RD-017 DELTA-03)", () => {
     session.fake.select("world");
     const handled = session.fake.keyDown({ key: "c", ctrlKey: true });
 
-    // dispose 뒤에는 훅이 스스로를 끄고 벤더 원본 경로(true, xterm 기본 처리)로 돌아간다 — 추가 복사 없음.
+    // dispose 뒤에는 훅이 스스로를 끄고 벤더 원본 경로(true, xterm 기본 처리)로 돌아간다.
+    // 추가 복사는 없다.
     expect(handled).toBe(true);
     expect(writeText).toHaveBeenCalledTimes(1);
   });
@@ -150,7 +157,7 @@ describe("선택 복사 배선(RD-017 DELTA-03)", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
-  /** 드래그(mousedown → 선택 → mouseup)를 흉내 낸다. 자동 복사는 `mouseup`에서 걸린다. */
+  // 드래그(mousedown → 선택 → mouseup)를 흉내 낸다. 자동 복사는 `mouseup`에서 걸린다.
   function drag(session: Session, selected: string) {
     session.fake.select(selected);
     const element = session.fake.term.element as HTMLElement;
@@ -161,7 +168,8 @@ describe("선택 복사 배선(RD-017 DELTA-03)", () => {
   test("copyOnSelect 옵션은 createRepl에서 선택 복사 정책까지 전달된다(기본은 켜짐, false는 끔)", () => {
     const enabled = startSession({}, { withElement: true });
     drag(enabled, "dragged");
-    // 기본값(옵션 생략)이면 드래그 뒤 자동 복사한다. 이 대조가 있어야 아래 false의 무복사가 옵션 전달을 뜻한다.
+    // 기본값(옵션 생략)이면 드래그 뒤 자동 복사한다.
+    // 이 대조가 있어야 아래 false의 무복사가 옵션 전달을 뜻한다.
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText).toHaveBeenCalledWith("dragged");
 

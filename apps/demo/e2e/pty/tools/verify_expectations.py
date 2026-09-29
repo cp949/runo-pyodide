@@ -1,4 +1,4 @@
-"""DELTA-01.md의 '기대값(사전 조사, 미저장)'을 측정 결과에 대조해 expectations_check.json을 만든다(맞추지 않고 다르면 다른 대로 기록).
+"""'기대값(사전 조사, 미저장)'을 측정 결과에 대조해 expectations_check.json을 만든다(맞추지 않고 다르면 다른 대로 기록).
 또한 pty 훅의 mc(ModuleCompleter 원시 결과)와 측정 B 네이티브 직접 호출 결과가 A 37줄에서 같은지 교차 확인한다.
 사용: python3 verify_expectations.py --dir <작업 폴더>   (res_import.json, res_import_extra.json, native_vs_pyodide.json(.meta.json)이 먼저 있어야 한다)
 출력 expectations_check.json은 같은 폴더에 쓴다. 서술 산출물이라 기준 대조 대상이 아니다.

@@ -1,4 +1,4 @@
-// RD-024 DELTA-06 브라우저 확인: `@cp949/runo-pyodide-repl-react` 컴포넌트(`<PythonRepl>`·`<PythonRunner>`)가 dev 서버의 `<StrictMode>`
+// RD-024 브라우저 확인: `@cp949/runo-pyodide-repl-react` 컴포넌트(`<PythonRepl>`·`<PythonRunner>`)가 dev 서버의 `<StrictMode>`
 // 이중 마운트(mount → cleanup → mount)에서 worker·xterm을 남기지 않는지. 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
 // dev 전용: 프로덕션 빌드(preview·정적 서버)는 StrictMode 이중 마운트가 없어 이 확인이 성립하지 않는다(`bg-output-check` 선례).
 //

@@ -1,6 +1,7 @@
 /**
- * `callConsumer` 시험(규칙 `docs/design/08-session.md` 8.1, X1·X3). jsdom 기본 환경(`reportError` 없음, `vi.stubGlobal`로
- * 있는 경우를 흉내 낸다).
+ * `callConsumer` 시험(규칙 `docs/design/08-session.md` 8.5, X1·X3).
+ * - jsdom 기본 환경이다. `reportError`가 없다.
+ * - `reportError`가 있는 경우는 `vi.stubGlobal`로 흉내 낸다.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { callConsumer } from "../../src/session/consumer-callback";

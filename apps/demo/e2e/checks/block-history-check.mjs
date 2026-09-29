@@ -1,10 +1,9 @@
-// RD-014 DELTA-05 브라우저 검증. 출처 RD-014, `_works/_completed/20260923-15-rd-014-block-history/verify/`
-// 에서 이관(RD-018). 이전 RD-020 A0~J1 25개(/work/cp949/pyodide-samples/_works/_completed/
-// 20260919-06-rd-020-block-history-group/reference/browser-check.mjs) + RD-006b X2·X3
-// (RD-008 skipped-ids.md:69) + 붙여넣기 2건(P1·P2, DELTA-05 계획)을 이식한다.
+// RD-014 브라우저 검증. 출처 RD-014에서 이관(RD-018).
+// 이전 RD-020 A0~J1 25개 + RD-006b X2·X3
+// (RD-008 건너뜀 ID) + 붙여넣기 2건(P1·P2)을 이식한다.
 // ONLY=<절 이름,…>로 절만 분리 실행한다: 초기,A,B,C,D,E,F,G,H,I,J,X,P
 // 사용: node block-history-check.mjs <devURL> [previewURL]
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 //
 // 절 사이는 각 절 시작에서 reset()(ctrlC → waitPrompt(">>>") → clear())으로 정리한다. reset()의
 // Ctrl+C는 커밋된 history 항목을 지우지 않고 열려 있던 읽기만 취소한다 — 그래서 G가 F의 블록을,
@@ -343,7 +342,7 @@ async function run(url) {
     await resetPrompt();
   });
 
-  // ── P(확정 4). 붙여넣기는 개행을 문자 그대로(LF) 받아 xterm.js의 LF→CR 전처리에 의존한다(DELTA-03 "남은 위험"). ──
+  // ── P(확정 4). 붙여넣기는 개행을 문자 그대로(LF) 받아 xterm.js의 LF→CR 전처리에 의존한다(남은 위험). ──
   await step("P P1 `... `에서 붙여넣은 여러 줄이 top-level 문장까지 블록에 이어진다", async () => {
     await reset();
     await type("for i in range(2):");
@@ -360,11 +359,11 @@ async function run(url) {
     const t = await tail(4);
     if (!same(t, [">>> for i in range(2):", "    print(i)", "", "x = 1"])) throw new Error(show(t));
   });
-  // 계획(DELTA-05.md, RD-014 그릴링 확정 4)은 이 붙여넣기가 블록을 "열어 둔 채" 끝나 다음
+  // 계획(RD-014 그릴링 확정 4)은 이 붙여넣기가 블록을 "열어 둔 채" 끝나 다음
   // `... ` 읽기로 이어질 것을 기대했다. 실측 결과 다르다: 실제 `push()`(worker/console.ts
   // `runLine` → `pyconsole.push(source)`)는 개행이 든 하나의 제출 텍스트를 항상 그 자리에서
   // 최종 판정한다 — 계속(`... `)으로 넘어가는 경우가 없다(같은 전제로 시도한 괄호 미종결·삼중
-  // 따옴표 미종결·괄호 함수 호출도 전부 즉시 SyntaxError로 판정됐다, DELTA-05.md "## 결정" 참고).
+  // 따옴표 미종결·괄호 함수 호출도 전부 즉시 SyntaxError로 판정됐다).
   // 그래서 이 절은 계획의 `... ` 대기 대신 실제로 벌어지는 일(즉시 실행, 그래도 한 항목으로
   // 기록됨)을 확인한다.
   await step("P P2(실측) `>>> `에서 붙여넣은 여러 줄은 즉시 완결되지만 한 항목으로 기록된다", async () => {

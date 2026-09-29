@@ -1,8 +1,11 @@
 /**
- * main 진입점: `createBridgeMain()`은 coincident main을 옵션 없이 한 번만 부르고 `{ Worker, native }`만 돌려준다.
- * `isDomBridgeSupported()`는 `detectRuntimeSupport() === "supported"`(WebAssembly 판정 포함, `packages/pyodide-core`)와
- * growable `SharedArrayBuffer` 생성 성공, 두 조건을 모두 본다(coincident가 `native`를 정하는 조건과 같다). UA 판별은 하지
- * 않는다.
+ * main 진입점 시험.
+ *
+ * - `createBridgeMain()`은 coincident main을 옵션 없이 한 번만 부르고 `{ Worker, native }`만 돌려준다.
+ * - `isDomBridgeSupported()`는 두 조건을 모두 본다.
+ *   - `detectRuntimeSupport() === "supported"`. `packages/pyodide-core` 판정이고 WebAssembly·cross-origin isolation을 포함한다.
+ *   - growable `SharedArrayBuffer` 생성 성공. coincident가 `native`를 정하는 조건과 같다.
+ * - UA 판별은 하지 않는다.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -25,6 +28,7 @@ vi.mock("@cp949/runo-coincident/window/main", () => ({
   default: fake.coincidentMain,
 }));
 
+/** 모듈 캐시를 비우고 `src/index`를 새로 불러온다. 모듈 스코프 캐시(`cached`)가 시험 사이에 새지 않게 한다. */
 async function loadIndex() {
   vi.resetModules();
   return import("../src/index");

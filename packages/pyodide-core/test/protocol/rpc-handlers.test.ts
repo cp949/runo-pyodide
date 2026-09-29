@@ -1,3 +1,8 @@
+/**
+ * 핸들러 표 합성(`composeRpcHandlers`) 시험.
+ * - core·driver 핸들러 표를 하나로 합친다.
+ * - 이름이 겹치면 조용히 덮어쓰지 않고 이름을 담은 예외를 던진다.
+ */
 import { describe, expect, test } from "vitest";
 import { composeRpcHandlers } from "../../src/protocol/rpc-handlers";
 

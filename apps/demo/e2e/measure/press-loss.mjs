@@ -1,7 +1,7 @@
 // RD-007 브라우저 단일 눌림 소실 측정. `while True: pass` 실행 중 Ctrl+C 한 번이 항상 프롬프트를
 // 돌려주는지 N회 반복한다. 소실이 남으면 프롬프트가 돌아오지 않는다(HANG).
 // `e2e/node/rd-007/press-loss.mjs`가 같은 것을 통계로 보고, 이 스크립트는 실제 브라우저 폴링·worker 경합에서 본다.
-// 출처 RD-007, `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/`에서 이관(RD-018 DELTA-04).
+// 출처 RD-007에서 이관(RD-018).
 // 사용: N=200 node press-loss.mjs <url>(생략 시 http://localhost:5173)
 // 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev. 판정선(HANG 0)은 이 DELTA에서 재측정하지 않는다(배선 확인만).
 import { mkdirSync, writeFileSync } from "node:fs";

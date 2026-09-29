@@ -1,7 +1,13 @@
+/**
+ * `parseInput`(입력 문자열 → 입력 종류별 조각) 시험.
+ * - 일반 문자는 `Text` 하나로 묶고, 특수 키에서 나눈다.
+ * - 이스케이프 시퀀스는 지원 여부에 따라 전용 종류 또는 `UnsupportedEscape`로 분류한다.
+ * - 알 수 없는 CSI 시퀀스는 버린다.
+ */
 import { expect, test } from "vitest";
 import { InputType, parseInput } from "../src/keymap";
 
-test("simple data", () => {
+test("일반 문자열은 Text 하나로 묶는다", () => {
   expect(parseInput("foo")).toEqual([
     {
       inputType: InputType.Text,
@@ -10,7 +16,7 @@ test("simple data", () => {
   ]);
 });
 
-test("enter key", () => {
+test("Enter는 전용 종류로 분류한다", () => {
   expect(parseInput("\r")).toEqual([
     {
       inputType: InputType.Enter,
@@ -19,7 +25,7 @@ test("enter key", () => {
   ]);
 });
 
-test("data split by special", () => {
+test("특수 키에서 Text 조각을 나눈다", () => {
   expect(parseInput("foo\rbar")).toEqual([
     {
       inputType: InputType.Text,
@@ -36,7 +42,7 @@ test("data split by special", () => {
   ]);
 });
 
-test("ansi escape", () => {
+test("이스케이프 시퀀스를 지원 여부에 따라 분류한다", () => {
   expect(parseInput("\x1b[D")).toEqual([
     {
       inputType: InputType.ArrowLeft,

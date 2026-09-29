@@ -1,7 +1,13 @@
 /**
- * 실행 driver 세션(`createRunSession`)·옵션 검증·공개 export 단위 시험(RD-022 DELTA-02). pyodide는 가짜다: Python `run_code`를
- * 시험이 제어하는 함수로 바꿔 RPC 핸들러 `runCode`의 재진입 거부·`atPrompt` 전이·결과 검증·세션 수명을 본다. 실제 pyodide와 이어진
- * 경로는 `run-driver-pyodide.test.ts`, Python 분류 분기는 `run-driver-classify.test.ts`가 본다.
+ * 실행 driver 세션(`createRunSession`)·옵션 검증·공개 export 단위 시험(RD-022).
+ * pyodide는 가짜다. Python `run_code`를 시험이 제어하는 함수로 바꿔 RPC 핸들러 `runCode`의 동작을 본다.
+ * - 재진입 거부
+ * - `atPrompt` 전이
+ * - 결과 검증
+ * - 세션 수명
+ *
+ * 실제 pyodide와 이어진 경로는 `run-driver-pyodide.test.ts`가 본다.
+ * Python 분류 분기는 `run-driver-classify.test.ts`가 본다.
  */
 import type { PyodideInterface } from "pyodide";
 import { describe, expect, test, vi } from "vitest";
@@ -16,6 +22,7 @@ import {
   type RunOutcome,
 } from "../../src/worker/run-driver";
 
+/** Python `run_code`가 돌려주는 `[kind, error_type, traceback, code]`(None은 JS `undefined`). */
 type Raw = [
   string,
   string | undefined,
@@ -23,7 +30,10 @@ type Raw = [
   number | bigint | undefined,
 ];
 
-/** 가짜 pyodide + 가짜 Python `run_code`. `run_code`는 시험이 준 함수이고 인자를 기록한다. */
+/**
+ * 가짜 pyodide와 가짜 Python `run_code`를 만든다.
+ * `run_code`는 시험이 준 함수다. `namespace.get`이 그 함수를 돌려준다.
+ */
 function createFakes(runCodePy: (...args: unknown[]) => Promise<Raw>) {
   const pyconsole = { kind: "fake-console" };
   const consoleFactory = Object.assign(
@@ -59,9 +69,10 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-/** 대기 중인 Promise 콜백이 돌 기회를 준다. */
+/** 대기 중인 Promise 콜백이 돌 기회를 준다(macrotask 한 번). */
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
+/** 세션 생성에 쓰는 기본 옵션. */
 const OPTIONS = { filename: "main.py", topLevelAwait: false };
 
 describe("parseOptions", () => {

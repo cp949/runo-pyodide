@@ -1,8 +1,11 @@
 /**
- * 실행 driver worker 역할(시험 전용). 실제 pyodide(node)를 worker 스레드에 올려 `runWorker({ driver: runDriver })`가 브라우저에서
- * 하는 일을 그대로 한다: 초기화 프레임 수신 → `bootWorker`. main 역할(시험 본문)의 `createRunner`가 이 스레드를 `Worker`처럼
- * 쓴다(`spawnWorkerLike`). Python이 `Atomics.wait`로 스레드를 막는 동안에도 main의 이벤트 루프가 살아 있어 `readInput` 알림 →
- * 응답 왕복이 실제 시간 흐름으로 일어난다.
+ * 실행 driver worker 역할(시험 전용).
+ * 실제 pyodide(node)를 worker 스레드에 올려 `runWorker({ driver: runDriver })`가 브라우저에서 하는 일을 그대로 한다.
+ * 초기화 프레임을 받아 `bootWorker`를 부른다.
+ *
+ * main 역할(시험 본문)의 `createRunner`가 이 스레드를 `Worker`처럼 쓴다(`spawnWorkerLike`).
+ * Python이 `Atomics.wait`로 스레드를 막는 동안에도 main의 이벤트 루프는 살아 있다.
+ * 그래서 `readInput` 알림 → 응답 왕복이 실제 시간 흐름으로 일어난다.
  */
 import { parentPort } from "node:worker_threads";
 import { loadPyodide } from "pyodide";
@@ -13,7 +16,7 @@ import { runDriver } from "../../src/worker/run-driver";
 const port = parentPort;
 if (!port) throw new Error("worker 스레드에서만 실행한다");
 
-// 스크립트 최상단에서 첫 메시지를 받는다(첫 await 이전).
+// 스크립트 최상단에서 첫 메시지를 받는다. 첫 await 이전에 등록해야 프레임을 놓치지 않는다.
 port.once("message", (data: unknown) => {
   const frame = parseInitFrame(data);
   bootWorker(frame, {

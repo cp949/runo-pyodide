@@ -1,9 +1,12 @@
 // @vitest-environment node
 /**
- * 실행 driver Python(`run-driver.py`)의 결말 분류 전수(RD-022 DELTA-02). 실제 pyodide에 `run_code`를 올리고 콘솔은 가짜
- * (`FakeConsole`: `runcode`가 정해 둔 예외를 올리고 `formattraceback`·`formatsyntaxerror`는 예외 클래스 이름만 낸다)로 바꿔서,
- * SIGINT 계층·메일박스 없이 분기 하나하나를 결정적으로 태운다. 실제 콘솔·SIGINT·stdin과 이어진 경로는
- * `run-driver-pyodide.test.ts`가 본다. pyodide는 파일당 한 번만 로드한다(가짜 콘솔이라 시험 사이 상태가 새지 않는다).
+ * 실행 driver Python(`run-driver.py`)의 결말 분류 전수 시험(RD-022).
+ * - 실제 pyodide에 `run_code`를 올린다.
+ * - 콘솔은 가짜(`FakeConsole`)로 바꾼다. `runcode`가 정해 둔 예외를 올린다. `formattraceback`·`formatsyntaxerror`는 예외 클래스 이름만 낸다.
+ * - SIGINT 계층·메일박스 없이 분기 하나하나를 결정적으로 태운다.
+ *
+ * 실제 콘솔·SIGINT·stdin과 이어진 경로는 `run-driver-pyodide.test.ts`가 본다.
+ * pyodide는 파일당 한 번만 로드한다. 가짜 콘솔이라 시험 사이 콘솔 상태가 새지 않는다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import type { PyProxy } from "pyodide/ffi";
@@ -19,6 +22,7 @@ type Raw = [
   number | bigint | undefined,
 ];
 
+/** Python `run_code`의 JS 모양. */
 type RunCode = (
   console: PyProxy,
   source: string,
@@ -26,7 +30,7 @@ type RunCode = (
   topLevelAwait: boolean,
 ) => Promise<Raw>;
 
-/** 가짜 콘솔과 시험용 예외 클래스. 예외 인스턴스는 `mk(표현식)`으로 만든다. */
+/** 가짜 콘솔과 시험용 예외 클래스(Python 소스). 예외 인스턴스는 `mk(표현식)`으로 만든다. */
 const HELPERS = `
 import io, json, sys
 
@@ -71,17 +75,23 @@ def mk(expr):
     return eval(expr)
 `;
 
+/** 시험 전체가 공유하는 pyodide. `beforeAll`이 한 번 로드한다. */
 let pyodide: PyodideInterface;
+/** `HELPERS`를 올린 namespace. 가짜 콘솔·예외 클래스를 꺼낸다. */
 let helpers: PyProxy & { get(name: string): unknown };
+/** `run-driver.py`를 올린 namespace. `run_code`·`CodeRunner`를 꺼낸다. */
 let namespace: PyProxy & {
   get(name: string): unknown;
   set(name: string, value: unknown): void;
 };
+/** `namespace`에서 꺼낸 Python `run_code`. */
 let runCode: RunCode;
+/** 전역 stdout/stderr Writer가 받은 텍스트. `run`이 호출마다 비운다. */
 const output = { stdout: "", stderr: "" };
 
 beforeAll(async () => {
   pyodide = await loadPyodide();
+  // 트레이스백·`SystemExit` 메시지가 stderr에도 나가는지 보려고 전역 Writer를 붙잡는다.
   installStdioWriters(pyodide, {
     write: (text) => {
       output.stdout += text;
@@ -90,6 +100,7 @@ beforeAll(async () => {
       output.stderr += text;
     },
   });
+  // 프로덕션과 같이 별도 namespace에 driver Python을 올려 `run_code`를 꺼낸다.
   namespace = pyodide.toPy({}) as typeof namespace;
   pyodide.runPython(RUN_DRIVER_SOURCE, {
     globals: namespace,
@@ -105,7 +116,11 @@ afterAll(() => {
   helpers.destroy();
 });
 
-/** 가짜 콘솔로 `run_code`를 부른다. `raises`는 `runcode`가 올릴 예외의 Python 표현식이다. */
+/**
+ * 가짜 콘솔로 `run_code`를 부른다.
+ * `raises`는 `runcode`가 올릴 예외의 Python 표현식이다(없으면 예외 없음).
+ * `result`(결말)·`calls`(`runcode` 호출 기록)·`stderr`를 돌려준다.
+ */
 async function run(
   raises: string | undefined,
   { source = "pass", filename = "main.py", topLevelAwait = false } = {},

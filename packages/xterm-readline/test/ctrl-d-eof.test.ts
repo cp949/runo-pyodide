@@ -1,11 +1,14 @@
 /**
- * `read(prompt, { eof: true })`의 빈 버퍼 Ctrl+D EOF 시험(RD-048 DELTA-02). 계약(`_works/20260928-63-
- * rd-048-ctrl-d-eof/DELTA-02.md`): `eof` 옵션을 켠 읽기에서만, 버퍼가 완전히 빈 상태로 실제로 친(`origin
- * "live"`) Ctrl+D가 읽기를 `READ_EOF`로 끝낸다(취소 가능한 Ctrl+C와 같은 순서 — commitDrawnLine →
- * activeRead 비움 → resolve, history 없음). type-ahead 재생(`origin "replay"`)·붙여넣기 덩어리 안
- * (`origin "paste"`)의 Ctrl+D, 커서가 끝이 아니거나 버퍼가 비지 않은 Ctrl+D, `onKey` 훅이 소비한 Ctrl+D는
- * 전부 EOF가 아니고 지금처럼 커서 뒤 글자를 지운다(또는 무동작). `eof` 옵션이 없으면 원본 동작(무동작)이
- * 그대로다.
+ * `read(prompt, { eof: true })`의 빈 버퍼 Ctrl+D EOF 시험.
+ * 계약(`docs/design/06-editing.md` 6.9):
+ * - `eof` 옵션을 켠 읽기에서만, 버퍼가 완전히 빈 상태로 실제로 친(`origin "live"`) Ctrl+D가 읽기를 `READ_EOF`로 끝낸다.
+ * - 끝내는 순서는 취소 가능한 Ctrl+C와 같다: `commitDrawnLine` → `activeRead` 비움 → resolve. history에는 남기지 않는다.
+ * - 다음 Ctrl+D는 EOF가 아니다. 커서 뒤 글자를 지우거나 아무 일도 하지 않는다.
+ *   - type-ahead 재생(`origin "replay"`)
+ *   - 붙여넣기 덩어리 안(`origin "paste"`)
+ *   - 커서가 끝이 아니거나 버퍼가 비지 않은 경우
+ *   - `onKey` 훅이 소비한 경우
+ * - `eof` 옵션이 없으면 원본 동작(무동작)이 그대로다.
  */
 import { describe, expect, expectTypeOf, test } from "vitest";
 import { InputType, type Input } from "../src/keymap";
@@ -31,11 +34,12 @@ function observe(promise: Promise<unknown>): () => Outcome {
   return () => outcome;
 }
 
-/** 대기 중인 마이크로태스크를 지나가게 한다. */
+/** 대기 중인 마이크로태스크와 타이머 한 번을 지나가게 한다. */
 function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/** `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function createSession(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
@@ -92,8 +96,8 @@ describe("eof 읽기의 Ctrl+D", () => {
     term.feed(CTRL_D);
     await tick();
 
-    // commitDrawnLine은 버퍼를 바꾸지 않으므로 EOF가 잘못 트리거돼도 getLine()·screen()만으로는 못 잡는다
-    // — 읽기가 끝나지 않았다(pending)는 것까지 같이 본다.
+    // commitDrawnLine은 버퍼를 바꾸지 않아 EOF가 잘못 일어나도 getLine()·screen()만으로는 못 잡는다.
+    // 읽기가 끝나지 않았다(pending)는 것까지 함께 본다.
     expect(outcome()).toEqual({ state: "pending" });
     expect(readline.getLine()).toBe("");
     expect(term.vt.screen()).toBe(">>>");
@@ -113,7 +117,7 @@ describe("eof 읽기의 Ctrl+D", () => {
   test('[V6] eof 켬·빈 버퍼에 붙여넣기 덩어리 "\\x04ab" → EOF 아님, 버퍼 ab', async () => {
     const { term, readline } = createSession();
     const outcome = observe(readline.read(">>> ", { eof: true }));
-    // 한 onData 호출에 여러 문자 — readPaste 경로(붙여넣기), origin "paste".
+    // 한 onData 호출에 여러 문자가 와서 readPaste 경로(origin "paste")로 간다.
     term.feed(CTRL_D + "ab");
     await tick();
 
@@ -128,7 +132,7 @@ describe("eof 읽기의 Ctrl+D", () => {
     term.flush();
 
     void readline.printAbove("cand");
-    // 재그리기 콜백 전(offscreen 대기 중)에 친 키다 — queued에 쌓였다가 재그리기 뒤 origin "live"로 재생된다.
+    // 재그리기 콜백 전(offscreen 대기 중)에 친 키다. queued에 쌓였다가 재그리기 뒤 origin "live"로 재생된다.
     term.feed(CTRL_D);
     term.flush();
     await tick();
@@ -143,7 +147,7 @@ describe("eof 읽기의 Ctrl+D", () => {
     term.feed(CTRL_D);
     await tick();
 
-    // 버퍼 끝의 editDelete(1)은 무동작이라 버퍼값만으로는 EOF 오발도 "\n"으로 같게 보인다 — pending도 같이 본다.
+    // 버퍼 끝의 editDelete(1)은 무동작이라 EOF가 잘못 일어나도 버퍼값은 "\n"으로 같다. pending도 함께 본다.
     expect(outcome()).toEqual({ state: "pending" });
     expect(readline.getLine()).toBe("\n");
   });
@@ -183,8 +187,9 @@ describe("eof 읽기의 Ctrl+D", () => {
       void readline.printAbove("cand");
       return true;
     };
-    // 활성 읽기가 없는 구간에 쌓인다(type-ahead). TAB이 재생 중 printAbove를 동기로 시작해 뒤이은
-    // Ctrl+D는 offscreen.queued로 넘어간다 — 그래도 원래 origin "replay"를 유지해야 한다.
+    // 활성 읽기가 없는 구간에 쌓인다(type-ahead).
+    // TAB이 재생 중 printAbove를 동기로 시작해 뒤이은 Ctrl+D는 offscreen.queued로 넘어간다.
+    // 그래도 원래 origin "replay"를 유지해야 한다.
     term.feed(TAB);
     term.feed(CTRL_D);
     const outcome = observe(readline.read(">>> ", { eof: true, onKey }));

@@ -1,8 +1,7 @@
 /**
- * 폴링 비용(TRP-024). pyodide는 바이트코드 약 50개마다 interrupt buffer의 [0]을 읽는다. 그 경로에 접근자·
+ * 폴링 비용(TRAP-23). pyodide는 바이트코드 약 50개마다 interrupt buffer의 [0]을 읽는다. 그 경로에 접근자·
  * Proxy가 끼면 Python 실행이 통째로 느려진다. 우리 배선(`createInterruptBuffer` + `attachRuntime`)이 진짜
- * `Int32Array`를 그대로 넘기는지 실행 시간으로 확인한다. 출처 RD-007,
- * `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/node/`에서 이관(RD-018 DELTA-04).
+ * `Int32Array`를 그대로 넘기는지 실행 시간으로 확인한다. 출처 RD-007에서 이관(RD-018).
  *
  * 모드: `plain`(맨 `Int32Array`를 `setInterruptBuffer`) · `plain2`(같은 것, 잡음 대조) · `repo`(저장소 배선 전체).
  * 워밍업 뒤 ABAB로 교차 측정해 중앙값 비율을 낸다. 통과: `repo`의 두 비율이 1.03 이내.

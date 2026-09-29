@@ -1,10 +1,11 @@
 /**
- * 세션 하나(worker 1개)가 필요로 하는 자원·게이트(`00-architecture.md` 4.2). `reset()`(RD-010)이 통째로 교체하는 단위다. interrupt
- * buffer·송신기도 세션마다 새로 만든다(옛 worker는 `terminate()` 뒤에도 한동안 살아 같은 buffer의 SIGINT를 가로챌 수 있다,
- * TRP-049·`14-runner.md` 14.3.5). 핸들(`index.ts`)이 소유하는 `readline`·Ctrl+C 핸들러는 세션을 넘어 산다.
- * 공통 부분(worker·프레임·RPC·`readInput`·게이트·종료)은 core 세션(`startCoreSession`)이, REPL 화면 상호작용은 main driver
- * (`repl-main-driver.ts`)가 맡고 이 모듈은 둘을 조립해 `ReplSession`을 낸다. Ctrl+C 한 번(게이트 → `^C` 에코 → 전송)은
- * `interrupt()`가 묶고, 핸들의 Ctrl+C 핸들러는 `interrupt()`만 부른다.
+ * 세션 하나(worker 1개)가 필요로 하는 자원·게이트(`00-architecture.md` 4.2). `reset()`(RD-010)이 통째로 교체하는 단위다.
+ * interrupt buffer·송신기도 세션마다 새로 만든다. 옛 worker는 `terminate()` 뒤에도 한동안 살아 같은 buffer의 SIGINT를
+ * 가로챌 수 있다(TRP-049·`14-runner.md` 14.3.5).
+ * 핸들(`index.ts`)이 소유하는 `readline`·Ctrl+C 핸들러는 세션을 넘어 산다.
+ * 공통 부분(worker·프레임·RPC·`readInput`·게이트·종료)은 core 세션(`startCoreSession`)이 맡는다.
+ * REPL 화면 상호작용은 main driver(`repl-main-driver.ts`)가 맡는다. 이 모듈은 둘을 조립해 `ReplSession`을 낸다.
+ * Ctrl+C 한 번(게이트 → `^C` 에코 → 전송)은 `interrupt()`가 묶는다. 핸들의 Ctrl+C 핸들러는 `interrupt()`만 부른다.
  */
 import type { TerminalSurface } from "@cp949/runo-pyodide-terminal/internal";
 import type { ReplStatus } from "./index";
@@ -40,8 +41,11 @@ export interface StartSessionOptions {
 
 export interface ReplSession {
   /**
-   * Ctrl+C 한 번을 처리한다: 게이트가 닫혀 있으면(대상 코드 없음) 무동작, 열려 있으면 세션 sink로 `^C`를 에코한 뒤 이
-   * 세션의 interrupt buffer에 눌림을 쓴다. 규칙: `03-ctrl-c.md` 2.7.
+   * Ctrl+C 한 번을 처리한다.
+   * - 게이트가 닫혀 있으면(대상 코드 없음) 무동작.
+   * - 열려 있으면 세션 sink로 `^C`를 에코한 뒤 이 세션의 interrupt buffer에 눌림을 쓴다.
+   *
+   * 규칙: `03-ctrl-c.md` 2.7.
    */
   interrupt(): void;
   /** 지금 `runSource`를 받아들일 수 있는가. 부작용이 없다(`repl-main-driver.ts`). */

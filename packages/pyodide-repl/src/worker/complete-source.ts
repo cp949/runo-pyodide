@@ -1,7 +1,8 @@
 /**
- * worker 쪽 Tab 완성 헬퍼 로더(RD-015, 01-protocols.md 1.2). 본체는 complete-source.py(`.py?raw`), 별도 namespace에서
- * 실행해 사용자 globals를 오염시키지 않는다(`console.ts:108-125`·`multiline.ts` 패턴). RD-016(모듈 완성)은 이 파일이 아니라
- * `.py`에 모듈 분기를 넣었다.
+ * worker 쪽 Tab 완성 헬퍼 로더(RD-015, 01-protocols.md 1.2).
+ * - 본체는 complete-source.py(`.py?raw`)다.
+ * - 별도 namespace에서 실행한다. 사용자 globals를 오염시키지 않는다(`console.ts:108-125`·`multiline.ts` 패턴).
+ * - RD-016(모듈 완성)은 이 파일이 아니라 `.py`에 모듈 분기를 넣었다.
  */
 import type { PyodideInterface } from "pyodide";
 import type { PyProxy } from "pyodide/ffi";

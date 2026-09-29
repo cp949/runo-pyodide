@@ -1,6 +1,5 @@
-// RD-015 DELTA-05 브라우저 검증. 출처 RD-015, `_works/_completed/20260923-16-rd-015-tab-completion/verify/`
-// 에서 이관(RD-018). 이전 RD-016 C1~C12(/work/cp949/pyodide-samples/_works/_completed/
-// 20260920-04-rd-016-tab-completion/reference/browser-check.mjs, 558줄)를 이 저장소의 새 프로토콜/lib.mjs
+// RD-015 브라우저 검증. 출처 RD-015에서 이관(RD-018).
+// 이전 RD-016 C1~C12(`browser-check.mjs`, 558줄)를 이 저장소의 새 프로토콜/lib.mjs
 // 구조로 이식하고, C13(Tab 큐)·C14(완성 중 Ctrl+C, RD-021 getattr-loop-probe.mjs 이식)을 더한다. pty 기준
 // 리터럴(res_s10_0.json screen2 행)은 원문 그대로 옮긴다.
 //
@@ -8,13 +7,13 @@
 //   초기 → C1..C10 → C12(지연, a.·빈 스템 픽스처가 아직 살아 있어야 한다) → C13(큐, a. 필요) →
 //   C15(import/from 모듈 완성, RD-016 — os 픽스처 필요) → C11(세션 리셋·exit()) →
 //   C14(완성 중 Ctrl+C, 리셋 뒤에도 무관하게 새 클래스로 독립 실행)
-// 이는 rubber-workflow 관례(DELTA-05.md 계획 문구는 소급 수정하지 않는다)에 따라 "## 결정"에 근거를 남긴다.
+// 이는 rubber-workflow 관례(계획 문구는 소급 수정하지 않는다)에 따른 재배열이다.
 //
 // 사용: node tab-check.mjs [devURL] [previewURL]
 //   previewURL이 있으면 C1·C3·C8·C11(+초기)만 그 URL에서 재실행한다(RD-044 K6).
 // ONLY=<절 접두어,…>로 절 전체(설정·확인 전부)를 걸러 실행한다(양성 대조용): 초기,C1,C2,...,C13,C15,C11,C14
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
-// RD-018 DELTA-03 갱신: 자기 results 경로 상수 + `writeFileSync`를 없애고 `lib.mjs`의 `finish({ label })`로
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// RD-018 갱신: 자기 results 경로 상수 + `writeFileSync`를 없애고 `lib.mjs`의 `finish({ label })`로
 // 통일했다(옛 `results/dev.json`·`results/preview.json` 직접 쓰기 제거).
 import { open, hasFg, show } from "../lib.mjs";
 import { checkEntry, currentOnly, exitWith, runDevPreview, sectionEnabled, serverLabel } from "../check-runner.mjs";
@@ -845,7 +844,7 @@ async function run(url) {
       await waitLast(">>> import ");
     });
     await clearLine();
-    // 편차 22 해소(.scratch/repl-globals-sys-leak): 새 세션 globals()에 sys가 없어야 한다. submit()이 새 프롬프트를
+    // 편차 22 해소: 새 세션 globals()에 sys가 없어야 한다. submit()이 새 프롬프트를
     // 기다린 뒤 읽으므로 출력 행은 이미 그려져 있다(고정 대기·ms 상한 없음, 9.7).
     await step("C11a 새 세션 \"sys\" in globals()가 False(편차 22 해소)", async () => {
       await submit('"sys" in globals()');
@@ -886,7 +885,7 @@ async function run(url) {
     await step("C14 초기 __getattr__ 무한 루프 클래스 준비(REPL 직접 멀티라인 타이핑)", async () => {
       // 정정(직전 세션 조사): exec()로 정의하면 컴파일 파일명이 "<string>"이 되어
       // worker/sigint-handler.py의 co_filename === console.filename("<console>") 매칭에 걸리지
-      // 않는다(exec()/eval() 한정 경계 사례, DELTA-05.md 정정 참고). REPL 프롬프트에 직접
+      // 않는다(exec()/eval() 한정 경계 사례). REPL 프롬프트에 직접
       // 멀티라인으로 타이핑하면 "<console>" 프레임이 되어 규칙이 즉시 매치된다(실측 25.4ms 복귀).
       // 자동 들여쓰기(RD-013)가 다음 줄 들여쓰기를 prefill하므로 각 줄은 본문 텍스트만 입력한다.
       await type("class G:");

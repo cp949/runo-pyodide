@@ -1,7 +1,9 @@
 /**
- * `completion-popover.ts` 시험(`docs/design/07-tab-completion.md` 7.6, RD-049 DELTA-01).
- * 규칙 ID는 브레인스토밍 `design.md`(`_works/20260928-64-rd-049-completion-popover/design.md`)의 표를 그대로 쓴다.
- * 배선(C1·W1·W3·E0)은 DELTA-02 몫이라 여기서 시험하지 않는다 — `createCompletionPopover`를 단독으로 조립해 시험한다.
+ * `completion-popover.ts` 시험(`docs/design/07-tab-completion.md` 7.6, RD-049).
+ * 규칙 ID(K·M·C·W·L)는 7.6의 표를 따른다.
+ *
+ * `createCompletionPopover`와 `placePopover`를 단독으로 조립해 시험한다.
+ * 배선(C1·W1·W3·W4·E0)은 이 파일 밖의 몫이다. `tab-reader.test.ts`·`line-editor.test.ts`가 본다.
  */
 import { InputType, type Input } from "@cp949/runo-xterm-readline";
 import { createFakeTerminal } from "@repo/pyodide-testkit/fake-terminal";
@@ -11,13 +13,21 @@ import {
   placePopover,
 } from "../../src/terminal/completion-popover";
 
+/** ↓ 키 입력. */
 const arrowDown: Input = { inputType: InputType.ArrowDown, data: [] };
+
+/** ↑ 키 입력. */
 const arrowUp: Input = { inputType: InputType.ArrowUp, data: [] };
+
+/** Enter 키 입력. */
 const enter: Input = { inputType: InputType.Enter, data: [] };
+
+/** Tab 키 입력. 벤더는 `UnsupportedControlChar`(`data: ["\t"]`)로 넘긴다. */
 const tab: Input = {
   inputType: InputType.UnsupportedControlChar,
   data: ["\t"],
 };
+/** Esc 키 입력. 벤더는 `Text` 토큰(`data: ["\x1b"]`)으로 넘긴다. */
 const esc: Input = { inputType: InputType.Text, data: ["\x1b"] };
 
 /** `.xterm-screen` 크기를 지정해 `getBoundingClientRect`를 고정한다(jsdom은 레이아웃을 계산하지 않는다). */
@@ -44,6 +54,11 @@ function stubCellSize(
     }) as DOMRect;
 }
 
+/**
+ * 가짜 터미널(`withElement`) 위에 popover 하나를 조립한다.
+ * `editInsert`는 `vi.fn()`이고 셀 크기는 `stubCellSize`로 고정한다.
+ * 옵션 기본값은 80×24, 셀 10×20이다.
+ */
 function setup(
   options: {
     cols?: number;
@@ -221,7 +236,8 @@ describe("createCompletionPopover: 키", () => {
 
   test("[K2] Enter는 스템 뒤 부분을 코드포인트 기준으로 editInsert하고 제출 없이 닫는다", () => {
     const { popover, editInsert } = setup();
-    // stem "a😀"(코드포인트 2, UTF-16 길이 3) 뒤 "bc". UTF-16 길이로 자르면 "c"만 남아 틀린다.
+    // stem "a😀"는 코드포인트 2개, UTF-16 유닛 3개다. 그 뒤 부분은 "bc"다.
+    // 스템 길이를 UTF-16 유닛 수(3)로 세면 "c"만 남아 틀린다.
     popover.open(["a😀bc"], "a😀");
 
     expect(popover.onKey(enter)).toBe(true);

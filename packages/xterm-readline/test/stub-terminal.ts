@@ -1,14 +1,19 @@
 import { VTerm } from "../src/vterm";
 
 /**
- * xterm-readline 시험 전용 가짜 터미널. `Readline`이 읽는 xterm 멤버(`cols`·`rows`·`options`·`buffer`·
- * `onData`·`onResize`·`attachCustomKeyEventHandler`·`write`)를 흉내 내고, 화면 해석은 로컬 `VTerm`에 맡긴다.
- * 시험 파일 11개가 각자 갖던 사본(RD-030 DELTA-03)을 옵션 없는 합집합으로 합쳤다 — 각 필드·메서드는 어느 사본에서든
- * 그 사본이 쓰던 시험은 그대로 통과한다. `src/index.ts`(`tsdown` entry) 밖이라 배포에 들어가지 않는다.
+ * xterm-readline 시험 전용 가짜 터미널.
+ * - `Readline`이 읽는 xterm 멤버를 흉내 낸다: `cols`·`rows`·`options`·`buffer`·`onData`·`onResize`·
+ *   `attachCustomKeyEventHandler`·`write`.
+ * - 화면 해석은 로컬 `VTerm`에 맡긴다.
+ * - 시험 파일별로 있던 사본(RD-030)을 하나로 합쳤다. 필드는 옵션 없이 모두 켜져 있다.
+ * - `src/index.ts`(`tsdown` entry) 밖이라 배포에 들어가지 않는다.
  */
 export class StubTerminal {
+  /** 터미널 열 수. `resize()`가 바꾼다. */
   public cols: number;
+  /** 터미널 행 수. `resize()`가 바꾼다. */
   public rows: number;
+  /** xterm 옵션 중 `Readline`이 읽는 탭 폭. */
   public options = { tabStopWidth: 8 } as { tabStopWidth?: number };
   /** true면 write 콜백을 `flush()`·`flushOne()` 때까지 미룬다(실제 xterm의 비동기 파싱을 흉내낸다). 기본 false(동기). */
   public asyncWrite = false;
@@ -18,6 +23,7 @@ export class StubTerminal {
   public listenerDisposals = 0;
   /** `term.write`로 들어온 바이트를 호출 순서대로 모은다(SGR처럼 `VTerm`이 무시하는 바이트 확인용). */
   public log: string[] = [];
+  /** xterm `buffer.active`의 일부. `cursorY`는 읽을 때마다 `cursorYReads`를 올린다. */
   public buffer = {
     active: {
       get cursorY() {
@@ -27,6 +33,7 @@ export class StubTerminal {
       parent: null as unknown as StubTerminal,
     },
   };
+  /** 화면·커서를 해석하는 가상 터미널. */
   public vt: VTerm;
   private onDataHandlers: ((data: string) => void)[] = [];
   private onResizeHandlers: ((size: { cols: number; rows: number }) => void)[] =
@@ -34,6 +41,7 @@ export class StubTerminal {
   private queue: { text: string; cb: () => void }[] = [];
   private keyEventHandler: ((event: KeyboardEvent) => boolean) | undefined;
 
+  /** `cols`×`rows` 크기의 가짜 터미널을 만든다. */
   constructor(cols: number, rows: number) {
     this.cols = cols;
     this.rows = rows;
@@ -41,6 +49,7 @@ export class StubTerminal {
     this.buffer.active.parent = this;
   }
 
+  /** 입력 리스너를 등록한다. 돌려준 `dispose()`는 호출 횟수만 센다. */
   onData(handler: (data: string) => void) {
     this.onDataHandlers.push(handler);
     return {
@@ -50,6 +59,7 @@ export class StubTerminal {
     };
   }
 
+  /** 크기 변경 리스너를 등록한다. 돌려준 `dispose()`는 호출 횟수만 센다. */
   onResize(handler: (size: { cols: number; rows: number }) => void) {
     this.onResizeHandlers.push(handler);
     return {
@@ -67,10 +77,15 @@ export class StubTerminal {
     for (const handler of this.onResizeHandlers) handler({ cols, rows });
   }
 
+  /** 커스텀 키 이벤트 핸들러를 하나 등록한다. `fireKeyEvent()`가 부른다. */
   attachCustomKeyEventHandler(fn: (event: KeyboardEvent) => boolean) {
     this.keyEventHandler = fn;
   }
 
+  /**
+   * 바이트를 기록하고 `VTerm`에 쓴다. 콜백은 `asyncWrite`가 거짓이면 바로, 참이면 `flush()`때 실행한다.
+   * 콜백이 없으면 미룰 것도 없다.
+   */
   write(text: string, cb?: () => void) {
     this.log.push(text);
     this.vt.write(text);

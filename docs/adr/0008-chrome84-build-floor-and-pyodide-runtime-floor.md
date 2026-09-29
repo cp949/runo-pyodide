@@ -1,6 +1,6 @@
 # 빌드 floor는 Chrome 84로 못박고, pyodide가 정하는 런타임 floor는 따로 기록한다
 
-빌드 floor 선언이 없어 tsdown·Vite가 `dist`의 문법·런타임 API(`??=`·`Object.hasOwn`·`.at`·`replaceAll` 등)를 하향하지 않았다. 구버전 브라우저는 `SyntaxError`로 하얀 화면이 되거나, 문법은 통과해도 pyodide의 wasm(`pyodide.asm.wasm`)이 요구하는 기능(reference types·legacy Wasm 예외 처리 등)이 없어 `WebAssembly.compile`이 실패한다 — 두 실패는 원인이 다르고 안내도 달라야 한다. 2026-09-28 브레인스토밍으로 둘을 분리하기로 확정했다(작업 폴더 `_works/_completed/20260928-01-browser-compat-chrome84/design.md`, 이 경로는 `_works/`가 gitignore 대상이라 병합 뒤 git에 남지 않는다 — 아래 결정이 유일한 장기 기록이다).
+빌드 floor 선언이 없어 tsdown·Vite가 `dist`의 문법·런타임 API(`??=`·`Object.hasOwn`·`.at`·`replaceAll` 등)를 하향하지 않았다. 구버전 브라우저는 `SyntaxError`로 하얀 화면이 되거나, 문법은 통과해도 pyodide의 wasm(`pyodide.asm.wasm`)이 요구하는 기능(reference types·legacy Wasm 예외 처리 등)이 없어 `WebAssembly.compile`이 실패한다 — 두 실패는 원인이 다르고 안내도 달라야 한다. 2026-09-28 브레인스토밍으로 둘을 분리하기로 확정했다. 아래 결정이 유일한 장기 기록이다.
 
 결정:
 
@@ -26,7 +26,7 @@ pyodide 314.0.7의 `pyodide.asm.wasm`이 요구하는 wasm 기능 중 최초 지
 
 ## Chrome 밖 엔진은 `unsupported`가 아니라 `load-failed`가 된다
 
-`detectRuntimeSupport()`의 판정 바이트가 `true`를 낸다고 해서(예: 최신 Safari·Firefox가 우연히 두 wasm 기능을 지원) pyodide의 문법·API 요구사항 전체가 충족된다는 보장은 없다 — 이 저장소는 Chrome에서만 그 전체 요구사항을 실측했다(결정 1). Chrome이 아닌 엔진에서 실제로 부족한 것이 있으면 worker 부팅이 진행되다 pyodide 로드 실패로 `load-failed`가 된다(`unsupported`는 부팅 전 wasm 기능 부재로 worker 자체를 안 만드는 상태이고, `load-failed`는 worker가 살아서 로드를 시도했으나 실패한 상태 — `docs/design/14-runner.md` 14.3.1). 이 구분과 범위는 design.md·checklist가 이미 "Chromium에서만 검증"으로 밝힌 것과 같다.
+`detectRuntimeSupport()`의 판정 바이트가 `true`를 낸다고 해서(예: 최신 Safari·Firefox가 우연히 두 wasm 기능을 지원) pyodide의 문법·API 요구사항 전체가 충족된다는 보장은 없다 — 이 저장소는 Chrome에서만 그 전체 요구사항을 실측했다(결정 1). Chrome이 아닌 엔진에서 실제로 부족한 것이 있으면 worker 부팅이 진행되다 pyodide 로드 실패로 `load-failed`가 된다(`unsupported`는 부팅 전 wasm 기능 부재로 worker 자체를 안 만드는 상태이고, `load-failed`는 worker가 살아서 로드를 시도했으나 실패한 상태 — `docs/design/14-runner.md` 14.3.1). 이 구분과 범위는 "Chromium에서만 검증"이라는 결정 1의 범위와 같다.
 
 ## Considered Options
 

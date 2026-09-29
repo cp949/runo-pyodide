@@ -1,10 +1,15 @@
 /**
- * `createRepl` 시험(`test/create-repl/*.test.ts`, `runSource` 시험 포함)이 함께 쓰는 하니스. 실제 `Readline`을 가짜 터미널에 붙이고, worker는
- * 가짜(`postMessage`·`terminate`·`error` 리스너만 기록)로 둔다. worker 역할의 rpc는 시험이 초기화 프레임의 포트에 직접 만든다.
- * worker가 없어 메일박스를 아무도 가져가지 않으므로 main이 쓴 값이 그대로 남고, 시험이 `takeResponse`·`peek`로 대신 읽는다.
+ * `createRepl` 시험(`test/create-repl/*.test.ts`, `runSource` 시험 포함)이 함께 쓰는 하니스.
  *
- * 시험 파일은 최상위에서 `useReplHarness()`를 한 번 불러 시험마다의 격리 페이지 설정과 정리(rpc·핸들·포트)를 등록한다.
- * `startSession`·`startResettableSession`을 거치지 않고 `createRepl`을 직접 부른 시험은 `trackHandle`로 정리 대상에 올린다.
+ * 조립:
+ * - 실제 `Readline`을 가짜 터미널에 붙인다.
+ * - worker는 가짜다. `postMessage`·`terminate`·`error` 리스너만 기록한다.
+ * - worker 역할의 rpc는 시험이 초기화 프레임의 포트에 직접 만든다.
+ * - worker가 없어 메일박스를 아무도 가져가지 않는다. main이 쓴 값이 그대로 남고, 시험이 `takeResponse`·`peek`로 대신 읽는다.
+ *
+ * 사용법:
+ * - 시험 파일은 최상위에서 `useReplHarness()`를 한 번 부른다. 시험마다의 격리 페이지 설정과 정리(rpc·핸들·포트)가 등록된다.
+ * - `startSession`·`startResettableSession`을 거치지 않고 `createRepl`을 직접 부른 시험은 `trackHandle`로 정리 대상에 올린다.
  */
 import { afterEach, beforeEach, vi } from "vitest";
 import { createRepl, type ReplHandle, type ReplOptions } from "../../src/index";
@@ -31,10 +36,7 @@ import {
 
 export { observe, tick, type Outcome };
 
-/**
- * 초기화 프레임에 실린 `topLevelAwait`. driver 옵션이라 최상위가 아니라 `frame.driver` 안에 있다(RD-020, `InitFrame.driver`).
- * 단언 값은 그대로이고 읽는 경로만 바뀌었다.
- */
+/** 초기화 프레임에 실린 `topLevelAwait`. driver 옵션이라 최상위가 아니라 `frame.driver` 안에 있다(RD-020, `InitFrame.driver`). */
 export function topLevelAwaitOf(frame: InitFrame): unknown {
   return (frame.driver as { topLevelAwait?: unknown }).topLevelAwait;
 }
@@ -45,12 +47,12 @@ export function must<T>(value: T | undefined): T {
   return value;
 }
 
-/** MessagePort 알림이 도착했을 시간을 준다. "오지 않아야 한다"는 단언 앞에서 쓴다. */
+/** MessagePort 알림이 도착할 시간(30ms)을 준다. "오지 않아야 한다"는 단언 앞에서 쓴다. */
 export function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 30));
 }
 
-/** MessagePort로 도착하는 알림을 기다린다. 조건이 참이 되면 바로 돌아온다(최대 2초). */
+/** MessagePort로 도착하는 알림을 기다린다. 조건이 참이 되면 바로 돌아온다. 최대 2초 기다리고 그 뒤에는 던진다. */
 export async function waitFor(predicate: () => boolean): Promise<void> {
   for (let waited = 0; waited < 2000; waited += 5) {
     if (predicate()) return;
@@ -59,13 +61,16 @@ export async function waitFor(predicate: () => boolean): Promise<void> {
   throw new Error("기다리던 상태가 되지 않았다");
 }
 
-/** 프레임의 rpcPort. 열린 MessagePort가 vitest 워커를 잡지 않게 시험이 끝나면 닫는다. */
+/** 초기화 프레임의 rpcPort 목록. 열린 MessagePort가 vitest 워커를 잡지 않게 시험이 끝나면 닫는다. */
 const openPorts: MessagePort[] = [];
-/** 새 시험이 만든 핸들과 worker 역할 rpc. 시험이 끝나면 정리한다. */
+
+/** 시험이 만든 `createRepl` 핸들. 시험이 끝나면 정리한다. */
 const handles: ReplHandle[] = [];
+
+/** 시험이 만든 worker 역할 rpc. 시험이 끝나면 정리한다. */
 const workerRpcs: Rpc[] = [];
 
-/** 아무것도 하지 않는 가짜 worker. postMessage로 받은 프레임을 기록하고 `error` 리스너를 걸 수 있게 한다. */
+/** 아무것도 하지 않는 가짜 worker. `postMessage`로 받은 프레임을 기록하고 `error` 리스너를 걸 수 있다. */
 export function createFakeWorker() {
   const postMessage = vi.fn<
     (message: unknown, transfer: Transferable[]) => void
@@ -97,7 +102,7 @@ export function createFakeWorker() {
     addEventListener,
     removeEventListener,
     frame: () => postMessage.mock.calls[0]?.[0] as InitFrame,
-    /** 전역 worker `error` 이벤트를 흉내 낸다(RD-010). */
+    // 전역 worker `error` 이벤트를 흉내 낸다(RD-010).
     dispatchError(message?: string) {
       for (const listener of errorListeners) listener({ message });
     },
@@ -108,8 +113,8 @@ export function createFakeWorker() {
 export const createWorker = () => createFakeWorker().worker;
 
 /**
- * 세션을 시작하고 worker 역할 rpc를 프레임의 포트에 만든다. `workerHandlers`는 worker가 요청을
- * 받는 쪽(`complete` 등)을 시험이 흉내 낼 때 쓴다(RD-015 DELTA-04, 기본은 핸들러 없음).
+ * 세션을 시작하고 worker 역할 rpc를 프레임의 포트에 만든다.
+ * `workerHandlers`는 worker가 요청을 받는 쪽(`complete` 등)을 시험이 흉내 낼 때 쓴다. 기본은 핸들러 없음이다(RD-015).
  */
 export function startSession(
   overrides: Partial<ReplOptions> = {},
@@ -142,9 +147,10 @@ export function startSession(
 }
 
 /**
- * `reset()` 시험용: `createWorker`를 부를 때마다 새 가짜 worker를 만든다(`startSession`은 같은 worker를 재사용해
- * 리셋 전후의 worker를 구분할 수 없다). `fake`는 세션을 넘어 하나다(화면·history가 리셋을 넘어 산다). `fakeWorker`·
- * `workerRpc`는 가장 최근 세션(리셋됐으면 새 세션)을 가리킨다 — 기존 헬퍼(`startRead` 등)를 리셋 뒤에도 그대로 쓸 수 있게.
+ * `reset()` 시험용 세션.
+ * - `createWorker`를 부를 때마다 새 가짜 worker를 만든다. `startSession`은 같은 worker를 재사용해 리셋 전후를 구분할 수 없다.
+ * - `fake`는 세션을 넘어 하나다. 화면·history가 리셋을 넘어 산다.
+ * - `fakeWorker`·`workerRpc`는 가장 최근 세션(리셋됐으면 새 세션)을 가리킨다. 기존 헬퍼(`startRead` 등)를 리셋 뒤에도 그대로 쓴다.
  */
 export function startResettableSession(
   overrides: Partial<ReplOptions> = {},
@@ -195,9 +201,10 @@ export function startResettableSession(
 
 /**
  * worker 역할 rpc로 `readLine`을 요청하고, main이 읽기를 시작해 입력 상태가 만들어질 때까지 write 콜백을 배출한다.
- * 읽기는 `term.write("", cb)`를 낸다(긴 꼬리를 정리하는 `rewindTail`의 flush도 같다). 출력 알림은 빈 조각을 쓰지
- * 않으므로 빈 문자열 write가 늘어난 것이 "요청이 도착했다"는 신호다. 꼬리가 길면 flush를 두 번 배출해야 읽기가 시작된다.
- * 읽기가 끝나기를 기다리지 않도록(async 함수는 반환한 Promise를 풀어 버린다) 읽기 Promise를 객체에 담아 돌려준다.
+ * - 읽기는 `term.write("", cb)`를 낸다. 긴 꼬리를 정리하는 `rewindTail`의 flush도 같다.
+ * - 출력 알림은 빈 조각을 쓰지 않는다. 빈 문자열 write가 늘어난 것이 "요청이 도착했다"는 신호다.
+ * - 꼬리가 길면 flush를 두 번 배출해야 읽기가 시작된다.
+ * - async 함수는 반환한 Promise를 풀어 버린다. 읽기가 끝나기를 기다리지 않도록 읽기 Promise를 객체에 담아 돌려준다.
  */
 export async function startRead(
   session: Pick<ReturnType<typeof startSession>, "fake" | "workerRpc">,
@@ -213,7 +220,7 @@ export async function startRead(
     pending,
     true,
   );
-  // 시험이 읽기 결과를 기다리지 않고 끝나도 afterEach의 rpc 정리가 처리되지 않은 rejection을 만들지 않게 한다.
+  // 시험이 읽기 결과를 기다리지 않고 끝나도 afterEach의 rpc 정리가 처리되지 않은 rejection을 만들지 않는다.
   void line.catch(() => {});
   await Promise.race([
     waitFor(() => flushRequests() > before),
@@ -238,7 +245,7 @@ export async function drainReadStart(fake: FakeTerminal, before: number) {
   fake.flush();
 }
 
-/** worker 역할 rpc로 `readInput`을 알리고 stdin 읽기가 시작될 때까지 기다린다. 응답 통로는 메일박스뿐이라 반환값이 없다. */
+/** worker 역할 rpc로 `readInput`을 알리고 stdin 읽기가 시작될 때까지 기다린다. 응답 통로가 메일박스뿐이라 반환값이 없다. */
 export async function startInputRead(
   session: Pick<ReturnType<typeof startSession>, "fake" | "workerRpc">,
 ) {
@@ -256,8 +263,9 @@ export function mailboxOf(
 }
 
 /**
- * 규칙: `docs/design/01-protocols.md` 2.5. main의 `createMailboxWriter`가 쓴 응답을 받는다(worker 없이 이
- * 시험이 대신 소비한다). `deliver`는 비동기라 Enter 직후에는 응답이 아직 없을 수 있다 — 응답이 쓰일 때까지 기다린다.
+ * main의 `createMailboxWriter`가 쓴 응답을 받는다(규칙: `docs/design/01-protocols.md` 2.5).
+ * - worker가 없어 이 시험이 대신 소비한다.
+ * - `deliver`는 비동기라 Enter 직후에는 응답이 아직 없을 수 있다. 응답이 쓰일 때까지 기다린다.
  */
 export function takeResponse(
   session: Pick<ReturnType<typeof startSession>, "fakeWorker">,
@@ -265,16 +273,17 @@ export function takeResponse(
   return takeMailboxResponse(mailboxOf(session));
 }
 
-/** 규칙: `docs/design/01-protocols.md` 2.5. 소비하지 않고 현재 메일박스를 본다. */
+/** 소비하지 않고 현재 메일박스를 본다(규칙: `docs/design/01-protocols.md` 2.5). */
 export function peek(
   session: Pick<ReturnType<typeof startSession>, "fakeWorker">,
 ) {
   return peekMailbox(mailboxOf(session));
 }
 
+/** `startSession`이 돌려주는 세션 묶음. */
 export type Session = ReturnType<typeof startSession>;
 
-/** interrupt buffer 슬롯 세 개의 지금 값. */
+/** interrupt buffer 슬롯 세 개(SIGINT·ack·요청 번호)의 지금 값. */
 export function slotsOf(buffer: Int32Array) {
   return {
     signal: Atomics.load(buffer, SIGNAL),
@@ -283,7 +292,7 @@ export function slotsOf(buffer: Int32Array) {
   };
 }
 
-/** 프레임의 interrupt buffer 슬롯 세 개. main 송신기가 쓰는 것과 같은 SharedArrayBuffer 뷰다. */
+/** 초기화 프레임의 interrupt buffer 슬롯 세 개. main 송신기가 쓰는 것과 같은 SharedArrayBuffer 뷰다. */
 export function slots(session: Pick<Session, "fakeWorker">) {
   return slotsOf(session.fakeWorker.frame().interruptBuffer);
 }
@@ -307,7 +316,7 @@ export const readyPayload = (overrides: Record<string, unknown> = {}) => ({
 export function useReplHarness(): void {
   beforeEach(() => {
     localStorage.clear();
-    // jsdom에는 crossOriginIsolated가 없다(undefined → 비격리). 격리 페이지로 만든다.
+    // jsdom에는 crossOriginIsolated가 없다(undefined는 비격리). 격리 페이지로 만든다.
     vi.stubGlobal("crossOriginIsolated", true);
   });
 
@@ -320,10 +329,7 @@ export function useReplHarness(): void {
   });
 }
 
-/**
- * 하니스 세션 헬퍼를 거치지 않고 `createRepl`로 만든 핸들을 정리 대상에 올린다(비격리 페이지 시험 등).
- * 받은 핸들을 그대로 돌려준다.
- */
+/** 하니스 세션 헬퍼를 거치지 않고 `createRepl`로 만든 핸들(비격리 페이지 시험 등)을 정리 대상에 올린다. 받은 핸들을 그대로 돌려준다. */
 export function trackHandle(handle: ReplHandle): ReplHandle {
   handles.push(handle);
   return handle;

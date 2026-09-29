@@ -1,6 +1,6 @@
 // e2e check 스크립트 등록 4곳(package.json e2e:*·sets.mjs SETS·README.md 명령 표·BASELINE.md 2절 표)이
 // `checks/` 디렉터리의 실제 파일 집합과 같은지 대조한다. 등록 누락이 조용히 L2에서만 드러난 전례
-// (`.scratch/repl-run-source-followups/issues/11`, run-source가 SETS에서 빠져 baseline 미실행)를
+// (run-source가 SETS에서 빠져 baseline 미실행)를
 // L0에서 잡는다. `pnpm --filter demo test`가 실행한다. 양성 대조 포함: 각 소스에서 파일 하나를
 // 메모리 사본으로 지워보고 본 판정과 같은 함수(`registryMismatches`·`modeEntriesWithDevPreview`)가
 // 실패를 내는지 확인한다(실제 저장소 파일은 건드리지 않는다).
@@ -50,7 +50,7 @@ function checksFilesFromBaseline(baseline) {
 /**
  * `checks/`만 대조한다(RD-044 범위). `measure/*.mjs` 7개와 `cpu-throttle-probe`
  * (SETS·baseline 미등록, package.json·README에는 기록용으로만 있다 — 검증이 L3에 걸려 이 시험의 L0
- * 범위 밖, `.scratch/e2e-check-runner-followups/issues/02-measure-entry-boilerplate.md`)는 이 네 소스의 비교
+ * 범위 밖)는 이 네 소스의 비교
  * 대상에서 자연히 빠진다(정규식이 `checks/`만 잡는다) — 별도 허용 목록이 필요 없다.
  */
 function loadSources() {

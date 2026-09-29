@@ -8,8 +8,8 @@
  * | 그려진 활성 읽기 | `moveCursorToEnd()` → `refreshUnhighlighted()` → `"\r\n"` | `true` |
  * | write 콜백 대기 읽기만 / 열린 읽기 없음 / `dispose()` 뒤 | 없음 | `false` |
  *
- * `settle`을 주지 않으면(또는 `false`) 화면에 쓰지 않고 `false`를 돌려준다. 스텁 터미널은 `print-above-raw.test.ts`와
- * 같은 패턴(write 바이트 기록 + 콜백 미루기)이다.
+ * `settle`을 주지 않으면(또는 `false`) 화면에 쓰지 않고 `false`를 돌려준다.
+ * `StubTerminal`의 write 바이트 기록과 콜백 미루기(`asyncWrite`)를 쓴다.
  */
 import { describe, expect, test } from "vitest";
 import { Readline, ReadCancelledError } from "../src/readline";
@@ -34,11 +34,12 @@ function observe(promise: Promise<unknown>): () => Outcome {
   return () => outcome;
 }
 
-/** 대기 중인 마이크로태스크를 지나가게 한다. */
+/** 대기 중인 마이크로태스크와 타이머 한 번을 지나가게 한다. */
 function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/** `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 10) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
@@ -59,8 +60,11 @@ class BracketHighlighter {
   }
 }
 
+// Home 키 시퀀스
 const HOME = "\x1b[H";
+// 30글자 입력. 20열 터미널에서 두 행으로 감긴다.
 const THIRTY = "abcdefghijklmnopqrstuvwxyz0123";
+// `cancelRead`로 끝난 읽기의 기대 결과
 const CANCELLED = { state: "rejected", reason: expect.any(ReadCancelledError) };
 
 describe("cancelRead({ settle: true }) 재그리기 대기 중", () => {

@@ -1,6 +1,8 @@
 /**
- * 선택 복사 정책(`decideKey`·`createSelectionCopy`) 시험. 가짜 터미널(`fake-terminal.ts`)로
- * 클립보드·DOM 이벤트를 대체해 실제 xterm 없이 결정·부작용을 검증한다.
+ * 선택 복사 정책 시험.
+ * - 대상: `decideKey`(키 판정)와 `createSelectionCopy`(복사 부작용).
+ * - 가짜 터미널(`@repo/pyodide-testkit/fake-terminal`)과 `writeText` 스텁을 쓴다.
+ * - 실제 xterm과 클립보드 없이 판정·부작용을 검증한다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { createFakeTerminal } from "@repo/pyodide-testkit/fake-terminal";
@@ -45,7 +47,10 @@ describe("decideKey", () => {
   });
 });
 
-/** `writeText`가 즉시 resolve하는 시험용 스텁. 호출 인자를 기록한다. */
+/**
+ * 즉시 resolve하는 `writeText` 스텁을 만든다.
+ * 넘겨받은 텍스트를 `calls`에 기록한다.
+ */
 function stubWriteText() {
   const calls: string[] = [];
   const writeText = vi.fn((text: string) => {
@@ -55,6 +60,7 @@ function stubWriteText() {
   return { writeText, calls };
 }
 
+/** 복사 단축키(Ctrl+C) `keydown` 이벤트를 만든다. */
 function ctrlC(): KeyboardEvent {
   return new KeyboardEvent("keydown", { ctrlKey: true, key: "c" });
 }

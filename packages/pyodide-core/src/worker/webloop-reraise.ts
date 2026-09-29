@@ -1,9 +1,12 @@
 /**
- * WebLoop 재보고 억제(03-ctrl-c.md 2.8). pyodide의 WebLoop은 콜백(`run_handle`) 안에서 난 `KeyboardInterrupt`·
- * `SystemExit`을 삼키지 않고 다시 던진다 — 실행 중단·`input()` 취소·`exit()`마다 처리되지 않은 Promise 거부(브라우저
- * `pageerror`, node `Unhandled Rejection`)가 남는다. 사용자에게 보일 트레이스백은 이미 화면에 나갔으므로 이 재보고에는
- * 정보가 없다. WebLoop private 속성 두 개를 no-op으로 바꿔 재보고를 없앤다. pyodide 버전이 바뀌어 속성이 없으면 설치를
- * 건너뛰고 `report`로 알린다(부분 설치는 하지 않는다). 사용자에게 보일 경고는 main 세션이 `ready` 페이로드로 한 번 낸다.
+ * WebLoop 재보고 억제(03-ctrl-c.md 2.8).
+ * pyodide의 WebLoop은 콜백(`run_handle`) 안에서 난 `KeyboardInterrupt`·`SystemExit`을 삼키지 않고 다시 던진다.
+ * 실행 중단·`input()` 취소·`exit()`마다 처리되지 않은 Promise 거부(브라우저 `pageerror`, node `Unhandled Rejection`)가 남는다.
+ * 사용자에게 보일 트레이스백은 이미 화면에 나갔다. 이 재보고에는 정보가 없다.
+ *
+ * WebLoop private 속성 두 개를 no-op으로 바꿔 재보고를 없앤다.
+ * pyodide 버전이 바뀌어 속성이 없으면 설치를 건너뛰고 `report`로 알린다(부분 설치는 하지 않는다).
+ * 사용자에게 보일 경고는 main 세션이 `ready` 페이로드로 한 번 낸다.
  */
 import type { PyodideInterface } from "pyodide";
 import type { PyProxy } from "pyodide/ffi";

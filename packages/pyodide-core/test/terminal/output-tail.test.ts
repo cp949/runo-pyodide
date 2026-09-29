@@ -1,7 +1,9 @@
 /**
- * 출력 꼬리 추적(`createOutputTail`) 시험.
- * 직전 출력의 마지막 `\n` 뒤이면서 그 안에서 마지막 `\r` 뒤 텍스트와, 줄 경계를 넘어 열린 SGR을
- * 순수 함수로 확인한다. 터미널·pyodide·worker 없이 도는 jsdom 기본 환경 시험이다(04-stdin-input.md 3.3).
+ * 출력 꼬리 추적(`createOutputTail`, `leavesVisibleText`) 시험(`04-stdin-input.md` 3.3, `05-output.md` 4.1).
+ * - 꼬리: 마지막 `\n` 뒤이면서 그 안의 마지막 `\r` 뒤 텍스트.
+ * - 줄 경계를 넘어 열린 SGR 이어받기.
+ * - 제어 문자 정규화(BS 적용, BEL·나머지 C0 제거)와 문자열 시퀀스(OSC·DCS) 예외.
+ * - 터미널·pyodide·worker 없이 도는 jsdom 기본 환경 시험이다.
  */
 import { describe, expect, test } from "vitest";
 import {
@@ -210,7 +212,8 @@ describe("제어 문자 정규화(BS 적용, BEL·나머지 C0 제거)", () => {
   });
 });
 
-// 문자열 시퀀스(OSC·DCS 등)는 BEL·ST가 닫는다. 종료자를 C0로 보고 지우면 시퀀스가 열린 채 본문에 남아
+// 문자열 시퀀스(OSC·DCS 등)는 BEL·ST가 닫는다.
+// 종료자를 C0로 보고 지우면 시퀀스가 열린 채 본문에 남는다.
 // 터미널이 뒤따르는 프롬프트·입력까지 삼킨다(RD-026 사후 리뷰).
 describe("문자열 시퀀스(OSC·DCS)는 정규화하지 않는다", () => {
   test("OSC의 종료자 BEL을 지우지 않는다", () => {
@@ -252,8 +255,9 @@ describe("문자열 시퀀스(OSC·DCS)는 정규화하지 않는다", () => {
   });
 });
 
-// `\r` 구간이 화면에 무언가를 남기는지 보는 소비자(terminal `splitAboveRead`)용 판정. 정규화와 기준이 어긋나면
-// 접두가 빈 문자열이 되어 화면의 글자가 사라진다(RD-026 사후 리뷰).
+// `\r` 구간이 화면에 무언가를 남기는지 보는 판정이다. 소비자는 terminal `splitAboveRead`다.
+// 정규화와 기준이 어긋나면 접두가 빈 문자열이 된다.
+// 화면의 글자가 사라진다(RD-026 사후 리뷰).
 describe("정규화 뒤 남는 글자 판정(`leavesVisibleText`)", () => {
   test.each([
     ["빈 구간", "", false],

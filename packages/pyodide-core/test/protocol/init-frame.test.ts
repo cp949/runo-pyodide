@@ -1,6 +1,9 @@
 // @vitest-environment node
 /**
- * 초기화 프레임 시험(01-protocols.md 4절). main이 worker 생성 직후 보내는 단 하나의 네이티브 메시지의 타입 검증이다.
+ * 초기화 프레임 시험(01-protocols.md 4절).
+ * - 대상: main이 worker 생성 직후 보내는 단 하나의 네이티브 메시지.
+ * - `parseInitFrame`: 필드 존재와 타입을 검증한다.
+ * - `postInitFrame`: 포트를 전송하고 버퍼를 같은 메모리로 공유한다.
  */
 import { describe, expect, it, onTestFinished } from "vitest";
 import { parseInitFrame, postInitFrame } from "../../src/protocol/init-frame";
@@ -9,6 +12,7 @@ import { createInterruptBuffer } from "../../src/protocol/interrupt-protocol";
 import { createStdinMailbox } from "../../src/protocol/stdin-mailbox";
 import { DEFAULT_PYODIDE_INDEX_URL } from "../../src/pyodide-version";
 
+/** 모든 필드가 올바른 `InitFrame`을 만든다. 시험이 끝나면 포트를 닫는다. */
 function createFrame(): InitFrame {
   const { port1, port2 } = new MessageChannel();
   onTestFinished(() => {
@@ -61,8 +65,10 @@ describe("parseInitFrame", () => {
     },
   );
 
-  // driver 설정은 driver 파서가 검증한다(repl `worker/repl-driver.test.ts`). core는 필드가 있는지만 본다: 옛 모양(설정이 최상위에
-  // 있고 driver 필드가 없는 프레임)을 worker가 조용히 받아들여 driver 설정을 잃는 일을 막는다.
+  // driver 설정은 driver 파서가 검증한다(repl `worker/repl-driver.test.ts`).
+  // core는 필드가 있는지만 본다.
+  // 옛 모양(설정이 최상위에 있고 driver 필드가 없는 프레임)을 worker가 받아들이면 driver 설정을 잃는다.
+  // 이 일을 막는다.
   it.each([
     { label: "객체", driver: { topLevelAwait: true } },
     { label: "null", driver: null },
@@ -86,8 +92,9 @@ describe("parseInitFrame", () => {
     );
   });
 
-  // 비공유 뷰는 postMessage의 구조적 복제에서 메모리가 복사돼 main과 worker가 서로 다른 메모리를 본다. 오류 없이 통신만
-  // 조용히 끊기므로(Ctrl+C가 영영 안 먹는다) 프레임에서 막아야 한다.
+  // 비공유 뷰는 postMessage의 구조적 복제에서 메모리가 복사된다.
+  // main과 worker가 서로 다른 메모리를 본다.
+  // 오류 없이 통신만 조용히 끊긴다(Ctrl+C가 영영 안 먹는다). 프레임 검증에서 막아야 한다.
   it.each([
     { field: "interruptBuffer", value: () => new Int32Array(4) },
     { field: "stdinCtrl", value: () => new Int32Array(4) },
@@ -111,8 +118,8 @@ describe("parseInitFrame", () => {
   });
 });
 
-// 실제 MessageChannel 포트를 전송 대상으로 쓴다(Worker.postMessage와 같은 시그니처). 전송 목록이 빠지면 rpcPort가 복제 불가라
-// DataCloneError가 난다.
+// 실제 MessageChannel 포트를 전송 대상으로 쓴다(`Worker.postMessage`와 같은 시그니처).
+// 전송 목록이 빠지면 rpcPort를 복제할 수 없어 DataCloneError가 난다.
 describe("postInitFrame", () => {
   it("rpcPort는 전송돼 살아 있는 포트로 도착하고, 버퍼는 같은 메모리를 공유한다", async () => {
     const carrier = new MessageChannel();

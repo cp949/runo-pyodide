@@ -1,7 +1,9 @@
 /**
- * `createPromptRow` 접두·안내 시험(RD-027, `design.md` §4·§6): 열린 읽기에서 입력을 가져오는 `take`, 배경 출력 접두를 꼬리로
- * 옮기는 `detachPrefix`, 안내 한 줄 `notice`. "detachPrefix" 절은 `sinks.test.ts`의 `moveAbovePrefixToTail` describe(6건),
- * "notice" 절은 `notice.test.ts`(3건)를 새 인터페이스로 옮긴 것이다. 조립·배출은 `../surface-setup.ts`(RD-042).
+ * `createPromptRow` 접두·안내 시험(RD-027).
+ * - `take`: 열린 읽기에서 입력을 가져온다.
+ * - `detachPrefix`: 배경 출력 접두를 꼬리로 옮긴다. 구 `moveAbovePrefixToTail`의 시험을 새 인터페이스로 옮겼다.
+ * - `notice`: 안내 한 줄을 낸다. 구 `writeNotice`의 시험을 새 인터페이스로 옮겼다.
+ * - 조립·배출은 `../surface-setup.ts`(RD-042)가 맡는다.
  */
 import { ReadTakenError } from "@cp949/runo-xterm-readline";
 import { describe, expect, test, vi } from "vitest";
@@ -34,11 +36,11 @@ describe("take", () => {
     await expect(read).rejects.toThrow(ReadTakenError);
   });
 
-  test("배경 출력이 남긴 접두도 함께 지워 접두를 꼬리보다 먼저 쓴다(변이 검사 ③: abovePrefix는 takeRead 앞)", async () => {
+  test("배경 출력이 남긴 접두도 함께 지워 접두를 꼬리보다 먼저 쓴다", async () => {
     const { fake, surface, io, startRead } = setup();
     const { line: read } = await startRead("> ", { cancelable: true });
     fake.type("abc");
-    io.sinks.write("bg"); // 열린 읽기 중이므로 접두가 된다(printAboveRaw 경로).
+    io.sinks.write("bg"); // 열린 읽기 중이므로 접두가 된다(`printAboveRaw` 경로).
 
     const taken = surface.promptRow.take();
 
@@ -68,11 +70,11 @@ describe("detachPrefix(구 moveAbovePrefixToTail, RD-022b)", () => {
     const vt = attachScreen(fake);
     const printAboveRaw = vi.spyOn(readline, "printAboveRaw");
     const io = surface.openIo();
-    /** `> ` 읽기를 열고 그린 뒤 `typed`를 친다. 읽기 Promise는 객체에 담아 돌려준다. */
+    // `> ` 읽기를 열고 그린 뒤 `typed`를 친다. 읽기 Promise는 객체에 담아 돌려준다.
     const openRead = async (typed = "abc") => {
       const line = surface.promptRow.read("> ", { cancelable: true });
-      // `promptRow.read()`는 `readline.read()`를 부르기 전에 `await rewindTail(...)`를 거친다(빈 꼬리도 마이크로
-      // 태스크 한 번). 실제 벤더 호출까지 기다린 뒤 write 콜백을 배출한다.
+      // `promptRow.read()`는 `readline.read()` 전에 `await rewindTail(...)`를 거친다(빈 꼬리도 마이크로태스크 한 번).
+      // 벤더 호출까지 기다린 뒤 write 콜백을 배출한다.
       await tick();
       fake.flush();
       fake.type(typed);
@@ -130,7 +132,7 @@ describe("detachPrefix(구 moveAbovePrefixToTail, RD-022b)", () => {
   test("읽기가 그려지기 전에 꼬리에 들어간 조각은 접두로 바뀐다(프롬프트 그리기가 그 행을 지웠다)", async () => {
     const { fake, surface, io } = setup({ asyncWrite: true });
     void surface.promptRow.read("> ", { cancelable: true });
-    // `readline.read()`까지는 진행했지만(짧은 빈 꼬리는 flush를 기다리지 않는다) 아직 그려지지 않았다.
+    // `readline.read()`까지는 진행했지만 아직 그려지지 않았다(짧은 꼬리는 flush를 기다리지 않는다).
     await tick();
     io.sinks.write("x");
     expect(tail(io.sinks)).toBe("x");
@@ -171,8 +173,9 @@ describe("detachPrefix 핸들(이슈 prompt-row-followups/07)", () => {
   }
 
   /**
-   * `> abc` 읽기 위에 배경 출력 `bg> `를 접두로 쓰고, 꼬리로 뗀 뒤 Enter로 읽기를 끝낸다(D6 직전 상태). 뗀 핸들을
-   * 돌려준다.
+   * `> abc` 읽기를 열고 위에 배경 출력 `bg> `를 접두로 쓴다.
+   * 접두를 꼬리로 뗀 뒤 Enter로 읽기를 끝낸다(D6 직전 상태).
+   * 뗀 핸들을 돌려준다.
    */
   async function detachAndEnter(s: ReturnType<typeof setup>) {
     const line = s.surface.promptRow.read("> ", { cancelable: true });
@@ -195,7 +198,7 @@ describe("detachPrefix 핸들(이슈 prompt-row-followups/07)", () => {
     handle.draw();
     s.fake.flush();
 
-    expect(s.vt.lines()).toEqual(["> abc", "bg>"]); // VtScreen.lines()는 행 끝 공백을 자른다
+    expect(s.vt.lines()).toEqual(["> abc", "bg>"]); // `VtScreen.lines()`는 행 끝 공백을 자른다.
     expect(tail(s.io.sinks)).toBe("bg> ");
   });
 
@@ -229,7 +232,7 @@ describe("detachPrefix 핸들(이슈 prompt-row-followups/07)", () => {
 
     expect(s.fake.written.length).toBe(before);
 
-    // io 없이 뗀 핸들도 던지지 않는다.
+    // io 없이 뗀 핸들도 예외를 던지지 않는다.
     const { surface } = setupSurface();
     expect(() => surface.promptRow.detachPrefix().draw()).not.toThrow();
   });
@@ -266,14 +269,14 @@ describe("notice(구 writeNotice)", () => {
     expect(fake.written.join("")).toBe("\x1b[36m리셋\x1b[0m\r\n");
   });
 
-  test("현재 io가 없으면 println과 같은 바이트를 낸다(RD-028 §3, 현행 유지)", () => {
+  test("현재 io가 없으면 println과 같은 바이트를 낸다(RD-028)", () => {
     const { fake, surface } = setupSurface();
 
     expect(() => surface.promptRow.notice("경고", "warning")).not.toThrow();
     expect(fake.written.join("")).toBe("\x1b[33m경고\x1b[0m\r\n");
   });
 
-  test("io가 있고 꼬리가 없으면 println과 바이트가 같고, 뒤 꼬리도 비어 있다(RD-028 §3)", () => {
+  test("io가 있고 꼬리가 없으면 println과 바이트가 같고, 뒤 꼬리도 비어 있다(RD-028)", () => {
     const { fake, surface } = setupSurface();
     const io = surface.openIo();
 
@@ -283,7 +286,7 @@ describe("notice(구 writeNotice)", () => {
     expect(tail(io.sinks)).toBe("");
   });
 
-  test("io가 있고 꼬리가 있으면 `\\r\\n` 뒤에 안내를 쓰고 그 꼬리를 비운다(RD-028 §3, 변이 검사 ④)", () => {
+  test("io가 있고 꼬리가 있으면 `\\r\\n` 뒤에 안내를 쓰고 그 꼬리를 비운다(RD-028)", () => {
     const { fake, surface } = setupSurface();
     const io = surface.openIo();
     io.sinks.write("t");
@@ -294,8 +297,7 @@ describe("notice(구 writeNotice)", () => {
     expect(tail(io.sinks)).toBe("");
   });
 
-  // DELTA-05(최종 리뷰 발견): SGR만 남은 꼬리(`tail() !== ""`)를 "꼬리 있음"으로 잘못 보면 불필요한 `\r\n`을
-  // 선행한다(수정 전이면 이 시험이 RED).
+  // 회귀 방지: SGR만 남은 꼬리(`tail() !== ""`)를 "꼬리 있음"으로 잘못 보면 불필요한 `\r\n`이 앞에 붙는다.
   test("io가 있고 꼬리가 SGR만 남았으면(색 안 닫고 개행으로 끝난 출력) println과 바이트가 같다(회귀)", () => {
     const { fake, surface } = setupSurface();
     const io = surface.openIo();
@@ -304,7 +306,7 @@ describe("notice(구 writeNotice)", () => {
 
     surface.promptRow.notice("경고", "warning");
 
-    // `Readline.write`가 `\n`을 `\r\n`으로 정규화한다(`readline.ts:440-446`) — 원문의 `\n`도 `\r\n`으로 나간다.
+    // `Readline.write`가 `\n`을 `\r\n`으로 정규화한다. 원문의 `\n`도 `\r\n`으로 나간다.
     expect(fake.written.join("")).toBe(
       "\x1b[31mred\r\n\x1b[33m경고\x1b[0m\r\n",
     );

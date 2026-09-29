@@ -1,17 +1,17 @@
-// RD-012 DELTA-03 브라우저 확인. ROADMAP 시나리오 + TLA ON 스모크 5건 + asyncio.run(main()) OFF/ON +
+// RD-012 브라우저 확인. ROADMAP 시나리오 + TLA ON 스모크 5건 + asyncio.run(main()) OFF/ON +
 // ON→OFF 전환 + sticky(리셋·크래시 재시작) + (선택) not-isolated.
-// 출처 RD-012, `_works/_completed/20260923-13-rd-012-top-level-await/verify/`에서 이관(RD-018).
+// 출처 RD-012에서 이관(RD-018).
 //
 // 사용법(dev, `pnpm --filter demo dev`가 떠 있어야 함):
 //   node tla-check.mjs [devURL] [previewURL]
 // ONLY=<절 이름,…>로 절만 분리 실행할 수 있다(scenario·smoke·arun·toggle-off·sticky).
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 //
-// RD-018 DELTA-03 갱신: `defineMain()`과 "smoke: for 블록" 절은 콜론 뒤 다음 줄에 공백 4칸을 직접 쳤다.
+// RD-018 갱신: `defineMain()`과 "smoke: for 블록" 절은 콜론 뒤 다음 줄에 공백 4칸을 직접 쳤다.
 // RD-013(2026-09-23 dev 병합) 뒤에는 그 자리에 이미 자동 들여쓰기 프리필(4칸)이 채워져 있어 수동 4칸을
 // 더 치면 한 단계 더 들어간다 — `defineMain()`은 둘째(`await …`)·셋째(`return 42`) 줄의 실제 들여쓰기가
 // 각각 8칸·12칸으로 서로 달라져(콜론 없는 줄 뒤 프리필은 직전 줄의 **실제** 들여쓰기를 그대로 이어받는다,
-// `auto-indent.ts`의 `nextIndentation`) `IndentationError`가 난다(실측). `ctrl-c-check.mjs`(DELTA-02)·
+// `auto-indent.ts`의 `nextIndentation`) `IndentationError`가 난다(실측). `ctrl-c-check.mjs`·
 // `auto-indent-check.mjs`의 `multiline-shift` 절과 같은 패턴으로 고쳤다: 프리필 위에 본문만 친다.
 import { open, same, show } from "../lib.mjs";
 import { checkEntry, currentOnly, exitWith, pageSelected, runDevPreview, serverLabel } from "../check-runner.mjs";

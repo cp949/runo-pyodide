@@ -1,14 +1,19 @@
 // @vitest-environment node
 /**
- * dom-bridge 패키지 경계. coincident는 이 패키지에만 있다(ADR-0006). 여기서는 두 가지를 강제한다.
- * ① dom-bridge 자신의 의존 선언: coincident·reflected-ffi 포크를 file:로 고정, core는 peer(타입만 쓴다), REPL·터미널·pyodide 비의존.
- * ② 다른 패키지(core·terminal·repl·react·xterm-readline)의 의존 트리에 dom-bridge·coincident가 새지 않는다(기존 금지 보장 유지).
- * core·terminal·repl·react 자신의 `package-boundary.test.ts`는 그대로 두고, 여기서는 반대 방향(dom-bridge가 생긴 뒤에도
- * 그 트리들에 dom-bridge가 없다)을 본다.
- * ③ `check-dist`의 허용 모드 플래그(`--allow-sync-bridge`)가 다른 5개 패키지의 `scripts`로 새지 않는다.
- * ④ 배포 패키지 6종 모두 `publishConfig.exports`의 키가 `exports`와 같고 `development` 조건이 없다. 키가 어긋나면 tarball에서 진입점이
- * 빠진다. `smoke:pack`도 `ENTRY_EXPORTS`에 선언된 진입점이 tarball `exports`에 없으면 선언 대조에서 실패하지만 수동 L0라, 여기서
- * `pnpm test`로 막는다(`docs/design/09-testing.md` 9.8.3).
+ * dom-bridge 패키지 경계 시험. coincident는 이 패키지에만 있다(ADR-0006). 네 가지를 강제한다.
+ *
+ * 1. dom-bridge 자신의 의존 선언.
+ *    - coincident·reflected-ffi 포크를 `file:`로 고정한다.
+ *    - core는 peer다(타입만 쓴다).
+ *    - REPL·터미널·pyodide에 의존하지 않는다.
+ * 2. 다른 패키지(core·terminal·repl·react·xterm-readline)의 의존 트리에 dom-bridge·coincident가 새지 않는다.
+ *    - core·terminal·repl·react 자신의 `package-boundary.test.ts`는 그대로 둔다.
+ *    - 여기서는 반대 방향을 본다. dom-bridge가 생긴 뒤에도 그 트리들에 dom-bridge가 없다.
+ * 3. `check-dist`의 허용 모드 플래그(`--allow-sync-bridge`)가 다른 5개 패키지의 `scripts`로 새지 않는다.
+ * 4. 배포 패키지 6종 모두 `publishConfig.exports`의 키가 `exports`와 같고 `development` 조건이 없다.
+ *    - 키가 어긋나면 tarball에서 진입점이 빠진다.
+ *    - `smoke:pack`은 `ENTRY_EXPORTS`에 선언된 진입점이 tarball `exports`에 없으면 실패한다. 다만 수동 L0다.
+ *    - 그래서 여기서 `pnpm test`로 막는다(`docs/design/09-testing.md` 9.8.3).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -60,13 +65,15 @@ describe("dom-bridge 자신의 의존 선언", () => {
       "@xterm/xterm",
     ])
       expect(names.has(name), name).toBe(false);
-    // `pyodide`는 core의 optional peer라 트리에 이름이 잡힐 수 있다. 이 패키지가 직접 선언하는 것은 devDependencies(시험용)뿐이다.
+    // `pyodide`는 core의 optional peer라 트리에 이름이 잡힐 수 있다.
+    // 이 패키지가 직접 선언하는 것은 devDependencies(시험용)뿐이다.
     expect(manifest.dependencies?.pyodide).toBeUndefined();
     expect(manifest.peerDependencies?.pyodide).toBeUndefined();
   });
 
   test("의존 트리를 실제로 따라갔다(coincident·reflected-ffi 포크·core가 잡힌다)", () => {
-    // 아무것도 따라가지 못해 빈 집합이 되면 위 단언이 항상 통과하므로, 트리를 걸었다는 증거를 함께 단언한다.
+    // 트리를 못 따라가 빈 집합이 되면 위 단언이 항상 통과한다.
+    // 그래서 트리를 걸었다는 증거를 함께 단언한다.
     const { names } = collectInstalledDependencyNames(PACKAGE_DIR);
 
     expect(names).toContain("@cp949/runo-coincident");
@@ -119,7 +126,7 @@ describe("다른 패키지의 의존 트리에는 dom-bridge·coincident가 없�
   });
 });
 
-/** 저장소 안 패키지 폴더(`../../<name>/`)의 `package.json`. */
+/** `relative` 경로의 패키지 폴더에 있는 `package.json`을 읽는다. 저장소 안 패키지(`../../<name>`)나 이 패키지(`..`)를 넘긴다. */
 function readManifest(relative: string) {
   return JSON.parse(
     readFileSync(
@@ -146,7 +153,8 @@ describe("check-dist 허용 모드 플래그는 dom-bridge에만 있다", () => 
     (_이름, relative) => {
       const scripts = readManifest(relative).scripts ?? {};
 
-      // check-dist가 있어야 "플래그 없음"이 금지 문자열 검사를 받는다는 뜻이 된다(스크립트가 사라지면 이 단언이 빈 통과가 된다).
+      // check-dist가 있어야 "플래그 없음"이 금지 문자열 검사를 받는다는 뜻이다.
+      // 스크립트가 사라지면 이 단언이 빈 통과가 된다.
       expect(scripts["check-dist"]).toContain("scripts/check-dist.mjs");
       for (const [name, command] of Object.entries(scripts))
         expect(command, name).not.toContain("--allow-sync-bridge");
@@ -175,7 +183,7 @@ describe("배포 패키지 6종의 tarball exports(publishConfig)는 작업공�
     expect(Object.keys(publishExports ?? {}).sort()).toEqual(
       Object.keys(workspaceExports).sort(),
     );
-    // 값을 모두 훑어 `development` 조건 키가 어느 깊이에도 없음을 본다.
+    // 값을 모두 훑어 `development` 조건 키가 어느 깊이에도 없는지 본다.
     const conditionKeys: string[] = [];
     const walk = (value: unknown) => {
       if (value === null || typeof value !== "object") return;

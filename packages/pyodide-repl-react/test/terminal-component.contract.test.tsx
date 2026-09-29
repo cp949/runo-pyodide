@@ -1,9 +1,15 @@
 /**
- * `<PythonRunner>`·`<PythonRepl>` 계약 suite(jsdom + React, DELTA-02). 두 컴포넌트 시험에서 본문이 같은 쌍(C1~C19,
- * `_works/_completed/20260927-52-rd-038-react-terminal-widget/checklist.md` "시험 행방 계획")을 `describe.each([runnerAdapter, replAdapter])`
- * 1벌로 합친다. 좁은 계약(Q8) — adapter는 `{ name, Component, hostId }` 3필드만 쓴다. `becomeReady`는 adapter에 두지 않고
- * `onStatus` 수집 배열 기반 공통 함수 하나로 둔다(C17에서만 쓴다). 구조만 같거나(핸들 키 목록 등) 본문이 다른 쌍은 각 컴포넌트
- * 시험 파일에 남아 있다. DELTA-04에서 소스를 `useTerminalWidget`으로 옮길 때 이 suite가 안전망이다.
+ * `<PythonRunner>`·`<PythonRepl>` 공통 계약 시험. jsdom + React.
+ * - 방식: `describe.each([PythonRunner, PythonRepl])` 한 벌로 두 컴포넌트에 같은 시험을 돌린다(RD-038).
+ * - adapter는 `{ name, Component, hostId }` 세 필드만 쓴다. 두 컴포넌트에 공통인 props·handle 표면만 시험한다.
+ * - suite 5개, 고유 제목 19개(`docs/design/15-react.md` 15.10).
+ *   - xterm·worker 수명 7
+ *   - 콜백 1
+ *   - `copyOnSelect` 반응형 3
+ *   - fit 배선 4
+ *   - ref handle 4
+ * - 이 suite에 없는 시험: 구조만 같거나(핸들 키 목록) 본문이 다른 시험. 각 컴포넌트 시험 파일에 있다.
+ * - 이 suite는 `useTerminalWidget` 수명 module의 안전망이다.
  */
 import type { CopyResult } from "@cp949/runo-pyodide-terminal";
 import type { ITerminalInitOnlyOptions, ITerminalOptions } from "@xterm/xterm";
@@ -33,14 +39,14 @@ import {
   type Probe,
 } from "./component-harness";
 
-/** 계약 시험이 쓰는 handle 표면(두 컴포넌트 handle의 공통 부분만). */
+/** 계약 시험이 쓰는 handle 표면. 두 컴포넌트 handle의 공통 부분만 담는다. */
 interface ContractHandle {
   focus(): void;
   setCopyOnSelect(enabled: boolean): void;
   reset(): void;
 }
 
-/** 계약 시험이 쓰는 props 표면(두 컴포넌트 Props의 공통 부분만). */
+/** 계약 시험이 쓰는 props 표면. 두 컴포넌트 Props의 공통 부분만 담는다. */
 interface ContractProps {
   createWorker: typeof factory.createWorker;
   terminalOptions?: ITerminalOptions & ITerminalInitOnlyOptions;
@@ -56,12 +62,19 @@ interface ContractProps {
   ref?: Ref<ContractHandle>;
 }
 
+/** 시험 대상 컴포넌트 한 쌍의 차이를 담는 adapter */
 interface Adapter {
+  /** suite 제목과 `className`·`id` 접두에 쓰는 이름 */
   name: string;
+
+  /** 시험할 컴포넌트. 공통 props 표면으로 좁힌 타입 */
   Component: (props: ContractProps) => ReactNode;
+
+  /** 컨테이너 div의 `data-testid` 값 */
   hostId: string;
 }
 
+// 두 컴포넌트를 공통 표면 타입으로 단언해 넣는다.
 const ADAPTERS: Adapter[] = [
   {
     name: "PythonRunner",
@@ -75,7 +88,10 @@ const ADAPTERS: Adapter[] = [
   },
 ];
 
-/** onStatus 수집 배열로 worker를 ready로 만들고 그 상태가 될 때까지 기다린다(C17 전용). */
+/**
+ * `index`번째 worker가 `ready`를 알리게 하고 `statuses`의 마지막 값이 `ready`가 될 때까지 기다린다.
+ * `onStatus`로 모은 배열을 쓰므로 두 컴포넌트에 똑같이 동작한다. ref handle suite의 `reset()` 시험이 쓴다.
+ */
 async function becomeReady(statuses: string[], index = 0): Promise<void> {
   factory.workers[index]!.ready();
   await until(() => statuses.at(-1) === "ready");
@@ -148,14 +164,16 @@ describe.each(ADAPTERS)(
       mount({}, { strict: true });
       await unmount();
       expect(liveWhenTerminalDisposed).toEqual([0, 0]);
-      // 정리 중 동기 경고가 없다는 것만 본다. 이 시험은 dispose 전에 대기 중인 write 콜백을 만들지 않고 xterm write 파싱은
-      // `setTimeout`으로 미뤄지므로 TRP-004 회귀(dispose 뒤 콜백의 `buffer` 접근)는 여기서 보이지 않는다(브라우저 `react-strictmode` S04 몫).
-      // 순서를 뒤집어도 이 경고는 나지 않는다(TRP-064, 위 순서 단언이 순서를 잡는다).
+      // 정리 중 동기 경고가 없다는 것만 본다.
+      // - 이 시험은 dispose 전에 대기 중인 write 콜백을 만들지 않는다. xterm write 파싱은 `setTimeout`으로 미뤄진다.
+      //   그래서 `docs/traps/TRP-004` 회귀(dispose 뒤 콜백의 `buffer` 접근)는 여기서 보이지 않는다.
+      // - 정리 순서를 뒤집어도 이 경고는 나지 않는다(`docs/traps/TRP-064`). 순서는 위 `[0, 0]` 단언이 잡는다.
       expect(warnSpy).not.toHaveBeenCalled();
     });
 
     test("createWorker가 던지면 만든 Terminal을 정리하고 오류가 React로 전파된다", () => {
-      // 격리가 아니면 createWorker를 부르지 않으므로 격리 상태에서 시험한다. 던지는 자식을 React가 처리하는 오류 경계는 없으므로 root 렌더가 던진다.
+      // 격리가 아니면 `createWorker`를 부르지 않으므로 격리 상태에서 시험한다.
+      // 오류 경계가 없어 root 렌더가 그대로 던진다.
       const errors = vi.spyOn(console, "error").mockImplementation(() => {});
       const root = createRoot(container);
       expect(() =>
@@ -169,7 +187,7 @@ describe.each(ADAPTERS)(
           ),
         ),
       ).toThrow("worker 생성 실패");
-      // 생성 도중 던져도 열린 Terminal은 정리된다(누수 없음).
+      // 생성 도중 던져도 열린 Terminal은 모두 dispose된다.
       expect(openSpy).toHaveBeenCalled();
       expect(disposeSpy).toHaveBeenCalledTimes(openSpy.mock.calls.length);
       errors.mockRestore();
@@ -220,7 +238,7 @@ describe.each(ADAPTERS)(
       },
     );
 
-    /** 화면에 글을 쓰고 마우스로 드래그 선택했다가 놓는 동작을 흉내 낸다. */
+    // 화면에 글(`copy-me`)을 쓰고 7자를 드래그로 선택한 뒤 마우스를 놓는 동작을 흉내 낸다.
     async function dragSelect(
       probe: Probe<ContractHandle, ContractProps>,
     ): Promise<void> {
@@ -297,7 +315,7 @@ describe.each(ADAPTERS)("$name: fit 배선", ({ Component, hostId }) => {
     activateSpy = vi.spyOn(FitAddon.prototype, "activate");
   });
 
-  /** 마운트하고 xterm 자체가 예약한 rAF를 비운다. */
+  // 마운트한 뒤 xterm이 예약한 rAF를 비운다.
   function mountFit(
     initial: Partial<ContractProps> = {},
     mountOptions: { strict?: boolean } = {},
@@ -307,7 +325,7 @@ describe.each(ADAPTERS)("$name: fit 배선", ({ Component, hostId }) => {
     return probe;
   }
 
-  /** 컨테이너를 관찰하는 observer. xterm 내부 것이 섞이지 않게 대상으로 거른다. */
+  // 컨테이너를 관찰하는 observer. xterm 내부 observer는 대상으로 걸러 뺀다.
   function hostObservers(
     probe: Probe<ContractHandle, ContractProps>,
   ): FakeResizeObserver[] {
@@ -340,7 +358,7 @@ describe.each(ADAPTERS)("$name: fit 배선", ({ Component, hostId }) => {
   test("StrictMode에서는 observer 2개를 만들고 첫 것만 끊는다", () => {
     const probe = mount({}, { strict: true });
     const observers = hostObservers(probe);
-    // 첫 마운트의 컨테이너 div는 같은 DOM 노드다(React가 재사용). 관찰 대상 기준으로 두 번 걸렸다.
+    // StrictMode 재마운트에서도 컨테이너 div는 같은 DOM 노드다. observer는 그 노드에 두 번 걸린다.
     expect(observers).toHaveLength(2);
     expect(observers[0]!.disconnected).toBe(true);
     expect(observers[1]!.disconnected).toBe(false);
@@ -394,7 +412,7 @@ describe.each(ADAPTERS)("$name: ref handle", ({ Component, hostId }) => {
     const focusSpy = vi.spyOn(Terminal.prototype, "focus");
     act(() => probe.ref.current!.focus());
     expect(focusSpy).toHaveBeenCalledTimes(1);
-    // 재마운트 뒤 살아 있는 것은 두 번째 Terminal이다.
+    // 재마운트 뒤 살아 있는 Terminal은 두 번째 것이다.
     expect(focusSpy.mock.contexts[0]).toBe(probe.terminal());
     const handle = probe.ref.current!;
     await unmount();
@@ -406,7 +424,7 @@ describe.each(ADAPTERS)("$name: ref handle", ({ Component, hostId }) => {
     const focusSpy = vi.spyOn(Terminal.prototype, "focus");
     function Parent() {
       const ref = useRef<ContractHandle>(null);
-      // 자식 effect(하위 생성)가 부모 effect보다 먼저 돈다. StrictMode 재마운트에서도 같은 순서다.
+      // 자식 effect(하위 핸들 생성)가 부모 effect보다 먼저 돈다. StrictMode 재마운트에서도 같은 순서다.
       useEffect(() => {
         ref.current?.focus();
       }, []);
@@ -420,7 +438,7 @@ describe.each(ADAPTERS)("$name: ref handle", ({ Component, hostId }) => {
         </StrictMode>,
       ),
     );
-    // effect가 두 번(마운트·재마운트) 돌아 focus도 두 번이고, 마지막 것은 살아 있는 두 번째 Terminal이다.
+    // effect가 마운트·재마운트로 두 번 돌아 `focus()`도 두 번이다. 마지막 호출이 살아 있는 두 번째 Terminal에 닿는다.
     expect(focusSpy).toHaveBeenCalledTimes(2);
     const live = openSpy.mock.contexts.at(-1);
     expect(focusSpy.mock.contexts.at(-1)).toBe(live);

@@ -50,10 +50,11 @@ export class State {
   private highlighter: Highlighter;
   private highlighting = false;
   private history: History;
-  // Bash-style edit-mode lockout: any successful cursor movement or edit
-  // sets editing=true; a buffer replacement via update() (history nav or
-  // Ctrl-U) resets it. Up/Down only navigate history while editing=false;
-  // once editing, Up/Down move within the buffer and no-op at boundaries.
+  // Bash 방식 편집 모드 잠금.
+  // - 커서 이동이나 편집이 성공하면 editing=true가 된다.
+  // - update()로 버퍼를 바꾸면(history 탐색, Ctrl-U) editing=false로 돌아간다.
+  // - editing=false일 때만 위/아래 키가 history를 탐색한다.
+  // - editing=true이면 위/아래 키는 버퍼 안에서 움직이고, 경계에서는 아무 일도 하지 않는다.
   private editing = false;
 
   constructor(
@@ -219,10 +220,9 @@ export class State {
     this.layout = newLayout;
   }
 
-  // Re-render the current line with no highlighter applied. Intended
-  // for commit-time redraws (e.g. on Enter) so the line that ends up
-  // in scrollback doesn't have any cursor-driven highlight (e.g. a
-  // matching-bracket SGR) baked into it.
+  // 하이라이터 없이 현재 줄을 다시 그린다.
+  // 확정 시점의 재그리기용이다(예: Enter).
+  // 스크롤백에 남는 줄에 커서 기반 하이라이트(예: 짝 괄호 SGR)가 박히지 않게 한다.
   public refreshUnhighlighted() {
     const prev = this.highlighter;
     this.highlighter = new IdentityHighlighter();
@@ -312,9 +312,9 @@ export class State {
 
   /**
    * 커서 위치(line.pos)만 되돌린다. `printAbove`가 원시 텍스트를 쓰기 전 물리적 커서를 버퍼 끝으로
-   * 옮기려고 부른 `moveCursorToEnd()`는 논리 위치도 함께 옮기므로, 재그리기 직전 이 메서드로 원래
-   * 위치를 되돌린 뒤 `refresh()`를 한 번 더 부르면 그 위치로 다시 그려진다. escape 쓰기는 하지
-   * 않는다(뒤이은 refresh() 한 번이면 충분해 State를 다시 만들 필요가 없다, TRP-030 회피).
+   * 옮기려고 `moveCursorToEnd()`를 부른다. 이 호출은 논리 위치도 함께 옮긴다. 재그리기 직전 이 메서드로
+   * 원래 위치를 되돌린 뒤 `refresh()`를 한 번 더 부르면 그 위치로 다시 그려진다. escape 쓰기는 하지
+   * 않는다(뒤이은 refresh() 한 번이면 충분해 State를 다시 만들 필요가 없다, TRAP-17 회피).
    */
   public restoreCursor(pos: number) {
     this.line.pos = pos;

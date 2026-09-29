@@ -1,14 +1,15 @@
 /**
- * `ReadlineOptions.onKeyEvent` 훅 시험(DELTA-01, `docs/design/06-editing.md` 6.1/6.6).
- * 계약: 모든 keydown/keypress/keyup에서 벤더 `handleKeyEvent` 처리 앞에서 불린다. `true`를
- * 돌려주면 벤더 처리(Shift+Enter 삽입 포함)를 생략하고 `handleKeyEvent` 자체도 xterm에 `false`를
- * 돌려준다(xterm 쪽 기본 처리도 생략됨을 뜻함). `on-key.test.ts`의 `StubTerminal`/`setup()`
- * 패턴을 참고했다.
+ * `ReadlineOptions.onKeyEvent` 훅 시험(`docs/design/06-editing.md` 6.1/6.6).
+ * 계약:
+ * - 모든 keydown/keypress/keyup에서 벤더 `handleKeyEvent` 처리 앞에서 부른다.
+ * - `true`를 돌려주면 벤더 처리(Shift+Enter 삽입 포함)를 생략한다.
+ * - `handleKeyEvent` 자체는 xterm에 `false`를 돌려준다. xterm의 기본 처리도 생략된다.
  */
 import { describe, expect, test } from "vitest";
 import { Readline, ReadlineOptions } from "../src/readline";
 import { StubTerminal } from "./stub-terminal";
 
+/** 훅을 단 `Readline`을 `StubTerminal`에 활성화한다. */
 function setup(onKeyEvent?: ReadlineOptions["onKeyEvent"]) {
   const term = new StubTerminal(20, 8);
   const readline = new Readline({ persist: false, onKeyEvent });
@@ -16,10 +17,12 @@ function setup(onKeyEvent?: ReadlineOptions["onKeyEvent"]) {
   return { term, readline };
 }
 
+/** `StubTerminal`을 `Readline.activate`가 받는 xterm `Terminal` 타입으로 단언한다. */
 function readline_term(term: StubTerminal) {
   return term as unknown as Parameters<Readline["activate"]>[0];
 }
 
+// Shift+Enter keydown 이벤트
 const SHIFT_ENTER_KEYDOWN = { key: "Enter", shiftKey: true, type: "keydown" };
 
 describe("onKeyEvent 훅", () => {

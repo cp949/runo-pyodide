@@ -1,4 +1,4 @@
-// RD-022a DELTA-05 브라우저 확인: REPL 핸들 `runSource(code)`(REPL 화면, 쿼리 없음). 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
+// RD-022a 브라우저 확인: REPL 핸들 `runSource(code)`(REPL 화면, 쿼리 없음). 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
 // 코드를 `textarea`(`source`)에 넣고 `run-source` 버튼을 누르면 결과 칸(`source-result`)에 `runSource()`가 돌려준 결과 유니온의 JSON이
 // 나오고 거부는 `{"rejected":"<reason>"}`다. 화면은 xterm 행(`.xterm-rows > div`)으로 판정한다.
 //
@@ -21,7 +21,7 @@
 // 거부(`busy`)는 화면을 건드리지 않으므로 "무변경"은 결과 도착 직후 스냅샷과, 뒤이은 정상 조작이 끝난 뒤 행 목록의 형태로 함께 확인한다.
 //
 // 사용: node run-source-check.mjs [url](생략 시 http://localhost:5173)     ONLY=S01,S05 node run-source-check.mjs
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { hasFg, open, same, show } from "../lib.mjs";
 

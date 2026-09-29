@@ -1,22 +1,22 @@
-// RD-017 DELTA-05 브라우저 검증. 출처 RD-017, `_works/_completed/20260923-17-rd-017-selection-copy/verify/`
-// 에서 이관(RD-018). checklist.md "브라우저 시나리오 정의" 표 S01~S12를 그대로 자동화하고, Ctrl+Shift+C
-// 변형(S03b)과 pending-issues/04.md 권고("새로고침 후 드래그 → 클립보드 불변")를 S08b로 추가한다.
+// RD-017 브라우저 검증. 출처 RD-017에서 이관(RD-018).
+// 시나리오 S01~S12를 그대로 자동화하고, Ctrl+Shift+C
+// 변형(S03b)과 "새로고침 후 드래그 → 클립보드 불변" 확인을 S08b로 추가한다.
 //
 // "배너 행"(S02·S03·S04) 판단: 각 시나리오는 `h.clear()`로 화면을 지운 뒤 시작하므로, Ctrl+L 직후의
 // 첫 행(row 0)이 항상 그 시나리오의 명령 에코 행이다 — S02는 `>>> while True: pass`, S03은
 // `>>> abc`(입력 중이라 프롬프트와 같은 행), S04는 `>>> input("x: ")`. 이 row 0을 드래그 대상으로
-// 쓴다(실측, DELTA-05 "## 결정" 참고).
+// 쓴다(실측).
 //
 // 선택 해제 관찰: 계획서는 `.xterm-selection-layer`를 가정했으나 실제 xterm 6 DOM 렌더러는
 // `.xterm-selection`(레이어 접미사 없음)을 쓴다(실측, xterm.mjs 소스 확인). `window.getSelection()`
 // 대체안은 이 렌더러에서 쓸모가 없다(내부 폭 측정용 숨은 div를 가리키는 무관한 값을 돌려준다, 실측).
-// 그래서 선택 해제는 `.xterm-selection`의 자식 개수로만 관찰한다(DELTA-05 "## 결정" 참고).
+// 그래서 선택 해제는 `.xterm-selection`의 자식 개수로만 관찰한다.
 //
 // 사용: node selection-copy-check.mjs [devURL] [previewURL]
 //   previewURL이 있으면 S01·S02·S05·S07(+초기)만 그 URL에서 재실행한다(RD-044 K6).
 // ONLY=<ID,...>로 절을 거른다(양성 대조용): 초기,S01,S02,S03,S03b,S04,S05,S06,S07,S08,S08b,S09,S10,S11,S12
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
-// RD-018 DELTA-03 갱신: 자기 results 경로 상수 + `writeFileSync`를 없애고 `lib.mjs`의 `finish({ label, ...})`로
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
+// RD-018 갱신: 자기 results 경로 상수 + `writeFileSync`를 없애고 `lib.mjs`의 `finish({ label, ...})`로
 // 통일했다(옛 `results/dev.json`·`results/preview.json` 직접 쓰기 제거). `ok`·`passed`·`total`·`failed`는
 // `cells`(S01~S12, "초기" 제외) 기준 판정 로직을 그대로 `finish()`의 extra로 넘겨 덮어쓴다(판정 불변 —
 // `finish()` 기본값은 "초기" 스텝까지 센다).
@@ -219,7 +219,7 @@ async function run(url) {
     const toast = await toastText(page);
     if (toast === null) throw new Error("토스트가 뜨지 않음");
     // 다음 절(S07)이 "토스트가 뜨면 안 된다"를 단언하므로, 이 절의 토스트가 1초 자동 소멸 타이머로
-    // 사라질 때까지 기다린 뒤 넘어간다(DELTA-04가 겪은 것과 같은 종류의 경쟁, 실측으로 재확인).
+    // 사라질 때까지 기다린 뒤 넘어간다(같은 종류의 경쟁을 실측으로 확인했다).
     await h.waitFor(async () => (await toastText(page)) === null, "S06 토스트 소멸", 2000);
   });
 
@@ -269,7 +269,7 @@ async function run(url) {
     }
   });
 
-  // ══════════════ S08b 새로고침 후 드래그 → 클립보드 불변(pending-issues/04.md 권고) ══════════════
+  // ══════════════ S08b 새로고침 후 드래그 → 클립보드 불변 ══════════════
   await cell("S08b", "체크박스 해제 → 새로고침 → 드래그해도 클립보드 불변", async () => {
     await setCopyOnSelect(page, false);
     await page.reload({ waitUntil: "load" });
@@ -290,7 +290,7 @@ async function run(url) {
   await cell("S09", "두 행 출력(이모지) 드래그 → 클립보드·토스트(4자)", async () => {
     await h.clear();
     // 두 print를 한 줄(세미콜론)로 제출해야 두 출력 행이 바로 인접한다(중간에 두 번째 명령의 에코
-    // 행이 끼지 않는다) — 실측(DELTA-05 "## 결정" 참고).
+    // 행이 끼지 않는다) — 실측.
     await h.submit('print("\u{1F600}x"); print("y")');
     const rows = await h.trimmedRows();
     const r1 = rows.findIndex((r) => r.includes("x") && !r.startsWith(">>>"));
@@ -345,7 +345,7 @@ async function run(url) {
     const rowIndex = rows.findIndex((r) => r === "edge");
     if (rowIndex < 0) throw new Error(`edge 행을 못 찾음: ${show(rows)}`);
     await seedClipboard(page, "seed");
-    // endOutside는 열 좌표를 행 끝으로 clamp한다("edge"는 행 전체라 clamp와 무관하게 유효, DELTA-04 2차 정정).
+    // endOutside는 열 좌표를 행 끝으로 clamp한다("edge"는 행 전체라 clamp와 무관하게 유효).
     await selectRows(page, rowIndex, 0, rowIndex, 4, { endOutside: true });
     const text = await h.waitFor(
       async () => {

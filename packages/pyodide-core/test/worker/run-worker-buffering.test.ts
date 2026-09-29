@@ -1,8 +1,15 @@
 /**
- * `runWorker`의 init 프레임 버퍼링(RD-023). worker 전역이면 모듈이 평가될 때 수신기가 message 리스너를 걸어, `runWorker`를 늦게
- * 불러도(파일 안의 `await` 뒤 등) init 프레임을 잃지 않고 그때 부팅한다(번들의 import 순서 조건은 01-protocols.md 4절). 모듈 평가 시점의 동작을 보려고 시험마다
- * 모듈을 새로 불러온다(`vi.resetModules`). jsdom의 `self`에는 worker 전역 표지가 없어 `WorkerGlobalScope`를 가짜로 세워 구분한다.
- * 리스너 규칙(배열·비 init·필드 오류)은 `init-receiver.test.ts`, 호출 즉시 리스너가 걸리는 기존 경로는 `run-worker.test.ts`가 본다.
+ * `runWorker`의 init 프레임 버퍼링(RD-023) 시험.
+ * - worker 전역이면 모듈이 평가될 때 수신기가 message 리스너를 건다.
+ * - `runWorker`를 늦게 불러도(파일 안의 `await` 뒤 등) init 프레임을 잃지 않고 그때 부팅한다.
+ * - 번들의 import 순서 조건은 01-protocols.md 4절이다.
+ *
+ * 모듈 평가 시점의 동작을 보려고 시험마다 모듈을 새로 불러온다(`vi.resetModules`).
+ * jsdom의 `self`에는 worker 전역 표지가 없다. `WorkerGlobalScope`를 가짜로 세워 구분한다.
+ *
+ * 다른 파일이 보는 것:
+ * - 리스너 규칙(배열·비 init·필드 오류): `init-receiver.test.ts`
+ * - 호출 즉시 리스너가 걸리는 기존 경로: `run-worker.test.ts`
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createInitFrame as createBaseInitFrame } from "../boot-harness";
@@ -11,6 +18,7 @@ import type { WorkerPlugin } from "../../src/worker/plugin";
 
 vi.mock("../../src/worker/boot", () => ({ bootWorker: vi.fn(async () => {}) }));
 
+/** 부팅이 mock이라 쓰이지 않는 driver. `runWorker`가 그대로 부팅에 넘기는지만 본다. */
 const driver: WorkerDriver = {
   parseOptions: () => undefined,
   createSession() {
@@ -22,17 +30,22 @@ const ports: MessagePort[] = [];
 /** 모듈이 건 message 리스너. 시험이 끝나면 전역에서 치워 다음 시험으로 새지 않게 한다. */
 const registered: EventListenerOrEventListenerObject[] = [];
 
+/** worker 전역(jsdom에서는 window)에 main이 보낸 것과 같은 message 이벤트를 던진다. */
 function receive(data: unknown) {
   self.dispatchEvent(new MessageEvent("message", { data }));
 }
 
+/** main이 보내는 것과 같은 모양의 올바른 초기화 프레임을 만든다. 포트는 `afterEach`가 닫는다. */
 function createInitFrame() {
   const { port1, port2 } = new MessageChannel();
   ports.push(port1, port2);
   return createBaseInitFrame({ rpcPort: port1 });
 }
 
-/** `run-worker` 모듈을 새로 평가한다. 이 순간에 모듈 평가 시점 동작이 일어난다. */
+/**
+ * `run-worker` 모듈을 새로 평가한다. 이 순간에 모듈 평가 시점 동작이 일어난다.
+ * `runWorker`와 mock된 `bootWorker`를 돌려준다.
+ */
 async function evaluateModule() {
   vi.resetModules();
   const runWorkerModule = await import("../../src/worker/run-worker");
@@ -43,7 +56,7 @@ async function evaluateModule() {
   };
 }
 
-/** `self instanceof WorkerGlobalScope`가 참이 되게 한다(worker 전역인 척). */
+/** `self instanceof WorkerGlobalScope`가 참이 되게 한다(worker 전역인 척). 모듈을 평가하기 전에 부른다. */
 function pretendWorkerScope() {
   vi.stubGlobal(
     "WorkerGlobalScope",

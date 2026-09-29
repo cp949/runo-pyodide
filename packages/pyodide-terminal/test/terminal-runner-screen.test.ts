@@ -1,8 +1,10 @@
 /**
- * `createTerminalRunner`의 `run()` 시작 화면 준비 시험(run-accepted-hook DELTA-03). 실제 core `createRunner`를 쓰고
- * worker만 공용 가짜(`@cp949/runo-pyodide-core/test-utils`)로 둔다: 화면 준비가 core의 수락 판정(거부 5종·`loading`·
- * `restarting` 대기·재진입)을 그대로 따르는지 본다. 공용 setup은 `./test/runner-setup`(RD-031 DELTA-01, `terminal-runner.test.ts`와
- * 공유). 화면 준비 밖 시험은 `terminal-runner.test.ts`에 있다. jsdom은 `crossOriginIsolated`가 없어 setup이 스텁한다.
+ * `createTerminalRunner`의 `run()` 시작 화면 준비 시험.
+ * - 실제 core `createRunner`를 쓰고 worker만 공용 가짜(`@cp949/runo-pyodide-core/test-utils`)로 둔다.
+ * - 검증: 화면 준비가 core의 수락 판정을 그대로 따른다. 대상은 거부 5종, `loading`, `restarting` 대기, 재진입이다.
+ * - 공용 setup은 `./runner-setup`(RD-031)이다. `terminal-runner.test.ts`와 공유한다.
+ * - 화면 준비 밖 시험은 `terminal-runner.test.ts`에 있다.
+ * - jsdom에는 `crossOriginIsolated`가 없다. setup이 스텁한다.
  */
 import { describe, expect, test, vi } from "vitest";
 import type { RunResult } from "@cp949/runo-pyodide-core";
@@ -10,8 +12,10 @@ import { setupReal, tick } from "./runner-setup";
 
 describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
   /**
-   * 이전 실행이 남긴 미종결 stdout(`"a"`)으로 현재 io 꼬리를 만든다. 그 실행("priming")은 끝내고 기다린다 —
-   * `run()`은 시작할 때 꼬리를 지우지 않으므로(그 판단은 다음 `run()`의 화면 준비가 한다) 꼬리는 그대로 남는다.
+   * 이전 실행이 남긴 미종결 stdout(`"a"`)으로 현재 io 꼬리를 만든다.
+   * - 그 실행("priming")은 끝내고 기다린다.
+   * - `run()`은 시작할 때 꼬리를 지우지 않는다. 그 판단은 다음 `run()`의 화면 준비가 한다.
+   * - 그래서 꼬리는 그대로 남는다.
    */
   async function primeTail({
     handle,
@@ -88,13 +92,13 @@ describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
     expect(fake.written).toEqual([]);
   });
 
-  // 예외 1건: 가짜 core의 `calls.run`(core가 받은 run 호출) 단언은 실제 core에서 볼 수 없어, 같은 뜻인 "worker는 first만 받는다"로 바꿨다.
+  // 실제 core가 받은 run 호출은 볼 수 없다. 같은 뜻으로 "worker는 first만 받는다"를 단언한다.
   test("로딩 대기 중인 run이 슬롯을 잡고 있을 때 두 번째 run은 busy로 거부되고 화면을 건드리지 않는다", async () => {
     const { fake, handle, worker, becomeReady } = await setupReal({
       ready: false,
       runner: { clearOnRun: true },
     });
-    void handle.run("first"); // ready가 될 때까지 대기한다(core도 슬롯을 잡는다)
+    void handle.run("first"); // ready가 될 때까지 대기한다. core도 슬롯을 잡는다.
     fake.written.length = 0;
 
     await expect(handle.run("second")).rejects.toMatchObject({
@@ -118,7 +122,7 @@ describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
     handle.reset(); // 재시작 대기(restarting)
     fake.written.length = 0;
 
-    void handle.run("second"); // 새 worker가 준비되면 실행된다(core도 슬롯을 잡는다)
+    void handle.run("second"); // 새 worker가 준비되면 실행된다. core도 슬롯을 잡는다.
 
     expect(fake.written.filter((text) => text === "\r\n")).toHaveLength(1);
   });
@@ -126,15 +130,16 @@ describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
   test("실행 중 reset 직후 같은 틱에 부른 run은 받아들여지므로 화면을 준비한다", async () => {
     const { fake, handle } = await setupReal();
     void handle.run("first");
-    // "first"가 accept된 뒤 같은 틱에 실제 출력(Ctrl+C 로컬 에코, 동기)으로 꼬리를 만든다 — "second"의 화면 준비가
-    // 볼 꼬리는 "first" 자신이 이미 소비한 뒤(새 실행은 꼬리를 비운다)에 새로 생겨야 "second"가 실제로 받아들여졌다는
-    // 증거가 된다(첫 accept의 소비만으로 개행 수가 맞아떨어지면 두 번째 accept 여부와 무관해진다).
+    // "first"가 accept된 뒤 같은 틱에 실제 출력(Ctrl+C 로컬 에코, 동기)으로 꼬리를 만든다.
+    // "second"의 화면 준비가 볼 꼬리는 "first"가 이미 소비한 뒤(새 실행은 꼬리를 비운다)에 새로 생겨야 한다.
+    // 그래야 "second"가 실제로 받아들여졌다는 증거가 된다.
+    // "first"의 소비만으로 개행 수가 맞으면 "second"의 accept 여부와 무관해진다.
     expect(handle.status).toBe("running");
     fake.type("\x03");
     fake.written.length = 0;
     handle.reset();
 
-    void handle.run("second"); // 옛 run의 결과 Promise는 아직 정착 콜백 전이다
+    void handle.run("second"); // 옛 run의 결과 Promise는 아직 정착 콜백 전이다.
 
     expect(fake.written.filter((text) => text === "\r\n")).toHaveLength(1);
   });
@@ -144,7 +149,7 @@ describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
     void handle.run("first");
     handle.reset();
     void handle.run("second").catch(() => {});
-    await tick(); // 옛 run의 정착 콜백까지 돈다
+    await tick(); // 옛 run의 정착 콜백까지 돈다.
     fake.written.length = 0;
 
     await expect(handle.run("third")).rejects.toMatchObject({ reason: "busy" });
@@ -154,7 +159,7 @@ describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
 
   test("대기 run이 있는 onStatus(ready) 콜백 안에서 부른 run은 busy로 거부되고 화면을 건드리지 않는다", async () => {
     let inner: Promise<unknown> | undefined;
-    // 첫 상태(loading)는 `setupReal()`이 반환하기 전에 오지만 ready가 아니라 `started`를 읽지 않는다.
+    // 첫 상태(loading)는 `setupReal()`이 반환하기 전에 오지만 ready가 아니므로 `started`를 읽지 않는다.
     const started: Awaited<ReturnType<typeof setupReal>> = await setupReal({
       ready: false,
       runner: {
@@ -204,7 +209,7 @@ describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
     void handle.run("second");
     await vi.waitFor(() => expect(worker().pending).toHaveLength(2));
     worker().readInput();
-    await tick(); // 읽기가 열려 그려진다
+    await tick(); // 읽기가 열려 그려진다.
     fake.type("z\r");
 
     const response = await worker().takeResponse();
@@ -239,8 +244,10 @@ describe("run 시작 시 화면 준비: 꼬리 줄바꿈·clearOnRun", () => {
   });
 });
 
-// `prepareScreen`에는 `disposed` 방어가 없다. 실제 core가 dispose 뒤 `run()`을 콜백 전에 거부하고 terminal `dispose()`가
-// core를 먼저 끝내므로 콜백이 불릴 수 없다는 근거(코드 읽기 + 이 시험).
+// `prepareScreen`에는 `disposed` 방어가 없다. 근거는 코드 읽기와 이 시험이다.
+// - 실제 core는 dispose 뒤 `run()`을 콜백 전에 거부한다.
+// - terminal `dispose()`는 core를 먼저 끝낸다.
+// - 그래서 화면 준비 콜백이 불릴 수 없다.
 describe("dispose 뒤 run은 화면 준비 콜백이 불리지 않는다", () => {
   test("dispose 뒤 run은 disposed로 거부되고 해제된 터미널의 buffer를 읽지 않으며 화면을 건드리지 않는다", async () => {
     const { fake, handle } = await setupReal();

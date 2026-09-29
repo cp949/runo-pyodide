@@ -1,19 +1,23 @@
 /**
- * 읽기가 없는 구간의 키 버퍼링(type-ahead) 시험(RD-019 DELTA-01). 계약(`_works/20260924-22-rd-019-
- * type-ahead/checklist.md` 확정 1~6): `activeRead`가 없을 때 들어온 `onData` 덩어리는 Ctrl+C·Ctrl+L을
- * 뺀 전부 원본 문자열째 버퍼에 쌓이고, 다음 `read()`의 write 콜백 안(`new State`·`prefill` 직후)에서
- * `readData`로 하나씩 재생된다. Ctrl+C는 쌓이지 않고 버퍼를 비운 뒤 `ctrlCHandler`로 간다. 버퍼는
- * `cancelRead()`·`dispose()`가 비우고 상한은 4096 UTF-16 코드 유닛이다.
- * Shift+Enter(`attachCustomKeyEventHandler`로 오는 키)도 같은 분기를 탄다(`_works/20260924-23-type-ahead-
- * shift-enter/checklist.md` 확정 2~5): 활성 읽기가 없으면 `Input`째 쌓아 재생 때 `readKey`로 처리하고(`onKey`
- * 훅 통과), `printAbove` 재그리기 중이면 `queued`에 쌓아 앞선 키와 순서를 지킨다. 길이는 1로 센다.
- * 스텁 터미널은 `print-above.test.ts`와 같은 패턴이다(`asyncWrite`로 write 콜백을 `flush()`까지 미룬다).
+ * 읽기가 없는 구간의 키 버퍼링(type-ahead) 시험(RD-019).
+ * 계약(`docs/design/06-editing.md` 6.7):
+ * - `activeRead`가 없을 때 들어온 `onData` 덩어리는 Ctrl+C·Ctrl+L을 뺀 전부 원본 문자열째 버퍼에 쌓인다.
+ * - 다음 `read()`의 write 콜백 안(`new State`·`prefill` 직후)에서 `readData`로 하나씩 재생한다.
+ * - Ctrl+C는 쌓이지 않고 버퍼를 비운 뒤 `ctrlCHandler`로 간다.
+ * - 버퍼는 `cancelRead()`·`dispose()`가 비운다. 상한은 4096 UTF-16 코드 유닛이다.
+ * - Shift+Enter(`attachCustomKeyEventHandler`로 오는 키)도 같은 분기를 탄다.
+ *   - 활성 읽기가 없으면 `Input`째 쌓고, 재생 때 `readKey`로 처리한다(`onKey` 훅 통과).
+ *   - `printAbove` 재그리기 중이면 `queued`에 쌓아 앞선 키와 순서를 지킨다.
+ *   - 길이는 1로 센다.
+ *
+ * `StubTerminal`의 `asyncWrite`로 write 콜백을 `flush()`까지 미룬다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { InputType, type Input } from "../src/keymap";
 import { Readline, type ReadlineOptions } from "../src/readline";
 import { StubTerminal } from "./stub-terminal";
 
+/** 옵션을 받아 `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 8, options: ReadlineOptions = {}) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false, ...options });
@@ -21,6 +25,7 @@ function setup(cols = 20, rows = 8, options: ReadlineOptions = {}) {
   return { term, readline };
 }
 
+// 키 입력 시퀀스
 const CTRL_C = "\x03";
 const CTRL_L = "\x0c";
 const TAB = "\t";
@@ -361,8 +366,9 @@ describe("type-ahead Shift+Enter", () => {
   });
 });
 
-// 제어 키 재생 결과(RD-019 DELTA-03): 3.14 pty 실측(`apps/demo/e2e/pty/rd-019/results.md`)과 대조하는 웹 값이다. 실행 중 친
-// 키를 각각 `onData` 한 번으로 흘려(xterm이 키마다 `onData`를 따로 부른다) 다음 읽기에서 재생한 결과를 고정한다.
+// 제어 키 재생 결과(RD-019). 3.14 pty 실측(`apps/demo/e2e/pty/rd-019/results.md`)과 대조하는 웹 값이다.
+// 실행 중 친 키를 각각 `onData` 한 번으로 흘려 다음 읽기에서 재생한 결과를 고정한다.
+// xterm은 키마다 `onData`를 따로 부른다.
 describe("type-ahead 제어 키 재생(pty 대조 값)", () => {
   const BACKSPACE = "\x7f";
   const LEFT = "\x1b[D";
@@ -419,9 +425,11 @@ describe("type-ahead 제어 키 재생(pty 대조 값)", () => {
   });
 });
 
-// `ReadlineOptions.typeAhead`(RD-022 DELTA-04): 기본 `true`(위 시험 전부), `false`면 활성 읽기가 없는 구간에 들어온 입력을
-// 쌓지 않고 버린다. 입력은 전부 `dispatch`를 거치므로(`onData` 키·붙여넣기·IME 조합 완성 덩어리, Shift+Enter) 그 한
-// 곳(`pushTypeAhead`)에서 막는다. Ctrl+C·Ctrl+L 단독 입력은 `isImmediateKey`라 그대로 처리된다.
+// `ReadlineOptions.typeAhead`(RD-022).
+// - 기본값 `true`가 위 시험 전부다.
+// - `false`면 활성 읽기가 없는 구간에 들어온 입력을 쌓지 않고 버린다.
+// - 입력은 전부 `dispatch`를 거치므로(`onData` 키·붙여넣기·IME 조합 완성 덩어리, Shift+Enter) `pushTypeAhead` 한 곳에서 막는다.
+// - Ctrl+C·Ctrl+L 단독 입력은 `isImmediateKey`라 그대로 처리된다.
 describe("typeAhead 옵션", () => {
   /** 실행창처럼 키 무시 모드로 만든다. */
   function setupOff() {

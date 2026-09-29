@@ -30,7 +30,7 @@ _Avoid_: 무시된 키, 유실 키(의도된 동작이다)
 (`14-runner.md` 14.5.3).
 
 **꼬리 개행**(구 "커서 줄바꿈"):
-`run()` 시작 시 현재 io 꼬리에 보이는 글자가 있으면(`leavesVisibleText`, SGR만 남은 꼬리는 "없음", DELTA-05) `\r\n`을
+`run()` 시작 시 현재 io 꼬리에 보이는 글자가 있으면(`leavesVisibleText`, SGR만 남은 꼬리는 "없음") `\r\n`을
 한 번 쓰고 그 꼬리를 비우는 규칙(`promptRow.breakLine()`, RD-028 — 커서(`cursorX`)는 더 이상 보지 않는다, xterm의 비동기
 파싱 때문에 같은 태스크에서는 낡을 수 있다). `clearOnRun`이면 대신 화면을 지운다. 거부될 `run()`은 화면을 건드리지 않는다.
 _Avoid_: 커서 줄바꿈(옛 이름, 커서 기준이 아니다)
@@ -50,12 +50,10 @@ main이 터미널에 쓰는 함수 4종(`writeOutput`·`writeError`·`write`·`w
 
 **프롬프트 행(`surface.promptRow`)**:
 커서 행의 프롬프트 앞 글자(꼬리·접두), 열린 읽기, 읽기가 끝난 뒤 행 머리 보장을 소유하는 surface의 부분(RD-027, `createPromptRow`). 위젯 수명이고 "현재 io"(가장 최근 `openIo()`로 연 io, `close()`되지 않은 동안)의 꼬리를 본다. `read(prompt, options)`(직전 출력의 꼬리를 프롬프트 앞에 합성해 한 줄 읽는다. `options.signal`은 꼬리 정리(flush) 대기 뒤 abort 여부를 다시 확인하는 데만 쓴다. `options.history === false`일 때만 벤더 옵션에 `history: false`를 넣는다 — 실행창 `readInput`만 넘기고 REPL `input()`은 생략해 기록한다. `options.eof === true`면 벤더 `READ_EOF`를 core `STDIN_EOF`로 바꿔 돌려준다 — 변환은 이 함수 한 곳뿐이다, RD-048·`docs/design/06-editing.md` 6.9)·`take()`(읽기가 끝난 줄을 꺼내며 지운 접두·꼬리를 재출력)·`detachPrefix()`(열린 읽기의 접두를 꼬리로 옮기고, 떼는 순간의 io에 묶인 `DetachedPrefix`를 돌려준다. `draw()`는 규칙 `docs/design/04-stdin-input.md` 3.2)·`endRead(options)`(읽기를 끝내고, `screen: true`면 settle 실패 시 벤더 `hasPendingRead()`로 나눠 대체 개행 — 그리기 전 읽기가 있었으면 무조건, 없었으면 현재 io 꼬리에 보이는 글자가 있을 때만)·`breakLine()`(현재 io 꼬리에 보이는 글자가 있을 때만 개행, 인자 없음)·`clear()`·`notice(text, kind)`(구 `writeNotice`. 현재 io가 있으면 그 꼬리에 보이는 글자가 있을 때만 `\r\n`을 선행해 쓰고, 없으면 `readline.println`)로 이 모든 연산을 한곳에 모은다.
-**행 머리 보장 규칙**(RD-028): 판정 재료는 항상 **현재 io 꼬리에 보이는 글자가 있는가**(core `leavesVisibleText`,
-DELTA-05)다 — xterm의 `write`가 파싱을 `setTimeout`으로 미뤄 같은 태스크의 `cursorX`가 낡을 수 있어(F3) 커서 판정은
+**행 머리 보장 규칙**(RD-028): 판정 재료는 항상 **현재 io 꼬리에 보이는 글자가 있는가**(core `leavesVisibleText`)다 — xterm의 `write`가 파싱을 `setTimeout`으로 미뤄 같은 태스크의 `cursorX`가 낡을 수 있어(F3) 커서 판정은
 쓰지 않는다. 꼬리 문자열이 비어 있는가만으로는 틀린다 — 색을 안 닫고 개행으로 끝난 출력은 꼬리에 열린 SGR만 남아 문자열은
 비지 않지만 화면에는 보이는 글자가 없다. 호출자마다 다른 재료를 쓰던 옛 임시 인자 두 종(무조건 개행 여부·조건부 개행
-재료)과 커서(`cursorX`) 판정은 없앴다(`14-runner.md` 14.5.3·`08-session.md` 8.1 1번,
-`_works/_completed/20260926-39-rd-028-prompt-row-newline/design.md` §3).
+재료)과 커서(`cursorX`) 판정은 없앴다(`14-runner.md` 14.5.3·`08-session.md` 8.1 1번).
 _Avoid_: 입력줄(벤더 용어), 프롬프트 영역
 
 **선택 복사(`createSelectionCopy`)**:

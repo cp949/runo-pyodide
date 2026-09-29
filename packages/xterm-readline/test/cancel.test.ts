@@ -1,7 +1,8 @@
 /**
- * 취소 가능한 읽기(`read(prompt, { cancelable: true })`) 시험.
- * Ctrl+C가 원본처럼 "`^C` + 같은 프롬프트 재그리기"로 끝나지 않고 읽기를 `null`로 끝내야 한다.
- * 옵션을 주지 않으면 원본 동작이 그대로 남는지도 같이 고정한다.
+ * 취소 가능한 읽기(`read(prompt, { cancelable: true })`)와 `cancelRead()` 시험.
+ * - `cancelable`이면 Ctrl+C가 원본처럼 "`^C` + 같은 프롬프트 재그리기"로 끝나지 않고 읽기를 `null`로 끝낸다.
+ * - `cancelRead()`는 활성 읽기와 write 콜백 대기 읽기를 `ReadCancelledError`로 끝낸다.
+ * - 옵션이 없거나 `cancelable: false`면 원본 동작이 그대로다.
  */
 import { describe, expect, test } from "vitest";
 import { Readline, ReadCancelledError } from "../src/readline";
@@ -26,11 +27,12 @@ function observe(promise: Promise<unknown>): () => Outcome {
   return () => outcome;
 }
 
-/** 대기 중인 마이크로태스크를 지나가게 한다. */
+/** 대기 중인 마이크로태스크와 타이머 한 번을 지나가게 한다. */
 function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/** `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function createSession(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
@@ -38,6 +40,7 @@ function createSession(cols = 20, rows = 8) {
   return { term, readline };
 }
 
+// 제어 키 입력 시퀀스
 const CTRL_C = "\x03";
 const ENTER = "\r";
 const ARROW_UP = "\x1b[A";
@@ -169,7 +172,7 @@ describe("cancelRead()", () => {
       state: "rejected",
       reason: expect.any(ReadCancelledError),
     });
-    // 화면·커서는 코어가 결정한다 — cancelRead 자체는 아무것도 그리지 않는다.
+    // 화면·커서는 코어가 정한다. cancelRead 자체는 아무것도 그리지 않는다.
     expect(term.vt.screen()).toBe("> abc");
     expect(term.vt.screen()).not.toContain("^C");
 
@@ -217,7 +220,7 @@ describe("cancelRead()", () => {
     // 늦게 도착한 콜백이 activeRead를 되살리지 않는다(dispose와 같은 방어).
     for (const callback of queue.splice(0)) callback();
     const next = observe(readline.read("> "));
-    // 되살아났다면 이 read()가 activeRead를 덮어써 "next"를 못 받는다.
+    // 되살아났다면 이 read()가 activeRead를 덮어써 입력을 받지 못한다.
 
     expect(next()).toEqual({ state: "pending" });
   });
@@ -265,7 +268,7 @@ describe("cancelRead()", () => {
     readline.cancelRead();
     await tick();
 
-    // cancelRead 뒤에는 activeRead가 없으니 Ctrl+C는 ctrlCHandler로 간다(활성 읽기 중 취소와 다름).
+    // cancelRead 뒤에는 activeRead가 없어 Ctrl+C는 ctrlCHandler로 간다(활성 읽기 중 취소와 다르다).
     term.feed(CTRL_C);
     expect(ctrlCCount).toBe(1);
 

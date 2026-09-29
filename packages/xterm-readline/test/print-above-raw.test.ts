@@ -1,11 +1,13 @@
 /**
- * 열린 읽기 위 원시 출력 시험(RD-022b DELTA-01). 계약(`_works/20260924-28-rd-022b-bg-output-above-read/
- * checklist.md` 확정 1·4·5·6·8·9): `printAboveRaw(lines, prefix)`는 입력줄(프롬프트 첫 행부터 입력 마지막 행까지)을
- * 지우고 그 자리에 `lines`(완성된 행)를 쓴 뒤, `prefix`를 프롬프트 앞에 붙여 같은 읽기를 그 아래에 다시 그린다.
- * 재그리기(write 콜백)를 기다리는 동안 들어온 출력·Tab `printAbove`는 하나의 재그리기로 합치고 마지막 콜백만
- * 그린다. 저장 커서는 처음 값 하나다(이슈 02). Tab `printAbove`는 접두를 비운다.
- * 스텁 터미널은 `print-above.test.ts`와 같은 패턴이다. 여기서는 write 바이트 기록(`log`)과 콜백 하나씩 실행
- * (`flushOne`)을 더했다.
+ * 열린 읽기 위 원시 출력 시험(RD-022b).
+ * 계약(`docs/design/06-editing.md` 6.1 `printAboveRaw` 항목, `docs/design/05-output.md` 4.4):
+ * - `printAboveRaw(lines, prefix)`는 입력줄(프롬프트 첫 행부터 입력 마지막 행까지)을 지우고 그 자리에 `lines`(완성된 행)를 쓴다.
+ * - 이어서 `prefix`를 프롬프트 앞에 붙여 같은 읽기를 그 아래에 다시 그린다.
+ * - 재그리기(write 콜백)를 기다리는 동안 들어온 출력·Tab `printAbove`는 하나의 재그리기로 합치고 마지막 콜백만 그린다.
+ * - 저장 커서는 처음 값 하나다.
+ * - Tab `printAbove`는 접두를 비운다.
+ *
+ * `StubTerminal`의 write 바이트 기록(`log`)과 콜백 하나씩 실행(`flushOne`)을 쓴다.
  */
 import { describe, expect, test } from "vitest";
 import { Readline } from "../src/readline";
@@ -30,11 +32,12 @@ function observe(promise: Promise<unknown>): () => Outcome {
   return () => outcome;
 }
 
-/** 대기 중인 마이크로태스크를 지나가게 한다. */
+/** 대기 중인 마이크로태스크와 타이머 한 번을 지나가게 한다. */
 function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/** `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
@@ -47,6 +50,7 @@ function count(screen: string, needle: string): number {
   return screen.split(needle).length - 1;
 }
 
+// 키 입력 시퀀스
 const ARROW_LEFT = "\x1b[D";
 const ARROW_UP = "\x1b[A";
 const BACKSPACE = "\x7f";
@@ -143,9 +147,10 @@ describe("isReading·abovePrefix", () => {
 });
 
 /**
- * `hasPendingRead()` 시험(RD-028 DELTA-01, `design.md` F2·Q4). write 콜백을 기다리는 읽기(아직 그리지
- * 않음)가 있으면 true, 활성 읽기(그려짐)는 세지 않는다 — `isReading()`과 정확히 반대 시점을 가리켜야
- * promptRow가 두 조회로 settle 실패의 두 경우(그리기 전 읽기 있음 / 열린 읽기 없음)를 구분할 수 있다.
+ * `hasPendingRead()` 시험(RD-028).
+ * - write 콜백을 기다리는 읽기(아직 그리지 않음)가 있으면 true다. 활성 읽기(그려짐)는 세지 않는다.
+ * - `isReading()`과 정확히 반대 시점을 가리켜야 한다.
+ *   그래야 promptRow가 두 조회로 settle 실패의 두 경우(그리기 전 읽기 있음 / 열린 읽기 없음)를 구분한다.
  */
 describe("hasPendingRead", () => {
   test("읽기가 없으면 false다", () => {
@@ -200,7 +205,8 @@ describe("hasPendingRead", () => {
   });
 
   test("write 콜백 전 cancelRead({ settle: true })가 false를 돌려주기 직전에 읽은 값은 true다", () => {
-    // promptRow가 쓰는 순서의 전제(design.md 3절): "그리기 전 읽기 있음"은 cancelRead() 앞에서 읽어야 한다 —
+    // promptRow가 쓰는 순서의 전제(`docs/design/06-editing.md` 6.1):
+    // "그리기 전 읽기 있음"은 cancelRead() 앞에서 읽어야 한다.
     // cancelRead()가 pendingReads를 즉시 비우므로 뒤에서 읽으면 항상 false다.
     const { term, readline } = setup();
     term.asyncWrite = true;
@@ -210,7 +216,7 @@ describe("hasPendingRead", () => {
     const settled = readline.cancelRead({ settle: true });
 
     expect(hadPendingBeforeCancel).toBe(true);
-    // 그리기 전 읽기만 있고 term에 아직 아무것도 그려지지 않아 정리할 화면이 없다(F2 (a)).
+    // 그리기 전 읽기만 있고 term에 아직 아무것도 그려지지 않아 정리할 화면이 없다.
     expect(settled).toBe(false);
     expect(readline.hasPendingRead()).toBe(false);
   });
@@ -643,8 +649,9 @@ describe("printAboveRaw 재그리기 대기", () => {
 });
 
 /**
- * 재그리기 대기 중(입력줄이 화면에 없다) 공개 편집 API. Tab 완성 삽입(`tab-reader.ts` `applyResume` → `editInsert`)이 배경 출력
- * 재그리기 콜백 전에 오면 편집은 버퍼에만 들어가고, 콜백은 편집 뒤 커서로 다시 그린다(이슈 10, second-opinion SO-V1a).
+ * 재그리기 대기 중(입력줄이 화면에 없다) 공개 편집 API.
+ * Tab 완성 삽입(`tab-reader.ts`의 `applyResume` → `editInsert`)이 배경 출력 재그리기 콜백보다 먼저 오면
+ * 편집은 버퍼에만 들어간다. 콜백은 편집 뒤 커서로 다시 그린다.
  */
 describe("재그리기 대기 중 공개 편집 API", () => {
   test("printAboveRaw 콜백 전 editInsert(Tab 완성 삽입)는 콜백 뒤 커서가 삽입 끝이다", () => {
@@ -677,7 +684,8 @@ describe("재그리기 대기 중 공개 편집 API", () => {
     readline.editBackspace(1);
     readline.updateLine("xy");
 
-    // 실 xterm은 콜백 시점에 그 앞 쓰기까지만 반영한다. 여기서 쓴 바이트는 콜백이 읽는 앵커 뒤에 놓여 화면이 어긋난다.
+    // 실제 xterm은 콜백 시점에 그 앞 쓰기까지만 반영한다.
+    // 여기서 쓴 바이트는 콜백이 읽는 앵커 뒤에 놓여 화면이 어긋난다.
     expect(term.bytes()).toBe("");
     term.flush();
     expect(term.vt.screen()).toBe("tick\n> xy");
@@ -803,7 +811,8 @@ describe("재그리기 대기 중 공개 편집 API", () => {
   });
 
   test("Tab printAbove 재그리기 대기 중 getCursor는 끝이 아니라 편집이 들어갈 처음 커서를 돌려준다", () => {
-    // 호출자(tab-reader 경합 판정)는 getCursor로 본 자리에 editInsert가 들어간다고 가정한다. 둘이 같은 커서를 봐야 한다.
+    // 호출자(tab-reader 경합 판정)는 getCursor로 본 자리에 editInsert가 들어간다고 가정한다.
+    // 둘이 같은 커서를 봐야 한다.
     const { term, readline } = setup();
     void readline.read("> ");
     term.type("abc");
@@ -868,7 +877,7 @@ describe("Tab printAbove와 접두", () => {
     expect(term.vt.screen()).toBe("tick> abc\nLIST\n> abc");
     expect(readline.abovePrefix()).toBe("");
 
-    // 뒤이은 조각은 별도 행이 된다(확정 9).
+    // 뒤이은 조각은 별도 행이 된다.
     void readline.printAboveRaw(" tock\n", "");
     expect(term.vt.screen()).toBe("tick> abc\nLIST\n tock\n> abc");
   });
@@ -934,7 +943,7 @@ describe("Tab printAbove와 접두", () => {
     expect(readline.abovePrefix()).toBe("p");
   });
 
-  // 이슈 02(`.scratch/repl-run-source-followups/issues/02-*.md`) 완료 기준.
+  // 저장 커서는 처음 값 하나다(`docs/design/06-editing.md` 6.1 "저장 커서").
   test("겹친 printAbove 두 번 뒤에도 커서는 처음 위치다", () => {
     const { term, readline } = setup();
     void readline.read("> ");
@@ -1115,9 +1124,10 @@ describe("hasQueuedInput(결함 16)", () => {
   });
 });
 
-// 이슈 13: 재그리기 콜백 전에 취소하면 아직 그리지 않은 접두가 사라질 수 있다. 미그림 접두 판정은 private이라
-// `cancelRead({ settle: true })`의 공개 동작(쓰는 바이트·화면)으로 본다. 콜백 전 접두 재출력은 `cancel-settle.test.ts`가 맡는다.
-describe("아직 그리지 않은 접두와 settle 취소(이슈 13)", () => {
+// 재그리기 콜백 전에 취소하면 아직 그리지 않은 접두가 사라질 수 있다.
+// 미그림 접두 판정은 private이라 `cancelRead({ settle: true })`의 공개 동작(쓰는 바이트·화면)으로 본다.
+// 콜백 전 접두 재출력은 `cancel-settle.test.ts`가 맡는다.
+describe("아직 그리지 않은 접두와 settle 취소", () => {
   test("콜백 전에는 접두가 화면에 없고, 콜백 뒤 settle 취소는 이미 그린 접두를 다시 쓰지 않는다", () => {
     const { term, readline } = setup();
     void readline.read("> ").catch(() => {});

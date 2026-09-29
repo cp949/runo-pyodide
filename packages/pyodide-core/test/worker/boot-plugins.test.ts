@@ -1,9 +1,13 @@
 // @vitest-environment node
 /**
- * worker 부팅의 플러그인 준비 단계(`BootOptions.plugins`, RD-023). `loadPyodide`와 interrupt 공개 API 확인 뒤, `createConsole` 앞에서
- * 배열 순서대로 `prepare({ pyodide })`를 하나씩 await한다. 던지거나 reject하면 `plugin "<name>": ` 접두를 붙여 `loadFailed`로 알리고
- * 콘솔 생성 이후로 가지 않는다. 대부분은 가짜 pyodide(interrupt 공개 API만 있는 객체)로 호출 순서만 보고, 마지막 시험만 실제
- * pyodide(node)로 `ready`까지 간다.
+ * worker 부팅의 플러그인 준비 단계(`BootOptions.plugins`, RD-023) 시험.
+ * - `loadPyodide`와 interrupt 공개 API 확인 뒤, `createConsole` 앞에서 실행한다.
+ * - 배열 순서대로 `prepare({ pyodide })`를 하나씩 await한다.
+ * - 던지거나 reject하면 `plugin "<name>": ` 접두를 붙여 `loadFailed`로 알린다.
+ * - 실패하면 콘솔 생성 이후로 가지 않는다.
+ *
+ * 대부분은 가짜 pyodide(interrupt 공개 API만 있는 객체)로 호출 순서만 본다.
+ * 마지막 시험만 실제 pyodide(node)로 `ready`까지 간다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { describe, expect, test } from "vitest";
@@ -26,8 +30,9 @@ const fakePyodide = {
 } as unknown as PyodideInterface;
 
 /**
- * 호출 순서를 `log`에 남기는 가짜 driver. `createConsole`은 기록만 하고 `stop`으로 던져 시퀀스를 거기서 끝낸다
- * (`realConsole`이면 core 콘솔을 만들어 `ready`까지 간다).
+ * 호출 순서를 `log`에 남기는 가짜 driver를 만든다.
+ * `createConsole`은 기록만 하고 `stop`으로 던져 시퀀스를 거기서 끝낸다.
+ * `realConsole`이면 core 콘솔을 만들어 `ready`까지 간다.
  */
 function createDriver(log: string[], realConsole = false) {
   const driver: WorkerDriver = {
@@ -47,7 +52,7 @@ function createDriver(log: string[], realConsole = false) {
   return driver;
 }
 
-/** 다음 이벤트 루프 차례까지 기다린다(await 중인 부팅이 더 나아갈 기회를 준다). */
+/** 20ms 기다린다. await 중인 부팅이 더 나아갈 기회를 준다. */
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 20));
 
 describe("bootWorker: plugins 호출 위치", () => {
@@ -95,6 +100,7 @@ describe("bootWorker: plugins 호출 위치", () => {
     const main = createMainSide();
     const log: string[] = [];
     const releases: Record<string, () => void> = {};
+    // `releases[name]()`을 부르기 전에는 끝나지 않는 prepare.
     const slow = (name: string): WorkerPlugin => ({
       name,
       prepare: () =>
@@ -167,7 +173,8 @@ describe("bootWorker: plugins 실패는 loadFailed", () => {
     const outcome = await main.waitForOutcome();
     await tick();
 
-    // 다른 loadFailed 문구와 같이 `String(error)`라 `Error: ` 로 시작하고, 오류 메시지가 `plugin "<name>": `으로 시작한다.
+    // `String(error)`라 다른 loadFailed 문구처럼 `Error: `로 시작한다.
+    // 오류 메시지는 `plugin "<name>": `으로 시작한다.
     expect(outcome).toEqual(["loadFailed", 'Error: plugin "a": 동기 실패']);
     expect(log).toEqual([]);
     expect(main.events.some((event) => event[0] === "ready")).toBe(false);

@@ -1,9 +1,9 @@
 /**
- * Tab 키를 세션 소유 정책 객체로 감싼다(docs/design/07-tab-completion.md 7.1~7.3, RD-015 DELTA-04).
- * `planTab`·`resolveCompletion`·`formatCompletionList`(DELTA-02, `tab-completion.ts`의 순수 함수)의
- * 계산과 worker `complete` RPC(DELTA-03, `worker/complete-source.ts`) 왕복을 잇는다.
- * `createAutoIndent`·`createBlockHistory`와 같은 패턴이다 — `readOptions(pending)`이 그 읽기 하나의
- * `onKey`를 내준다.
+ * Tab 키를 세션 소유 정책 객체로 감싼다(docs/design/07-tab-completion.md 7.1~7.3, RD-015).
+ * `planTab`·`resolveCompletion`·`formatCompletionList`(`tab-completion.ts`의 순수 함수)의
+ * 계산과 worker `complete` RPC(`worker/complete-source.ts`) 왕복을 잇는다.
+ * `createAutoIndent`·`createBlockHistory`와 같은 패턴이다.
+ * `readOptions(pending)`이 그 읽기 하나의 `onKey`를 내준다.
  *
  * 상태 요약:
  *
@@ -20,8 +20,9 @@
  * 삽입·목록을 적용한다. 하나라도 어긋나면(경합) 버린다(그릴링 확정 3).
  *
  * 취소 인터럽트 조건(`readEnded`): 왕복 중(`requesting`)에 `null` 응답(Ctrl+C 취소)으로 읽기가
- * 끝나면 `interruptCompletion()`을 1회 부른다 — worker의 완성 계산(임의 `repr()` 실행 등)이 멎어
- * 있을 수 있어 비워 둔다. Enter로 끝나거나 요청이 없으면 부르지 않는다.
+ * 끝나면 `interruptCompletion()`을 1회 부른다.
+ * worker의 완성 계산(임의 `repr()` 실행 등)이 멎어 있는 경우를 위해 비워 둔다.
+ * Enter로 끝나거나 요청이 없으면 부르지 않는다.
  */
 import {
   InputType,
@@ -57,9 +58,10 @@ export interface TabReader {
   /** `complete` 왕복이 진행 중인가(`runSource`가 이 동안 `busy`로 거부한다). 읽기만 하는 값이다. */
   readonly requesting: boolean;
   /**
-   * 연속 두 번째 Tab 판정("직전 키가 Tab")을 끈다. popover(E0)가 이 모듈의 `onKey`보다 먼저 키를
-   * 소비하면(`composeOptions`가 그 자리에서 멈춰) 이 `onKey`가 전혀 불리지 않아 `lastKeyWasTab`이
-   * 낡은 채로 남는다 — line-editor가 popover 소비를 감지해 이 메서드로 대신 끈다(RD-049 리뷰 발견).
+   * 연속 두 번째 Tab 판정("직전 키가 Tab")을 끈다.
+   * popover(E0)가 이 모듈의 `onKey`보다 먼저 키를 소비하면(`composeOptions`가 그 자리에서 멈춘다)
+   * 이 `onKey`가 전혀 불리지 않는다. `lastKeyWasTab`이 낡은 채로 남는다.
+   * line-editor가 popover 소비를 감지해 이 메서드로 대신 끈다(RD-049 리뷰 발견).
    */
   resetTabStreak(): void;
 }
@@ -93,8 +95,8 @@ export function createTabReader(
   deps: TabReaderDeps,
 ): TabReader {
   let generation = 0;
-  // 첫 `readOptions` 전에는 활성 읽기가 없어 벤더가 onKey 자체를 부르지 않지만, 방어적으로 "끝남"을
-  // 기본값으로 둔다.
+  // 첫 `readOptions` 전에는 활성 읽기가 없어 벤더가 onKey 자체를 부르지 않는다.
+  // 방어적으로 "끝남"을 기본값으로 둔다.
   let ended = true;
   let pendingBlock = "";
   let lastKeyWasTab = false;
@@ -102,11 +104,12 @@ export function createTabReader(
   let queuedTabs: QueuedTab[] = [];
 
   /**
-   * 응답을 지금 적용해도 되는지 판정하고, 되면 삽입하거나 목록을 연다. `list` 분기는
-   * `printAbove`가 돌려주는 프로미스를 그대로 반환한다 — `handleTab`의 `.then(applyResume)`이
-   * 이 프로미스를 체인하므로, 재그리기가 실제로 끝난 뒤에야 `.finally(drainQueue)`가 큐의
-   * 다음 Tab을 처리한다(재그리기 중 벤더 큐를 우회해 옮겨진 커서로 계산하는 것을 막는다,
-   * DELTA-04a Important-1). `insert`/`none` 분기는 즉시 끝나므로 프로미스를 반환할 필요 없다.
+   * 응답을 지금 적용해도 되는지 판정하고, 되면 삽입하거나 목록을 연다.
+   * `list` 분기는 `printAbove`가 돌려주는 프로미스를 그대로 반환한다.
+   * `handleTab`의 `.then(applyResume)`이 이 프로미스를 체인한다.
+   * 그래서 재그리기가 실제로 끝난 뒤에야 `.finally(drainQueue)`가 큐의 다음 Tab을 처리한다.
+   * 재그리기 중 벤더 큐를 우회해 옮겨진 커서로 계산하는 것을 막는다(리뷰 지적).
+   * `insert`/`none` 분기는 즉시 끝나므로 프로미스를 반환할 필요 없다.
    */
   function applyResume(
     snap: RequestSnapshot,
@@ -143,11 +146,12 @@ export function createTabReader(
   }
 
   /**
-   * 왕복이 끝난 뒤(성공·실패 모두) 큐에 남은 Tab을 이어 처리한다. 옛 세대 항목은 버리고 계속
-   * 넘어간다. 처리한 Tab이 `indent`(공백 삽입)나 무동작으로 끝나 `requesting`이 다시 `true`가
-   * 되지 않으면(`handleTab`이 `deps.complete()`를 부르지 않았다는 뜻) 그 Tab은 비동기 왕복을
-   * 시작하지 않았으므로, 큐가 비거나 새 왕복이 시작될 때까지 다음 큐 항목을 계속 처리한다 — 그러지
-   * 않으면 `indent` 경로를 탄 큐 Tab 뒤에 남은 항목이 다음 왕복이 끝날 때까지(또는 영원히)
+   * 왕복이 끝난 뒤(성공·실패 모두) 큐에 남은 Tab을 이어 처리한다.
+   * 옛 세대 항목은 버리고 계속 넘어간다.
+   * 처리한 Tab이 `indent`(공백 삽입)나 무동작으로 끝나 `requesting`이 다시 `true`가 되지 않으면
+   * (`handleTab`이 `deps.complete()`를 부르지 않았다는 뜻) 그 Tab은 비동기 왕복을 시작하지 않은 것이다.
+   * 그래서 큐가 비거나 새 왕복이 시작될 때까지 다음 큐 항목을 계속 처리한다.
+   * 그러지 않으면 `indent` 경로를 탄 큐 Tab 뒤에 남은 항목이 다음 왕복이 끝날 때까지(또는 영원히)
    * 방치된다(리뷰 Important-1).
    */
   function drainQueue(): void {
@@ -159,13 +163,13 @@ export function createTabReader(
         continue;
       }
       handleTab(next.second);
-      if (requesting) return; // 새 왕복이 시작됐다 — 그 응답의 finally(drainQueue)가 이어 받는다.
+      if (requesting) return; // 새 왕복이 시작됐다. 그 응답의 finally(drainQueue)가 이어 받는다.
       next = queuedTabs.shift();
     }
   }
 
   function handleTab(second: boolean): void {
-    // W3: 열린 popover가 있으면 이 Tab(큐에서 꺼낸 것 포함)은 버린다 — 새 왕복을 시작하지 않는다.
+    // W3: 열린 popover가 있으면 이 Tab(큐에서 꺼낸 것 포함)은 버린다. 새 왕복을 시작하지 않는다.
     if (deps.popover?.isOpen) return;
     if (ended) return;
     if (requesting) {
@@ -185,7 +189,7 @@ export function createTabReader(
       .complete(plan.source, pendingBlock || undefined)
       .then((result) => applyResume(snap, result))
       .catch(() => {
-        // 요청 실패(rpc dispose 등)는 무동작 — 큐는 `finally`가 이어 처리한다.
+        // 요청 실패(rpc dispose 등)는 무동작. 큐는 `finally`가 이어 처리한다.
       })
       .finally(drainQueue);
   }

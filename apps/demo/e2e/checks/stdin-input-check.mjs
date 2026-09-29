@@ -1,16 +1,16 @@
-// RD-006 브라우저 검증(input()·sys.stdin 읽기). 출처 RD-006, `_works/_completed/20260922-06-rd-006-stdin-input/verify/`에서
+// RD-006 브라우저 검증(input()·sys.stdin 읽기). 출처 RD-006에서
 // 이관(RD-018). 이전 구현 RD-006b
-// `pyodide-samples/_works/_completed/20260919-11-rd-006b-repl-prompt-join/reference/browser-check.mjs`(74개) 중 stdin 해당 23개
+// `browser-check.mjs`(74개) 중 stdin 해당 23개
 //   E1, K1~K3, L1, M1, M2, N1~N3, O1, O2, P1~P9, R1, U1(`input("p: ")` 원형)
 // 와 ROADMAP RD-006 시나리오(RM1: `x: abc` 한 줄, TICK: 프롬프트 대기 중 배경 출력)를 새 데모(하니스 lib.mjs)에 맞춰 옮겼다.
-// 기대 행·입력 문장은 이전 스크립트의 것을 그대로 쓴다. 건너뛴 ID는 skipped-ids.md.
+// 기대 행·입력 문장은 이전 스크립트의 것을 그대로 쓴다.
 // 이전과 달라진 점:
 //   - 입력은 읽기가 시작된 뒤에 보낸다(TRP-005). stdin 프롬프트 글자는 읽기 시작보다 먼저(`write` 알림) 화면에 나오고 프롬프트 없는
 //     `input()`은 화면 신호가 없어, 첫 글자를 한 번 치고 에코될 때까지 기다린다(`typeWhenReading`, 재시도 없음 — RD-019 이후 읽기 전 키는 버려지지 않고 쌓였다가 읽기 시작에서 재생된다).
 //   - 고정 sleep 대신 화면이 안정될 때까지(`settled`) 기다린다.
 //   - 각 확인은 Ctrl+L(`clear`)로 시작해 정확한 행 목록으로 단언한다(TRP-008). 개행 수는 커서 행으로 본다(TRP-006).
 // 사용: node stdin-input-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=RM1,TICK node stdin-input-check.mjs <url>
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 

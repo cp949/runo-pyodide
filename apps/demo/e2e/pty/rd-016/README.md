@@ -1,6 +1,6 @@
 # pty 기준 스냅샷 — `import`/`from` 줄 모듈 완성(재측정 없음)
 
-`res_import.json`·`res_import_extra.json`·`cases_import.json`·`gate_corpus.json`·`gate_corpus.meta.json`·`native_vs_pyodide.json`·`native_vs_pyodide.meta.json`·`SUMMARY-import.md`는 `/work/cp949/pyodide-samples/_works/_completed/20260921-01-rd-016a-import-completion/reference/measure-3.14/`에서 그대로 복사했다(RD-016 그릴링 확정 2, 재측정 없음). 실제 CPython 3.14.4 REPL(pty 24×80, `TERM=xterm`, 빈 임시 cwd)에서 측정한 모듈 완성 결과다.
+`res_import.json`·`res_import_extra.json`·`cases_import.json`·`gate_corpus.json`·`gate_corpus.meta.json`·`native_vs_pyodide.json`·`native_vs_pyodide.meta.json`·`SUMMARY-import.md`는 이전 구현 RD-016a의 `measure-3.14/`에서 그대로 복사했다(RD-016 그릴링 확정 2, 재측정 없음). 실제 CPython 3.14.4 REPL(pty 24×80, `TERM=xterm`, 빈 임시 cwd)에서 측정한 모듈 완성 결과다.
 
 | 파일                     | 내용                                                                              | 쓰는 곳                                                                           |
 | ------------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |

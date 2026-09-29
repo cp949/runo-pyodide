@@ -1,16 +1,23 @@
 // @vitest-environment node
 /**
- * 루트 `scripts/pack-smoke/manifest.mjs`(tarball 매니페스트 정적 검사) 시험. `smoke:pack`은 수동 L0라 pack·설치 없이 판정 함수만
- * 여기서 고정한다: 모든 패키지 공통 규칙(`workspace:`·`catalog:` 잔존, `exports` 대상 누락), 패키지별 정책 표(`MANIFEST_POLICY`),
- * 소비자가 import할 진입점의 도출(tarball `exports` 키)과 기대 export 선언 표와의 양방향 대조.
- * 정책 표는 패키지 이름이 키라 이름이 틀리면 조용히 검사가 빠진다 — 표의 키가 작업공간 배포 패키지 이름인지도 본다.
- * 실제 tarball을 검사하는 것은 `pnpm smoke:pack`이다(`docs/design/09-testing.md` 9.8.3).
+ * 루트 `scripts/pack-smoke/manifest.mjs`(tarball 매니페스트 정적 검사) 시험.
+ * `smoke:pack`은 수동 L0라 pack·설치 없이 판정 함수만 고정한다.
+ * - 공통 규칙: `workspace:`·`catalog:` 잔존, `exports` 대상 누락.
+ * - 패키지별 정책 표(`MANIFEST_POLICY`).
+ * - 진입점 도출(tarball `exports` 키)과 기대 export 선언 표의 양방향 대조.
+ * - 정책 표 키가 배포 패키지 이름인지 확인. 이름이 틀리면 검사가 조용히 빠진다.
+ *
+ * 실제 tarball 검사는 `pnpm smoke:pack`이 한다(`docs/design/09-testing.md` 9.8.3).
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
+/** pack 결과 `package.json`의 느슨한 모양. */
 type Manifest = Record<string, unknown>;
+
+/** `checkPackedManifest` 반환값. 규칙 위반 메시지와 tarball에 없는 `exports` 대상. */
 type CheckResult = { errors: string[]; missingExports: string[] };
+/** 시험이 쓰는 `manifest.mjs`의 export 모양(`.mjs`라 타입이 없어 직접 선언한다). */
 type ManifestModule = {
   MANIFEST_POLICY: Record<string, unknown>;
   checkPackedManifest: (input: {
@@ -41,7 +48,7 @@ const REACT = "@cp949/runo-pyodide-repl-react";
 const BRIDGE = "@cp949/runo-pyodide-dom-bridge";
 const PLAIN = "@cp949/runo-pyodide-terminal";
 
-/** 정책을 모두 만족하는 pack 결과 매니페스트(패키지별). 시험은 여기서 한 곳만 바꿔 규칙 하나를 어긴다. */
+/** 정책을 모두 만족하는 pack 결과 매니페스트. 시험은 한 곳만 바꿔 규칙 하나를 어긴다. */
 function validManifest(name: string): Manifest {
   const base = {
     name,
@@ -86,7 +93,7 @@ function validManifest(name: string): Manifest {
   return { ...base, dependencies: { [CORE]: "0.0.0" } };
 }
 
-/** 작업공간 `package.json`(정확 버전 대조의 원천). */
+/** 작업공간 `package.json`. 정확 버전 대조의 원천이다. */
 const SOURCE: Manifest = {
   dependencies: {
     "@cp949/runo-coincident":
@@ -97,18 +104,21 @@ const SOURCE: Manifest = {
   },
 };
 
+// tarball 파일 목록. `exports` 대상 존재 여부 판정에 쓴다.
 const FILES = new Set([
   "package/package.json",
   "package/dist/index.mjs",
   "package/dist/index.d.mts",
 ]);
 
+/** 유효 매니페스트 사본에 `patch`를 적용한 뒤 판정 결과를 돌려준다. */
 function check(name: string, patch: (manifest: Manifest) => void = () => {}) {
   const manifest = structuredClone(validManifest(name));
   patch(manifest);
   return checkPackedManifest({ name, manifest, files: FILES, source: SOURCE });
 }
 
+/** 매니페스트의 의존 필드(기본 `dependencies`)를 이름 → 범위 표로 읽는다. */
 const deps = (manifest: Manifest, field = "dependencies") =>
   manifest[field] as Record<string, string>;
 
@@ -157,7 +167,7 @@ describe("pack-smoke 매니페스트 판정 — 공통 규칙", () => {
 });
 
 describe("pack-smoke 매니페스트 판정 — 패키지별 정책 표", () => {
-  test("정책 표의 키는 모두 pack 대상(publishConfig.exports가 있는 작업공간 패키지) 이름이다(이름이 틀리면 검사가 조용히 빠진다)", () => {
+  test("정책 표의 키는 모두 pack 대상 패키지(publishConfig.exports가 있는 작업공간 패키지) 이름이다", () => {
     const names = readdirSync(new URL("packages/", ROOT))
       .map(
         (dir) =>

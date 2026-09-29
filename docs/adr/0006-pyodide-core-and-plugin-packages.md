@@ -49,7 +49,7 @@ RD-024가 `pyodide-repl-react`를 만들고 demo를 옮기며 위 표의 `pyodid
 
 - **패키지·진입점**: `@cp949/runo-pyodide-repl-react`(private, 버전 동기), 진입점 `.` 하나(서브패스 없음)에 `PythonRunner`·`PythonRepl`·`usePythonRunner`와 타입, `RunRejectedError` 재수출. 컴포넌트가 xterm `Terminal` 생성·`FitAddon`·dispose 순서·StrictMode 이중 마운트를 처리한다.
 - **의존**: core·terminal·repl은 `workspace:*`, `@xterm/addon-fit`은 직접 의존(`0.11.0` 고정, 소비자에게 fit을 따로 설치시키지 않는다). peer는 `react`·`react-dom`(`^19.0.0`)·`@xterm/xterm`(`^6.0.0`). `xterm.css`는 패키지가 import하지 않고 소비자가 import한다. coincident·reflected-ffi 비의존을 시험(`src/package-boundary.test.ts`)·`check-dist`·`smoke:pack`이 강제한다.
-- **컴포넌트는 하위 API를 그대로 위임한다**: `PythonRunner`는 terminal `createTerminalRunner`, `PythonRepl`은 repl `createRepl`의 옵션·핸들을 통과시키고 새 동작을 만들지 않는다. terminal 핸들에 없는 `interrupt`·`busy`는 `PythonRunner`가 노출하지 않는다(terminal 핸들에 게터를 더하는 것은 별도 항목). 이 RD는 REPL의 세션·송신기 배선을 바꾸지 않았다(`.scratch/run-driver-terminal-followups/issues/` 01·02는 그대로).
+- **컴포넌트는 하위 API를 그대로 위임한다**: `PythonRunner`는 terminal `createTerminalRunner`, `PythonRepl`은 repl `createRepl`의 옵션·핸들을 통과시키고 새 동작을 만들지 않는다. terminal 핸들에 없는 `interrupt`·`busy`는 `PythonRunner`가 노출하지 않는다(terminal 핸들에 게터를 더하는 것은 별도 항목). 이 RD는 REPL의 세션·송신기 배선을 바꾸지 않았다.
 - **props 변경**: 콜백은 latest-ref(인라인 람다여도 재마운트 없음), 생성 옵션은 마운트 때만 읽고(바꾸려면 `key`), `copyOnSelect`만 반응형이다. 개발 중 경고는 없다.
 - **handle 수명**: handle은 컴포넌트 수명 내내 같은 객체이고 "지금 살아 있는 하위 핸들"로 위임한다. 핸들이 없는 구간의 규칙(`run`·`runSource`는 `disposed` reject, `stop()`은 `"idle"`, `busy`는 `false`, 나머지 no-op)은 `15-react.md` 15.3.
 - **StrictMode**: worker 2개 생성·1개 terminate(살아 있는 것 1개). 첫 worker의 pyodide 로드 낭비를 수용한다(`08-session.md` 8.2와 같은 판단). 기각한 대안: 생성을 지연해 낭비를 없애는 것(2026-09-25 그릴링 확정).

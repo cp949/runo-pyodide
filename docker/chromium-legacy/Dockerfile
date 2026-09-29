@@ -1,4 +1,4 @@
-# 구버전 Chromium 실측용(DELTA-06, design.md D5). Debian snapshot.debian.org에 고정된 특정
+# 구버전 Chromium 실측용. Debian snapshot.debian.org에 고정된 특정
 # chromium 버전을 설치해 headless로 CDP 포트만 연다 — 컨테이너 안에는 Playwright도 node도
 # 두지 않는다(호스트 node 스크립트가 `chromium.connectOverCDP()`로 붙는다). 참고(읽기 전용):
 # `/work/cp949/geul/docker/chrome83/Dockerfile` — 그 이미지는 컨테이너 안에서 Playwright

@@ -1,8 +1,8 @@
-// RD-007 부팅 중 Ctrl+C(TRP-027: 핸들러 설치 → 폐기 → 버퍼 연결 순서). pyodide를 로드하는 동안 누른 Ctrl+C가
+// RD-007 부팅 중 Ctrl+C(TRAP-31: 핸들러 설치 → 폐기 → 버퍼 연결 순서). pyodide를 로드하는 동안 누른 Ctrl+C가
 // 시작 코드를 죽이지 않는지 본다. main 게이트는 로딩 중에도 열려 있어 눌림이 실제로 버퍼에 써지고,
 // worker의 연결 단계가 그것을 폐기해야 한다.
 // 시행마다 새 페이지를 열고, 프롬프트가 나오기 전에 눌러야 표본이 된다(beforePrompt).
-// 출처 RD-007, `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/`에서 이관(RD-018 DELTA-04).
+// 출처 RD-007에서 이관(RD-018).
 // 사용: N=30 PRESS_AT_MS=0 PRESSES=1 node boot-press.mjs <url>(생략 시 http://localhost:5173)
 // 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev. 판정선(30/30)은 이 DELTA에서 재측정하지 않는다(baseline 세트 소속, 배선만 확인).
 import { mkdirSync, writeFileSync } from "node:fs";

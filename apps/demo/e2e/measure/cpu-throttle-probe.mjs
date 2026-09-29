@@ -1,5 +1,5 @@
 // CPU 감속(`Emulation.setCPUThrottlingRate`)이 메인 스레드와 pyodide worker에 각각 얼마나 적용되는지 잰다(기록용 프로브).
-// 이슈 `.scratch/e2e-time-dependence/issues/03-cpu-throttle-probe.md`의 미검증 가정("worker에도 걸리는가")을 수치로 확정한다.
+// 이슈 03의 미검증 가정("worker에도 걸리는가")을 수치로 확정한다.
 // 판정 스크립트가 아니다: 통과/실패 상한을 두지 않는다(`docs/design/09-testing.md` 9.7 6항). 아래 "적용 ○/×"는 콘솔·결과 JSON `notes`에
 // 남기는 기록이며 종료 코드에 영향을 주지 않는다(종료 코드는 pageErrors 0과 표본 수집 완료 여부만 본다).
 // `run.mjs`의 `SETS`·`MEASURE_SET`에는 등록하지 않는다(L2·L3 상시 비용을 만들지 않는다). `pnpm --filter demo e2e:cpu-throttle`로 손으로 돌린다.
@@ -25,7 +25,7 @@
 // 지운다(값이 있었으면 경고). 프로브는 자체 CDP 세션(`page.context().newCDPSession(page)`)으로 rate를 보낸다. `lib.mjs`는 수정하지 않는다.
 //
 // 사용: node cpu-throttle-probe.mjs <url>(생략 시 http://localhost:5173)   RUNS=<정수>(rate당 실행 수, 기본 4, 첫 회는 버림)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 import { performance } from "node:perf_hooks";
 import { open } from "../lib.mjs";
 

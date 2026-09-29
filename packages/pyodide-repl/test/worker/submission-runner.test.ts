@@ -1,11 +1,12 @@
 // @vitest-environment node
 /**
  * 제출 러너(`createSubmissionRunner`) 시험(02-console-core.md 5.2, 05-output.md 4.1).
- * 실제 pyodide(node)의 실제 `ReplConsole` + 실제 `splitPaste`를 러너에 물려 한 줄 제출·값 에코·오류 표시·끝 개행·`exit`·
- * `null` 취소·여러 줄 분할(붙여넣기)·줄 단위 흘림(블록 입력 중)·코퍼스 차등 검증을 확인한다. 가짜 분할기는 배선
- * 시험 1건에만 쓴다.
- * 실행 밖에서 새는 `KeyboardInterrupt` 안전망은 실제 SIGINT 없이 `runLine`·`clearPending`을 `KeyboardInterrupt`를 던지는
- * Python 함수로 바꿔 끼워 재현한다.
+ * - 실제 pyodide(node)의 실제 `ReplConsole`과 실제 `splitPaste`를 러너에 물린다.
+ * - 확인 대상: 한 줄 제출, 값 에코, 오류 표시, 끝 개행, `exit`, `null` 취소.
+ * - 확인 대상: 여러 줄 분할(붙여넣기), 줄 단위 흘림(블록 입력 중), 코퍼스 차등 검증.
+ * - 가짜 분할기는 배선 시험 1건에만 쓴다.
+ * - 실행 밖에서 새는 `KeyboardInterrupt` 안전망은 실제 SIGINT 없이 재현한다.
+ *   `runLine`·`clearPending`을 `KeyboardInterrupt`를 던지는 Python 함수로 바꿔 끼운다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { beforeAll, describe, expect, test, vi } from "vitest";
@@ -18,7 +19,10 @@ import {
   warnDegraded,
 } from "@cp949/runo-pyodide-core/test-utils/worker";
 
+/** 파일 전체가 공유하는 pyodide 인스턴스. `beforeAll`에서 로드한다. */
 let pyodide: PyodideInterface;
+
+/** 실제 `split_paste`. 러너 배선 시험이 spy로 감싼다. */
 let splitPaste: SplitPaste;
 
 beforeAll(async () => {
@@ -27,10 +31,12 @@ beforeAll(async () => {
 }, 60_000);
 
 /**
- * 새 콘솔과 러너. `screen`은 화면에 쌓일 텍스트다 — 콘솔 콜백(`print` 등)은 개행이 이미 들어 있어 그대로 잇고,
- * `io`(`writeOutput`/`writeError`)는 실제 sink(`readline.println`)처럼 끝에 개행을 붙인다(TRAP-29). 호출부가 끝 개행을
- * 이미 붙여 넘기면 화면에 빈 줄이 하나 더 생기므로 이 모사가 이중 개행을 잡는다.
- * `hooks`로 러너가 보는 `runLine`·`clearPending`만 바꿔 끼울 수 있다(실제 콘솔은 그대로).
+ * 새 콘솔과 러너를 만든다.
+ * - `screen`은 화면에 쌓일 텍스트다.
+ * - 콘솔 콜백(`print` 등)은 개행이 이미 들어 있어 그대로 잇는다.
+ * - `io`(`writeOutput`/`writeError`)는 실제 sink(`readline.println`)처럼 끝에 개행을 붙인다(TRAP-29).
+ * - 호출부가 끝 개행을 이미 붙여 넘기면 화면에 빈 줄이 하나 더 생긴다. 이 모사가 이중 개행을 잡는다.
+ * - `hooks`로 러너가 보는 `runLine`·`clearPending`·`splitPaste`만 바꿔 끼울 수 있다. 실제 콘솔은 그대로다.
  */
 function setup() {
   const screen = { stdout: "", stderr: "" };
@@ -43,8 +49,8 @@ function setup() {
     }),
   };
   const repl = createConsole(pyodide, sinks, { topLevelAwait: false });
-  // KeyboardInterrupt 안전망·exit() 시험이 WebLoop 재보고로 처리되지 않은 Promise 거부를 남기지 않도록 worker와
-  // 같은 순서로 설치한다(03-ctrl-c.md 2.8).
+  // `KeyboardInterrupt` 안전망·`exit()` 시험이 WebLoop 재보고로 처리되지 않은 Promise 거부를 남기지 않게 한다.
+  // 그래서 worker와 같은 순서로 설치한다(03-ctrl-c.md 2.8).
   suppressWebLoopReraise(pyodide, { report: warnDegraded });
   const io = {
     writeOutput: vi.fn((text: string) => {
@@ -78,6 +84,7 @@ function setup() {
   return { run, io, screen, hooks, splitPasteSpy };
 }
 
+/** 제출이 끝나고 다음 줄을 받는 상태(`>>> `). */
 const READY = { prompt: ">>> ", exit: false };
 
 describe("한 줄 제출", () => {
@@ -182,7 +189,7 @@ describe("한 줄 제출", () => {
   });
 });
 
-// sink가 개행을 붙이므로 러너는 끝 개행 없는 텍스트를 넘겨야 한다. 어긋나면 프롬프트 앞에 빈 줄이 생긴다.
+// sink가 개행을 붙인다. 러너는 끝 개행 없는 텍스트를 넘겨야 한다. 어긋나면 프롬프트 앞에 빈 줄이 생긴다(TRAP-29).
 describe("출력 끝 개행", () => {
   test("식 값 에코 뒤에 빈 줄이 없다", async () => {
     const { run, screen } = setup();
@@ -217,7 +224,7 @@ describe("출력 끝 개행", () => {
 
     await run('raise ValueError("x\\n")');
 
-    // CPython도 `ValueError: x` 뒤 빈 줄을 낸다. 러너는 끝 개행을 정확히 하나만 뗀다.
+    // CPython도 `ValueError: x` 뒤에 빈 줄을 낸다. 러너는 끝 개행을 정확히 하나만 뗀다.
     expect(screen.stderr.endsWith("ValueError: x\n\n")).toBe(true);
     expect(screen.stderr.endsWith("\n\n\n")).toBe(false);
   });
@@ -285,12 +292,15 @@ describe("취소(`null`)", () => {
 });
 
 /**
- * 호출하면 `KeyboardInterrupt`를 던지는 Python 함수. 사용자 코드 밖(컴파일·취소 처리)에서 새는 SIGINT를 SIGINT 없이
- * 재현한다. 사용자 globals를 더럽히지 않도록 별도 namespace에서 정의한다.
+ * `source`가 마지막 식으로 내놓는 Python 함수를 JS 값으로 돌려준다.
+ * - 사용자 globals를 더럽히지 않도록 별도 namespace에서 정의한다.
+ * - `LEAK`과 함께 쓰면 사용자 코드 밖(컴파일·취소 처리)에서 새는 SIGINT를 SIGINT 없이 재현한다.
  */
 function pythonFunction<T>(source: string): T {
   return pyodide.runPython(source, { globals: pyodide.toPy({}) }) as T;
 }
+
+/** 호출하면 `KeyboardInterrupt`를 던지는 Python 함수의 소스. */
 const LEAK = "def leak(*args):\n    raise KeyboardInterrupt\nleak";
 
 describe("실행 밖에서 새는 KeyboardInterrupt(안전망)", () => {
@@ -343,7 +353,7 @@ describe("실행 밖에서 새는 KeyboardInterrupt(안전망)", () => {
 
   test("변환 중 `ConversionError`에 감싸인 `KeyboardInterrupt`도 취소로 처리한다", async () => {
     const { run, io, hooks } = setup();
-    // `err.type`은 "ConversionError"지만 메시지의 연쇄 예외 출력에 `KeyboardInterrupt` 단독 줄이 있다.
+    // `err.type`은 "ConversionError"다. 그래도 메시지의 연쇄 예외 출력에 `KeyboardInterrupt` 단독 줄이 있다.
     hooks.runLine = pythonFunction<ReplConsole["runLine"]>(
       [
         "from pyodide.ffi import ConversionError",
@@ -559,7 +569,7 @@ describe("배선: `deps.splitPaste`는 (line, compilerFlags())로 호출된다",
   });
 });
 
-/** 코퍼스 소스를 exec로 통째 실행했을 때 `sys.stdout`에 쌓이는 문자열(기대값). */
+/** 코퍼스 소스를 `exec`로 통째 실행했을 때 `sys.stdout`에 쌓이는 문자열. 코퍼스 차등 검증의 기대값이다. */
 async function execStdout(source: string): Promise<string> {
   return pyodide.runPythonAsync(
     [

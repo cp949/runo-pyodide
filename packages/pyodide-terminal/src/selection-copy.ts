@@ -1,13 +1,19 @@
 /**
  * 선택 영역 복사 정책. 두 경로를 하나의 기전(`navigator.clipboard.writeText` + `terminal.getSelection()`)으로 묶는다.
  *
- * - Ctrl+C(선택 있음): `decideKey`가 `copy`로 판정하면 `onKeyEvent`가 `preventDefault()`로 xterm 기본 처리를 막고
- *   복사한 뒤 `clearSelection()`으로 선택을 지운다(다음 Ctrl+C가 인터럽트·취소가 되게 한다, RD-017 확정 2).
- * - 드래그 선택(`copyOnSelect`가 참일 때): `mousedown`(`button === 0`)으로 드래그 시작을 표시하고, `mouseup`에서
- *   선택이 있으면 복사한다. 선택은 지우지 않는다(자동 복사는 사용자가 계속 볼 수 있게 유지).
+ * - Ctrl+C(선택 있음): `decideKey`가 `copy`로 판정하면 `onKeyEvent`가 다음을 한다.
+ *   - `preventDefault()`로 xterm 기본 처리를 막는다.
+ *   - 복사한다.
+ *   - `clearSelection()`으로 선택을 지운다. 다음 Ctrl+C가 인터럽트·취소가 되게 한다(RD-017 확정 2).
+ * - 드래그 선택(`copyOnSelect`가 참일 때):
+ *   - `mousedown`(`button === 0`)으로 드래그 시작을 표시한다.
+ *   - `mouseup`에서 선택이 있으면 복사한다.
+ *   - 선택은 지우지 않는다. 자동 복사는 사용자가 계속 볼 수 있게 유지한다.
  *
- * 빈 선택은 방어적으로 무시한다(`hasSelection()`이 참이면 이미 비지 않지만, 판정과 읽기 사이에 상태가 바뀌는
- * 경우를 대비). `writeText`는 시험에서 주입할 수 있도록 옵션으로 뺐다(jsdom에는 `navigator.clipboard`가 없다).
+ * 빈 선택은 방어적으로 무시한다.
+ * `hasSelection()`이 참이면 이미 비지 않지만, 판정과 읽기 사이에 상태가 바뀌는 경우를 대비한다.
+ *
+ * `writeText`는 시험에서 주입할 수 있도록 옵션으로 뺐다(jsdom에는 `navigator.clipboard`가 없다).
  */
 
 /** `decideKey`가 보는 키 이벤트의 최소 형태. `KeyboardEvent` 구조와 호환된다. */

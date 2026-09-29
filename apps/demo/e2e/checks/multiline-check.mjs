@@ -1,14 +1,14 @@
-// RD-011 DELTA-04 브라우저 확인. ROADMAP 시나리오 + 이월 S03·S07 + 확정 14의 절 8개.
-// 출처 RD-011, `_works/_completed/20260923-12-rd-011-multiline-submit/verify/`에서 이관(RD-018).
+// RD-011 브라우저 확인. ROADMAP 시나리오 + 이월 S03·S07 + 확정 14의 절 8개.
+// 출처 RD-011에서 이관(RD-018).
 //
 // 사용법(dev, `pnpm --filter demo dev`가 떠 있어야 함):
 //   node multiline-check.mjs [devURL] [previewURL]
 // ONLY=<절 이름,…>로 절만 분리 실행할 수 있다(paste·tab·parse·stop·block·shift·recall·input) —
 // preview에도 그대로 적용된다(이 스크립트는 preview 전용 절 목록을 선언하지 않는다, RD-044 K6).
 // preview는 devURL·previewURL 둘 다 있을 때만 돈다(`pnpm --filter demo build && pnpm --filter demo preview`).
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 //
-// RD-018 DELTA-03 갱신: "shift:" 절은 원래 Shift+Enter가 자동 들여쓰기 프리필 없이 개행만 넣는다고
+// RD-018 갱신: "shift:" 절은 원래 Shift+Enter가 자동 들여쓰기 프리필 없이 개행만 넣는다고
 // 가정해 `print(i)` 앞에 공백 4칸을 직접 쳤다. RD-013(2026-09-23 dev 병합) 뒤에는 `06-editing.md` 6.3대로
 // Shift+Enter도 `onKey`가 `nextIndentation`으로 프리필을 계산해 넣는다(`for i in range(2):` 뒤 콜론이라
 // 한 단위 늘어난 4칸이 이미 채워진다) — 수동 4칸을 더 치면 8칸이 돼 `auto-indent-check.mjs`의
@@ -151,8 +151,7 @@ async function runDev(url) {
     await paste("print(1)\nexit()\nprint(2)");
     await enter();
     await waitFor(async () => (await statusText()) === "terminated", "status = terminated", 10000);
-    // 상태 DOM 갱신이 xterm의 `1` 행 렌더보다 먼저 보일 수 있어 `1` 행도 조건 대기한다(09-testing.md 9.7,
-    // .scratch/e2e-baseline-drift/issues/03). 종료 처리 중 출력이 버려지는 결함이면 여기서 시간 초과로 실패한다.
+    // 상태 DOM 갱신이 xterm의 `1` 행 렌더보다 먼저 보일 수 있어 `1` 행도 조건 대기한다(09-testing.md 9.7). 종료 처리 중 출력이 버려지는 결함이면 여기서 시간 초과로 실패한다.
     await waitFor(async () => (await tail(6)).some((r) => r === "1"), '"1" 출력 행(terminated 뒤)', 5000);
     // terminated 뒤에는 더 실행되지 않으므로 "2" 부재는 이 시점에 판정해도 된다.
     const t = await tail(6);

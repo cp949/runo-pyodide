@@ -1,7 +1,12 @@
 /**
- * `createRepl` 줄 편집 시험(RD-003·RD-005). worker 역할 rpc가 `readLine`을 요청하면 main이 실제 `Readline`으로 한 줄을 읽어
- * 응답한다. 에코·편집 키·history·꼬리 프롬프트·자동 들여쓰기 프리필과 dispose 뒤의 안전성을 write 콜백 동기/비동기 모드로 본다.
- * history는 메모리에만 두고 `localStorage`를 읽거나 쓰지 않는다.
+ * `createRepl` 줄 편집 시험(RD-003·RD-005). worker 역할 rpc가 `readLine`을 요청하면 main이 실제 `Readline`으로 한 줄을 읽어 응답한다.
+ *
+ * 대상(write 콜백 동기·비동기 두 모드):
+ * - 에코, 편집 키, history.
+ * - 꼬리 프롬프트, 자동 들여쓰기 프리필.
+ * - dispose 뒤의 안전성.
+ *
+ * history는 메모리에만 둔다. `localStorage`를 읽거나 쓰지 않는다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { Readline } from "@cp949/runo-xterm-readline";
@@ -107,7 +112,8 @@ describe.each([
     session.fake.type("   \r");
     await expect(second).resolves.toBe("   ");
 
-    // 공백뿐인 제출이 history에 남았다면 ↑는 "   "을 먼저 불러온다. 기록되지 않았으니 바로 "real"이다.
+    // 공백뿐인 제출이 history에 남았다면 ↑는 "   "을 먼저 불러온다.
+    // 기록되지 않았으니 바로 "real"이다.
     const { line: third } = await startRead(session);
     session.fake.type("\x1b[A\r");
 
@@ -136,7 +142,7 @@ describe.each([
     await settle();
 
     expect(fake.written).toHaveLength(writtenAtDispose);
-    // RPC가 닫혀 응답이 오지 않는다(응답이 갔다면 "abc"가 그대로 돌아온다).
+    // RPC가 닫혀 응답이 오지 않는다. 응답이 갔다면 "abc"가 그대로 돌아온다.
     expect(outcome().state).toBe("pending");
   });
 
@@ -145,7 +151,7 @@ describe.each([
     handle.dispose();
     const writtenAtDispose = fake.written.length;
 
-    // 응답은 오지 않으므로 promise는 결과를 보지 않고 observe로만 붙여 둔다.
+    // 응답이 오지 않으므로 promise는 결과를 보지 않고 observe로만 붙여 둔다.
     observe(workerRpc.call("readLine", ">>> ", undefined, true));
     fake.flush();
     await settle();
@@ -153,7 +159,8 @@ describe.each([
     expect(fake.written).toHaveLength(writtenAtDispose);
   });
 
-  // StrictMode의 mount → cleanup 순서: 읽기를 시작하자마자 dispose하고, 이어서 terminal.dispose()가 addon을 다시 dispose한다.
+  // StrictMode의 mount → cleanup 순서를 흉내 낸다.
+  // 읽기를 시작하자마자 dispose하고, 이어서 terminal.dispose()가 addon을 다시 dispose한다.
   test("dispose 직후 terminal.dispose()가 addon을 다시 dispose해도 안전하고 뒤늦은 콜백이 해제된 buffer를 읽지 않는다", async () => {
     const { handle, fake, workerRpc } = startSession({}, { asyncWrite });
     observe(workerRpc.call("readLine", ">>> ", undefined, true));
@@ -169,7 +176,8 @@ describe.each([
 
   test("폭을 넘는 꼬리를 정리하려고 flush를 기다리는 중에 dispose해도 뒤늦은 콜백이 해제된 buffer를 읽지 않는다", async () => {
     const { handle, fake, workerRpc } = startSession({}, { asyncWrite });
-    // 100자 꼬리는 짧지 않아 `rewindTail`이 flush를 기다린다(비동기 모드에서는 그 콜백이 dispose 뒤에 온다).
+    // 100자 꼬리는 짧지 않아 `rewindTail`이 flush를 기다린다.
+    // 비동기 모드에서는 그 콜백이 dispose 뒤에 온다.
     workerRpc.notify("write", "x".repeat(100));
     observe(workerRpc.call("readLine", ">>> ", undefined, true));
     await waitFor(() => fake.written.includes(""));
@@ -203,7 +211,8 @@ describe("history 저장", () => {
     await first;
 
     const { line: second } = await startRead(session);
-    // ↑를 두 번 눌러도 "new"에서 멈춘다. 저장된 "old"를 복원했다면 두 번째 ↑가 "old"를 불러온다.
+    // ↑를 두 번 눌러도 "new"에서 멈춘다.
+    // 저장된 "old"를 복원했다면 두 번째 ↑가 "old"를 불러온다.
     session.fake.type("\x1b[A\x1b[A\r");
 
     await expect(second).resolves.toBe("new");

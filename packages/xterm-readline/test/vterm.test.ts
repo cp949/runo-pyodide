@@ -1,31 +1,37 @@
+/**
+ * 시험용 가상 터미널 `VTerm` 시험. 다른 시험이 화면 결과를 검증하는 바탕이다.
+ * - 일반 문자 기록, 커서 이동, 오른쪽 끝 pending-wrap.
+ * - CUU/CUD/CUF/CUB의 경계 고정, ED(`\x1b[J`) 지우기.
+ * - 마지막 행 LF의 스크롤백 이동, SGR 무시.
+ */
 import { expect, test } from "vitest";
 import { VTerm } from "../src/vterm";
 
-test("plain text writes to grid and advances cursor", () => {
+test("일반 문자는 격자에 쓰이고 커서가 전진한다", () => {
   const t = new VTerm(10, 3);
   t.write("hello");
   expect(t.screen()).toBe("hello");
   expect(t.cursor()).toEqual([0, 5]);
 });
 
-test("\\r\\n moves to next line at column 0", () => {
+test("\\r\\n은 다음 줄 0열로 옮긴다", () => {
   const t = new VTerm(10, 3);
   t.write("ab\r\ncd");
   expect(t.screen()).toBe("ab\ncd");
   expect(t.cursor()).toEqual([1, 2]);
 });
 
-test("auto-wrap at right margin uses pending-wrap, not eager wrap", () => {
+test("오른쪽 끝 자동 줄바꿈은 즉시가 아니라 pending-wrap을 쓴다", () => {
   const t = new VTerm(5, 3);
-  t.write("abcde"); // fills row 0; cursor parked at col 4 with pending wrap
+  t.write("abcde"); // 0행을 채운다. 커서는 4열에 머물고 줄바꿈은 보류된다.
   expect(t.screen()).toBe("abcde");
   expect(t.cursor()).toEqual([0, 4]);
-  t.write("f"); // first new char wraps
+  t.write("f"); // 다음 글자에서 줄바꿈한다.
   expect(t.screen()).toBe("abcde\nf");
   expect(t.cursor()).toEqual([1, 1]);
 });
 
-test("\\r cancels pending wrap", () => {
+test("\\r은 pending-wrap을 취소한다", () => {
   const t = new VTerm(5, 3);
   t.write("abcde");
   t.write("\r");
@@ -34,9 +40,9 @@ test("\\r cancels pending wrap", () => {
   expect(t.cursor()).toEqual([0, 1]);
 });
 
-test("CUU/CUD/CUF/CUB clamp at edges", () => {
+test("CUU/CUD/CUF/CUB는 가장자리에서 멈춘다", () => {
   const t = new VTerm(10, 3);
-  t.write("\x1b[5A"); // up past top
+  t.write("\x1b[5A"); // 맨 위를 넘어 올린다.
   expect(t.cursor()).toEqual([0, 0]);
   t.write("\x1b[5B");
   expect(t.cursor()).toEqual([2, 0]);
@@ -46,17 +52,17 @@ test("CUU/CUD/CUF/CUB clamp at edges", () => {
   expect(t.cursor()).toEqual([2, 0]);
 });
 
-test("\\x1b[J erases from cursor to end of display", () => {
+test("\\x1b[J는 커서부터 화면 끝까지 지운다", () => {
   const t = new VTerm(5, 3);
   t.write("abcde\r\nfghij\r\nkl");
-  t.write("\x1b[2A"); // up to row 0, col 2
-  // cursor lands at (0, 2) after CUU; the previous content put us at (2,2)
+  t.write("\x1b[2A"); // 0행 2열로 올린다.
+  // 이전 출력으로 커서가 (2, 2)에 있었고, CUU 뒤 (0, 2)에 놓인다.
   expect(t.cursor()).toEqual([0, 2]);
   t.write("\x1b[J");
   expect(t.screen()).toBe("ab");
 });
 
-test("LF at last row scrolls and pushes the top row into scrollback", () => {
+test("마지막 행의 LF는 스크롤하고 맨 윗 행을 스크롤백으로 보낸다", () => {
   const t = new VTerm(5, 2);
   t.write("aaa\r\nbbb\r\n");
   expect(t.scrollback.length).toBe(1);
@@ -64,7 +70,7 @@ test("LF at last row scrolls and pushes the top row into scrollback", () => {
   expect(t.screen()).toBe("bbb");
 });
 
-test("SGR sequences are ignored for visible output", () => {
+test("SGR 시퀀스는 보이는 출력에서 무시한다", () => {
   const t = new VTerm(10, 1);
   t.write("\x1b[1;31mhi\x1b[0m there");
   expect(t.screen()).toBe("hi there");

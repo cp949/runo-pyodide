@@ -1,11 +1,16 @@
 /**
  * 전역 stdout/stderr Writer(`createSinkWriter`) 순수 시험(05-output.md 4.2, TRAP-01).
- * pyodide 없이 바이트 조각을 직접 `write`해서 UTF-8 이어 붙임·반환값·Writer별 상태 분리를 본다.
+ * pyodide 없이 바이트 조각을 직접 `write`해서 세 가지를 본다.
+ * - UTF-8 이어 붙임
+ * - 반환값
+ * - Writer별 상태 분리
+ *
  * 실제 pyodide가 이 Writer를 어떻게 부르는지는 sink-writer-pyodide.test.ts(node)가 본다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { createSinkWriter } from "../../src/worker/sink-writer";
 
+/** 문자열을 UTF-8 바이트로 바꾼다. */
 const encode = (text: string) => new TextEncoder().encode(text);
 
 describe("createSinkWriter: 전역 stdout·stderr를 콘솔 콜백과 같은 sink로 보낸다", () => {

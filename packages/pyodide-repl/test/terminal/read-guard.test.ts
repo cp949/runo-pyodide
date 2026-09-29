@@ -1,8 +1,14 @@
 /**
- * `createReadGuard` 시험(04-stdin-input.md 3.2). REPL 읽기와 stdin 읽기는 같은 `Readline`을 쓰고 `readline.read()`는 이미
- * 열린 읽기를 교체하면서 옛 읽기의 promise를 끝내지 않는다. 그래서 프롬프트를 기다리는 사이 배경 콜백이 `input()`을 부르면
- * REPL 읽기가 고아가 되어 입력이 멈춘다. 가드는 stdin 읽기를 활성 REPL 읽기의 결과가 정해진 뒤에 시작한다. 실제 `Readline` +
- * 가짜 터미널로 순서·떼기·버림을 본다. 겹침 거절(읽기 phase)은 가드 바깥(`repl-main-driver.ts`)의 몫이라 여기서 보지 않는다.
+ * `createReadGuard` 시험(`docs/design/04-stdin-input.md` 3.2).
+ *
+ * 배경.
+ * - REPL 읽기와 stdin 읽기는 같은 `Readline`을 쓴다.
+ * - `readline.read()`는 이미 열린 읽기를 교체하고 옛 읽기의 promise를 끝내지 않는다.
+ * - 프롬프트를 기다리는 사이 배경 콜백이 `input()`을 부르면 REPL 읽기가 고아가 되어 입력이 멈춘다.
+ *
+ * 가드는 stdin 읽기를 활성 REPL 읽기의 결과가 정해진 뒤에 시작한다.
+ * 실제 `Readline` + 가짜 터미널로 순서·접두 떼기·버림을 본다.
+ * 겹침 거절(읽기 phase)은 가드 바깥(`repl-main-driver.ts`)의 몫이라 여기서 보지 않는다.
  */
 import { ReadCancelledError } from "@cp949/runo-xterm-readline";
 import { describe, expect, test, vi } from "vitest";
@@ -24,21 +30,22 @@ describe.each([
     function setup() {
       const { fake, surface, readline } = setupSurface({ asyncWrite });
       const io = surface.openIo();
-      // 스파이는 실제 구현을 그대로 돌린다 — 호출 시점·인자만 관찰한다. read-guard는 `promptRow.read`를 객체
-      // 멤버로 부르므로(생성 시 구조 분해하지 않는다) 이 스파이가 닿는다.
+      // 스파이는 실제 구현을 그대로 돌린다. 호출 시점·인자만 관찰한다.
+      // read-guard는 `promptRow.read`를 객체 멤버로 부른다(생성 시 구조 분해하지 않는다). 그래서 이 스파이가 닿는다.
       const promptRowRead = vi.spyOn(surface.promptRow, "read");
       const vendorRead = vi.spyOn(readline, "read");
       const guard = createReadGuard(surface.promptRow);
-      /** write 콜백을 배출하고 대기 중인 마이크로태스크·타이머를 지나가게 한다. 비동기 모드는 flush 전에 읽기가 시작되지 않는다. */
+      // write 콜백을 배출하고 대기 중인 마이크로태스크·타이머를 지나가게 한다.
+      // 비동기 모드는 flush 전에 읽기가 시작되지 않는다.
       async function settle() {
         fake.flush();
         await tick();
         fake.flush();
         await tick();
       }
-      /** 지금까지 벤더 `readline.read`가 받은 프롬프트(합성 결과, promptRow가 꼬리와 합친 것). */
+      // 지금까지 벤더 `readline.read`가 받은 프롬프트. promptRow가 꼬리와 합친 합성 결과다.
       const prompts = () => vendorRead.mock.calls.map(([prompt]) => prompt);
-      /** stdin 읽기(`promptRow.read("", …)`)가 시작된 횟수. REPL 읽기(`prompt !== ""`)는 세지 않는다. */
+      // stdin 읽기(`promptRow.read("", …)`)가 시작된 횟수. REPL 읽기(`prompt !== ""`)는 세지 않는다.
       const stdinCalls = () =>
         promptRowRead.mock.calls.filter(([prompt]) => prompt === "").length;
       return {
@@ -77,7 +84,7 @@ describe.each([
         const { fake, guard, promptRowRead, settle } = setup();
 
         const input = guard.readInput(true, () => false);
-        // 마이크로태스크 한 번이면 충분해야 한다. 매크로태스크를 기다려야 시작한다면 기다리지 않는 것이 아니다.
+        // 마이크로태스크 한 번이면 충분해야 한다. 매크로태스크를 기다려야 시작하면 기다리지 않는 것이 아니다.
         await Promise.resolve();
 
         expect(promptRowRead).toHaveBeenCalledWith("", {
@@ -115,7 +122,7 @@ describe.each([
         await settle();
         await expect(repl).resolves.toBe("f()");
 
-        // 앞 stdin 읽기는 끝나지 않은 채로 둔다. 직렬화하면 둘째는 시작하지 못한다.
+        // 앞 stdin 읽기는 끝내지 않는다. 직렬화하면 둘째는 시작하지 못한다.
         void guard.readInput(true, () => false);
         void guard.readInput(true, () => false);
         await settle();
@@ -149,7 +156,7 @@ describe.each([
 
         void guard.readLine(">>> ", options);
 
-        // 동기로 확인한다. 마이크로태스크라도 미루면 시작 타이밍이 바뀐 것이다.
+        // 동기로 확인한다. 마이크로태스크라도 미루면 시작 타이밍이 바뀐다.
         expect(promptRowRead).toHaveBeenCalledTimes(1);
         const call = promptRowRead.mock.calls[0];
         if (!call) throw new Error("promptRow.read가 불리지 않았다");
@@ -165,7 +172,7 @@ describe.each([
         await settle();
         expect(stdinCalls()).toBe(0);
 
-        // 취소는 실패가 아니라 값(`null`)이다. 가드는 REPL 읽기가 끝났다는 것만 본다.
+        // 취소는 실패가 아니라 값(`null`)이다. 가드는 REPL 읽기가 끝났다는 사실만 본다.
         fake.type("\x03");
         await settle();
 
@@ -220,7 +227,7 @@ describe.each([
 
         void guard.readInput(true, () => false);
 
-        // 동기로 확인한다. REPL 읽기가 끝난 뒤에는 벤더 접두가 이미 사라져 넘겨받을 수 없다.
+        // 동기로 확인한다. REPL 읽기가 끝난 뒤에는 벤더 접두가 사라져 넘겨받을 수 없다.
         expect(tail(io.sinks)).toBe("bg> ");
         expect(readline.abovePrefix()).toBe("");
       });
@@ -236,8 +243,9 @@ describe.each([
       });
 
       test("겹치는 stdin 읽기끼리는 접두를 떼지 않는다(RD-022b는 REPL 읽기에서만 적용)", async () => {
-        // worker는 stdin 읽기 동안 동기 대기라 실제로는 겹치지 않는다. 열린 읽기 위 접두를 만들 수 있는 유일한 비-REPL
-        // 읽기라서 쓴다 — 떼기가 `replOpen` 조건 없이 돌면 이 접두를 떼어 간다.
+        // worker는 stdin 읽기 동안 동기 대기라 실제로는 겹치지 않는다.
+        // 열린 읽기 위 접두를 만들 수 있는 비-REPL 읽기는 이것뿐이라 시험에 쓴다.
+        // 떼기가 `replOpen` 조건 없이 돌면 이 접두를 떼어 간다.
         const { io, readline, guard, settle } = setup();
         void guard.readInput(true, () => false);
         await settle();
@@ -268,8 +276,8 @@ describe.each([
         fake.type("a = 1\r");
         // 옛 읽기의 끝 처리(마이크로태스크)가 돌기 전에 새 읽기가 열린다.
         void guard.readLine(">>> ", { cancelable: true });
-        await settle(); // 옛 읽기의 끝 처리(마이크로태스크)가 이 사이에 돈다.
-        io.sinks.write("bg> "); // 둘째(새) REPL 읽기의 접두가 된다
+        await settle(); // 옛 읽기의 끝 처리가 이 사이에 돈다.
+        io.sinks.write("bg> "); // 둘째(새) REPL 읽기의 접두가 된다.
 
         void guard.readInput(true, () => false);
 
@@ -347,8 +355,9 @@ describe.each([
         fake.type("x\r");
         await settle();
 
-        // 뗀 접두를 출력으로 먼저 그린 뒤 프롬프트로 또 그리면(중복 그리기) "bg> " 조각이 두 번 쓰인다. 최종 화면
-        // (`vt.lines()`)은 프롬프트 재그리기가 지우고 다시 써서 두 경우가 같아 보이므로 바이트로 셋다.
+        // 뗀 접두를 출력으로 먼저 그린 뒤 프롬프트로 또 그리면(중복 그리기) "bg> " 조각이 두 번 쓰인다.
+        // 최종 화면(`vt.lines()`)은 프롬프트 재그리기가 지우고 다시 써서 두 경우가 같아 보인다.
+        // 그래서 바이트 단위로 센다.
         expect(fake.written.filter((chunk) => chunk === "bg> ")).toHaveLength(
           1,
         );
@@ -360,9 +369,10 @@ describe.each([
     });
 
     describe("실제 Readline에서 REPL 읽기가 고아가 되지 않는다", () => {
-      // 가드가 없으면 stdin 읽기가 `readline.read()`로 REPL 읽기를 교체해, 사용자가 REPL 줄에 친 입력이 stdin 읽기로 가고
-      // REPL 읽기는 영영 끝나지 않는다. `createRepl`(repl-main-driver)과 같이 REPL 읽기·stdin 읽기 모두 `promptRow.read`다
-      // (RD-027) — REPL 읽기는 합성 프롬프트, stdin 읽기는 `prompt=""`로 부른다.
+      // 가드가 없으면 stdin 읽기가 `readline.read()`로 REPL 읽기를 교체한다.
+      // 사용자가 REPL 줄에 친 입력이 stdin 읽기로 가고 REPL 읽기는 영영 끝나지 않는다.
+      // `createRepl`(repl-main-driver)과 같이 REPL 읽기·stdin 읽기 모두 `promptRow.read`다(RD-027).
+      // REPL 읽기는 합성 프롬프트로, stdin 읽기는 `prompt=""`로 부른다.
       test("REPL 읽기 중 배경 input()이 들어와도 REPL 줄은 REPL 읽기가, 그다음 줄은 stdin 읽기가 받는다", async () => {
         const { fake, io, guard, prompts, settle } = setup();
         const repl = observe(guard.readLine(">>> ", { cancelable: true }));

@@ -1,8 +1,10 @@
 /**
- * `ReadOptions.onKey` 훅과 접근자 3종(`getCursor`/`editInsert`/`editBackspace`) 시험.
- * 계약(설계 `docs/design/06-editing.md` 6.3, 확정 2·10·11): 활성 읽기의 키마다 벤더 처리 앞에서
- * 부른다. `true`면 벤더 처리를 생략한다. `readPaste`의 `Text` 토큰(붙여넣은 문자)은 거치지 않는다.
- * 활성 읽기가 없으면(write 콜백 대기 중 포함) 부르지 않는다.
+ * `ReadOptions.onKey` 훅, 접근자 3종(`getCursor`·`editInsert`·`editBackspace`), `skipBlankHistory` 시험.
+ * 계약(`docs/design/06-editing.md` 6.3):
+ * - 활성 읽기의 키마다 벤더 처리 앞에서 부른다.
+ * - `true`면 벤더 처리를 생략한다.
+ * - `readPaste`의 `Text` 토큰(붙여넣은 문자)은 거치지 않는다.
+ * - 활성 읽기가 없으면(write 콜백 대기 중 포함) 부르지 않는다. 대기 중 재생은 `type-ahead.test.ts`가 본다.
  */
 import { describe, expect, test } from "vitest";
 import { Input, InputType } from "../src/keymap";
@@ -10,6 +12,7 @@ import type { Input as ExportedInput } from "../src/index";
 import { Readline } from "../src/readline";
 import { StubTerminal } from "./stub-terminal";
 
+/** 훅 없는 `Readline`을 `StubTerminal`에 활성화한다. */
 function setup(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
@@ -17,6 +20,7 @@ function setup(cols = 20, rows = 8) {
   return { term, readline };
 }
 
+/** `StubTerminal`을 `Readline.activate`가 받는 xterm `Terminal` 타입으로 단언한다. */
 function readline_term(term: StubTerminal) {
   return term as unknown as Parameters<Readline["activate"]>[0];
 }
@@ -49,7 +53,7 @@ describe("onKey 훅", () => {
     expect(readline.getLine()).toBe("a");
   });
 
-  test("onKey는 모든 InputType을 받는다", () => {
+  test("onKey는 키 종류를 가리지 않고 받는다", () => {
     const { term, readline } = setup();
     const seen: InputType[] = [];
     void readline.read("> ", {
@@ -86,23 +90,23 @@ describe("onKey 훅", () => {
       },
     });
 
-    // "ab" + Ctrl+C + "cd"를 한 번에 흘린다 — 토큰이 2개 이상이라 readPaste 경로로 간다.
-    // Text 토큰(ab, cd)은 state.editInsert로 바로 들어가 onKey를 거치지 않고,
+    // "ab" + Ctrl+C + "cd"를 한 번에 흘린다. 토큰이 2개 이상이라 readPaste 경로로 간다.
+    // Text 토큰(ab, cd)은 state.editInsert로 바로 들어가 onKey를 거치지 않는다.
     // 사이의 CtrlC만 readKey를 거쳐 onKey에 닿는다.
     term.feed(`ab${CTRL_C}cd`);
 
     expect(seen).toEqual([InputType.CtrlC]);
-    // CtrlC를 onKey가 소비했으니 벤더의 CtrlC 처리(프롬프트 재그리기)는 일어나지 않고 텍스트만 남는다.
+    // onKey가 CtrlC를 소비했으므로 벤더의 CtrlC 처리(프롬프트 재그리기)는 일어나지 않고 텍스트만 남는다.
     expect(readline.getLine()).toBe("abcd");
   });
 
-  test("활성 읽기가 없으면 onKey를 부르지 않는다(콜백 대기 중 포함)", () => {
+  test("활성 읽기가 없으면 onKey를 부르지 않는다", () => {
     const term = new StubTerminal(20, 8);
     const readline = new Readline({ persist: false });
     readline.activate(readline_term(term));
     let called = 0;
 
-    // read() 호출 전: activeRead가 아예 없다. CtrlC는 ctrlCHandler 분기로만 간다.
+    // read() 호출 전에는 activeRead가 없다. CtrlC는 ctrlCHandler 분기로만 간다.
     term.feed(CTRL_C);
     expect(called).toBe(0);
 
@@ -112,7 +116,7 @@ describe("onKey 훅", () => {
         return false;
       },
     });
-    // StubTerminal은 write 콜백을 동기로 불러 read() 호출 시점에 이미 activeRead가 선다.
+    // StubTerminal은 write 콜백을 동기로 불러 read() 시점에 이미 activeRead가 선다.
     term.feed("a");
     expect(called).toBe(1);
   });

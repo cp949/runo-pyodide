@@ -1,7 +1,8 @@
 /**
- * `PyodideConsole`의 top-level await 비트 토글(02-console-core.md 5.4). 콘솔은 부모 `Console.__init__`이
- * `PyCF_ALLOW_TOP_LEVEL_AWAIT`를 항상 켜므로 기본이 ON이고 생성자로 끌 수 없다(TRAP-03). 그래서 생성 직후
- * 컴파일 플래그에서 이 비트만 끄거나 켠다. 다른 비트는 여러 줄 입력 판정에 쓰이므로 건드리지 않는다.
+ * `PyodideConsole`의 top-level await 비트 토글(02-console-core.md 5.4).
+ * - 부모 `Console.__init__`이 `PyCF_ALLOW_TOP_LEVEL_AWAIT`를 항상 켠다. 기본이 ON이고 생성자로 끌 수 없다(TRAP-03).
+ * - 그래서 생성 직후 컴파일 플래그에서 이 비트만 끄거나 켠다.
+ * - 다른 비트는 여러 줄 입력 판정에 쓰이므로 건드리지 않는다.
  */
 import type { CompilerFlagsHolder } from "@cp949/runo-pyodide-core/worker";
 
@@ -15,9 +16,9 @@ export const DEFAULT_CONSOLE_FLAGS = 0x6200;
 export type { CompilerFlagsHolder };
 
 /**
- * pyodide 비공개 경로 `_compile.compiler.flags`가 숫자로 있는가(RD-021 `compiler-flags` 탐지). PyProxy에서 없는 속성 접근은
- * 던지지 않고 `undefined`이지만, 접근 자체가 던져도 없는 것으로 본다. 없으면 REPL은 TLA 토글·EOF 문구 정규화를 건너뛰고
- * `compilerFlags()`를 `TOP_LEVEL_AWAIT_FLAG`로 대체한다(확정 7).
+ * pyodide 비공개 경로 `_compile.compiler.flags`가 숫자로 있는가(RD-021 `compiler-flags` 탐지).
+ * PyProxy에서 없는 속성 접근은 던지지 않고 `undefined`다. 접근 자체가 던져도 없는 것으로 본다.
+ * 없으면 REPL은 TLA 토글·EOF 문구 정규화를 건너뛴다. `compilerFlags()`를 `TOP_LEVEL_AWAIT_FLAG`로 대체한다(확정 7).
  */
 export function hasCompilerFlags(pyconsole: unknown): boolean {
   try {

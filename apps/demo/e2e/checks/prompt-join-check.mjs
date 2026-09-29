@@ -1,5 +1,5 @@
 // RD-006b 브라우저 검증(REPL 프롬프트 이어붙임)의 RD-005 해당 시나리오 이식. 이전 구현
-// `pyodide-samples/_works/_completed/20260919-11-rd-006b-repl-prompt-join/reference/browser-check.mjs`(74개) 중
+// RD-006b `browser-check.mjs`(74개) 중
 //   초기 프롬프트, T1, U1, W1, W3, W4, W5, X1, Y1~Y4, Z1, Z2, AA×5, AB1, AB2, 끝 pageerror 없음
 // 을 새 데모(포트 5173, 하니스 lib.mjs)에 맞춰 옮겼다. 기대 행·입력 문장은 이전 스크립트의 것을 그대로 쓴다.
 // 이전과 달라진 입력 방식(모두 새 구현이 아직 갖지 않은 기능을 피하는 것이다):
@@ -10,9 +10,9 @@
 // 건너뛴 ID → 대상 RD: A1~A5·B1·B2·C1·C2·D1·E1·E2·H1·H2·K1~K3·L1·M1·M2·N1~N3·O1·O2·P1~P9·Q1·R1·S1·J1·J3 → RD-006/008
 //   (input()·stdin), F×5·G1·G2 → RD-007(Ctrl+C·송신기), G3·W2 → RD-008(프롬프트 취소), X2·X3 → RD-014(블록 history),
 //   AC1·J2 → RD-010(세션 리셋), V·AD(관찰 항목) → 해당 RD와 함께.
-// 출처 RD-005, `_works/_completed/20260922-05-rd-005-repl-loop/verify/`에서 이관(RD-018).
+// 출처 RD-005에서 이관(RD-018).
 // 사용: node prompt-join-check.mjs <url>(생략 시 http://localhost:5173)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { hasFg, open, same, show } from "../lib.mjs";
 
@@ -131,7 +131,7 @@ await step("Z2 [편차 기록] 프롬프트보다 긴 잔여물은 지워진다(
   await resetPrompt();
 });
 
-// AA. 폭을 넘는 꼬리: 앞 행이 중복되지 않고 나머지 뒤에 프롬프트가 온다(TRP-016). 3.14 pty 실측: 100자 → `x×80` / `x×20>>> `,
+// AA. 폭을 넘는 꼬리: 앞 행이 중복되지 않고 나머지 뒤에 프롬프트가 온다(TRAP-15). 3.14 pty 실측: 100자 → `x×80` / `x×20>>> `,
 // 정확히 80자 → 다음 행 열 0의 `>>> `.
 const Q80 = "q".repeat(80);
 for (const [label2, code, fullRows, lastExpected] of [
@@ -192,8 +192,8 @@ await step("AB2 그 프롬프트에 130자를 입력해 행이 늘어나도 소�
 });
 
 // AD(RD-018 확정 8·14, docs/design/10-parity-deviations.md 편차 44): 꼬리가 든 프롬프트에서 입력 중
-// Ctrl+L을 누르면 3.14(`skipped-ids.md` 기록: 화면 전체를 지워 `>>> foo`만 남김)와 달리 꼬리가 지워지지
-// 않고 그대로 남는다(실측, DELTA-03). 실측값을 기대값으로 고정한다.
+// Ctrl+L을 누르면 3.14(화면 전체를 지워 `>>> foo`만 남김)와 달리 꼬리가 지워지지
+// 않고 그대로 남는다(실측). 실측값을 기대값으로 고정한다.
 await step("AD 꼬리(t>>> foo)에서 Ctrl+L은 꼬리를 지우지 않고 t>>> foo 한 행만 남긴다(편차 44)", async () => {
   // AB2가 미제출 입력(a×130, sync:false)을 남겨 두므로(그 절의 마지막이라 원래는 정리가 필요 없었다)
   // 먼저 제출해 깨끗한 >>> 로 돌아온다(W1 등과 같은 정리 패턴).

@@ -1,6 +1,8 @@
 /**
- * pyodide 고정 버전 상수 시험. 버전의 원천은 `pnpm-workspace.yaml` catalog이고, 코드는 설치된
- * `pyodide/package.json`의 `version`에서 값을 유도한다(ADR-0007). 리터럴을 코드에 두지 않는다.
+ * pyodide 고정 버전 상수 시험.
+ * - 버전의 원천은 `pnpm-workspace.yaml` catalog이다.
+ * - 코드는 설치된 `pyodide/package.json`의 `version`에서 값을 유도한다(ADR-0007).
+ * - 시험도 버전 리터럴을 두지 않고 같은 `package.json`과 대조한다.
  */
 import { describe, expect, test } from "vitest";
 import pyodidePackage from "pyodide/package.json" with { type: "json" };

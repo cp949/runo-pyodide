@@ -1,10 +1,13 @@
 /**
- * `Readline.takeRead()`·`ReadOptions.prefillCursor` 시험(RD-022a DELTA-02). 계약(`_works/
- * 20260924-27-rd-022a-repl-run-source/checklist.md` 확정 10·12): 열린 읽기를 제출·history 없이 끝내고
- * 프롬프트 첫 행부터 입력 마지막 행까지 화면에서 지운 뒤 `{ text, cursor }`를 돌려준다. 읽기 promise는
- * `ReadTakenError`로 reject한다(`ReadCancelledError`와 구분). 남은 type-ahead·재그리기 큐는 다음 읽기로
- * 넘긴다. `prefillCursor`는 `prefill`을 채운 직후 커서를 그 위치에 둔다.
- * 스텁 터미널은 `print-above.test.ts`와 같은 패턴이다(`asyncWrite`로 write 콜백을 `flush()`까지 미룬다).
+ * `Readline.takeRead()`·`ReadOptions.prefillCursor` 시험(RD-022a).
+ * 계약(`docs/design/06-editing.md` 6.1 `takeRead()`·`prefillCursor` 항목):
+ * - 열린 읽기를 제출·history 없이 끝낸다.
+ * - 프롬프트 첫 행부터 입력 마지막 행까지 화면에서 지우고 `{ text, cursor }`를 돌려준다.
+ * - 읽기 promise는 `ReadTakenError`로 reject한다(`ReadCancelledError`와 구분).
+ * - 남은 type-ahead·재그리기 큐는 다음 읽기로 넘긴다.
+ * - `prefillCursor`는 `prefill`을 채운 직후 커서를 그 위치에 둔다.
+ *
+ * `StubTerminal`의 `asyncWrite`로 write 콜백을 `flush()`까지 미룬다.
  */
 import { describe, expect, test } from "vitest";
 import { ReadCancelledError, ReadTakenError, Readline } from "../src/readline";
@@ -29,11 +32,12 @@ function observe(promise: Promise<unknown>): () => Outcome {
   return () => outcome;
 }
 
-/** 대기 중인 마이크로태스크를 지나가게 한다. */
+/** 대기 중인 마이크로태스크와 타이머 한 번을 지나가게 한다. */
 function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/** `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
@@ -41,6 +45,7 @@ function setup(cols = 20, rows = 8) {
   return { term, readline };
 }
 
+// 키 입력 시퀀스
 const ARROW_LEFT = "\x1b[D";
 const ENTER = "\r";
 const CTRL_C = "\x03";
@@ -123,7 +128,7 @@ describe("takeRead 기본 동작", () => {
 
 describe("takeRead 지움 범위", () => {
   test("줄바꿈으로 여러 행이 된 긴 입력을 전부 지운다", () => {
-    // cols 8: "> " + 14글자 = 16칸 → 3행(마지막 행은 끝이 정확히 우측 끝이라 4행째 커서 행이 생긴다).
+    // cols 8: "> " + 14글자 = 16칸이라 두 행이 가득 찬다. 끝이 정확히 우측 끝이라 3행째에 빈 커서 행이 생긴다.
     const { term, readline } = setup(8, 10);
     readline.println("out");
     void readline.read("> ").catch(() => {});
@@ -389,7 +394,7 @@ describe("takeRead와 다른 API의 상호작용", () => {
     const taken = readline.takeRead();
     term.flush();
 
-    // 재그리기 전 논리 커서(1)를 돌려준다(moveCursorToEnd가 옮긴 끝 위치가 아니다).
+    // 재그리기 전 논리 커서(2)를 돌려준다(moveCursorToEnd가 옮긴 끝 위치가 아니다).
     expect(taken).toEqual({ text: "abc", cursor: 2 });
     // 콜백이 "> abc"를 LIST 아래에 다시 그리지 않는다.
     expect(term.vt.screen()).toBe("> abc\nLIST");

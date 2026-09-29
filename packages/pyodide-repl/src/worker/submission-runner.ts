@@ -1,10 +1,14 @@
 /**
- * 제출 한 번의 실행 규칙(02-console-core.md 5.2). worker 루프가 `readLine`으로 받은 값(`string | null`)을 그대로 `run()`에
- * 넘기면 `null` 취소 → 콘솔 실행 → 화면 규칙(값 에코 `writeOutput`, 오류 `writeError`)으로 옮기고 다음 프롬프트와
- * `exit`·`pending`을 돌려준다. 분기 순서(RD-011 확정 2): `line === null` → 취소 / `repl.pending() !== undefined` →
- * 블록 입력 중이므로 줄 단위로 흘려 넣는다(`replayLines`) / 개행이 있으면 `split_paste`로 문장 단위 분할(`runMultiline`) /
- * 아니면 기존 한 줄. `run()` 전체를 `KeyboardInterrupt` 안전망으로 감싸 사용자 코드 밖에서 새는 인터럽트가 worker 루프를
- * 죽이지 않게 한다(TRP-009).
+ * 제출 한 번의 실행 규칙(02-console-core.md 5.2).
+ * - worker 루프가 `readLine`으로 받은 값(`string | null`)을 그대로 `run()`에 넘긴다.
+ * - `run()`은 `null` 취소 → 콘솔 실행 → 화면 규칙(값 에코 `writeOutput`, 오류 `writeError`)으로 옮긴다.
+ * - 다음 프롬프트와 `exit`·`pending`을 돌려준다.
+ * - 분기 순서(RD-011 확정 2):
+ *   1. `line === null` → 취소
+ *   2. `repl.pending() !== undefined` → 블록 입력 중이므로 줄 단위로 흘려 넣는다(`replayLines`)
+ *   3. 개행이 있으면 `split_paste`로 문장 단위 분할(`runMultiline`)
+ *   4. 아니면 기존 한 줄
+ * - `run()` 전체를 `KeyboardInterrupt` 안전망으로 감싼다. 사용자 코드 밖에서 새는 인터럽트가 worker 루프를 죽이지 않게 한다(TRAP-04).
  */
 import type { PyodideInterface } from "pyodide";
 import type { ReplConsole, RunLineResult } from "./console";
@@ -14,8 +18,8 @@ export const PS1 = ">>> ";
 export const PS2 = "... ";
 
 /**
- * 둘 다 끝 개행 없는 텍스트를 받는다(05-output.md 4.1). sink(`readline.println`)가 개행을 붙이므로 끝 개행을 붙여
- * 넘기면 프롬프트 앞에 빈 줄이 하나 더 생긴다. worker에서는 RPC `notify` 래퍼다.
+ * 둘 다 끝 개행 없는 텍스트를 받는다(05-output.md 4.1). sink(`readline.println`)가 개행을 붙인다.
+ * 끝 개행을 붙여 넘기면 프롬프트 앞에 빈 줄이 하나 더 생긴다. worker에서는 RPC `notify` 래퍼다.
  */
 export interface SubmissionIO {
   writeOutput(text: string): void;
@@ -30,7 +34,7 @@ export interface SubmissionResult {
 }
 
 export interface SubmissionRunner {
-  /** `null`은 입력 취소 신호다: 미완성 블록을 버리고 `>>> `로 돌아간다. worker 루프는 줄과 신호를 구분하지 않는다. */
+  /** `null`은 입력 취소 신호다. 미완성 블록을 버리고 `>>> `로 돌아간다. worker 루프는 줄과 신호를 구분하지 않는다. */
   run(line: string | null): Promise<SubmissionResult>;
 }
 
@@ -113,9 +117,10 @@ export function createSubmissionRunner(
   }
 
   /**
-   * 블록 입력 중(`... `) 붙여넣은 여러 줄은 분할하면 이미 열려 있는 블록과 어긋나므로(IndentationError) 한 줄씩
-   * 흘려 넣는다(RD-011 확정 3). 첫 오류(문법·런타임)나 `exit()`에서 나머지 줄을 버린다. 블록 안 빈 줄이 블록을
-   * 끝내는 한계는 이 경로에만 남는다(편차, `02-console-core.md` 5.2).
+   * 블록 입력 중(`... `) 붙여넣은 여러 줄은 한 줄씩 흘려 넣는다(RD-011 확정 3).
+   * 분할하면 이미 열려 있는 블록과 어긋난다(IndentationError).
+   * 첫 오류(문법·런타임)나 `exit()`에서 나머지 줄을 버린다.
+   * 블록 안 빈 줄이 블록을 끝내는 한계는 이 경로에만 남는다(편차, `02-console-core.md` 5.2).
    */
   async function replayLines(text: string): Promise<SubmissionResult> {
     let result: RunLineResult = { kind: "incomplete" };
@@ -128,8 +133,8 @@ export function createSubmissionRunner(
   }
 
   /**
-   * 문장 하나(chunk)의 줄들을 순서대로 push한다. 실패하거나 종료되면 거기서 멈춘다. 복합문은 빈 줄이 와야
-   * 블록이 끝나므로 마지막 결과가 `incomplete`면 빈 줄을 한 번 더 push한다.
+   * 문장 하나(chunk)의 줄들을 순서대로 push한다. 실패하거나 종료되면 거기서 멈춘다.
+   * 복합문은 빈 줄이 와야 블록이 끝난다. 마지막 결과가 `incomplete`면 빈 줄을 한 번 더 push한다.
    */
   async function runChunk(
     lines: string[],
@@ -167,8 +172,9 @@ export function createSubmissionRunner(
       try {
         // `push(null)`은 콘솔 buffer를 `JsNull`로 오염시키므로 `null` 분기가 가장 먼저다.
         if (line === null) return cancel();
-        // `replayLines`·`runMultiline`은 반드시 `await`한다 — 그냥 `return`하면 async 함수의 반환값 채택이
-        // 이 try/catch 밖에서 일어나 안에서 새는 KeyboardInterrupt를 못 잡는다.
+        // `replayLines`·`runMultiline`은 반드시 `await`한다.
+        // `return`만 하면 async 함수의 반환값 채택이 이 try/catch 밖에서 일어난다.
+        // 그러면 안에서 새는 KeyboardInterrupt를 못 잡는다.
         if (repl.pending() !== undefined) return await replayLines(line);
         if (/[\r\n]/.test(line)) return await runMultiline(line);
         return resultAfter(await runOne(line, { echo: true }));

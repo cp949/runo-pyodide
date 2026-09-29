@@ -40,7 +40,7 @@ def sh(s, label, quiet=False):
         print(f"{i:2d}|{ln}|")
     print(f"cursor(row={s.screen.cursor.y}, col={s.screen.cursor.x})")
 
-# ---- 실행기 공용 CLI 헬퍼(runcases*.py가 DELTA-02·03에서 사용) ----
+# ---- 실행기 공용 CLI 헬퍼(runcases*.py가 사용) ----
 
 def add_out_arg(parser, default=None):
     """--out <path>: 결과 JSON 출력 경로. 기준 데이터 파일명과 실행기 기본 출력명이 어긋나는 경우를 흡수한다."""

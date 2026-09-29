@@ -1,7 +1,7 @@
 /**
  * 눌림 스레드. 저장소 `createInterruptSender`를 그대로 써서 main 브라우저의 Ctrl+C 송신을 흉내낸다.
- * 실행 스레드는 Python에 막혀 있어 같은 스레드에서 눌림을 예약할 수 없다(TRP-029).
- * 출처 RD-007, `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/node/`에서 이관(RD-018 DELTA-04).
+ * 실행 스레드는 Python에 막혀 있어 같은 스레드에서 눌림을 예약할 수 없다(TRAP-26).
+ * 출처 RD-007에서 이관(RD-018).
  *
  * 대기는 전부 이벤트 루프 기반이다: `Atomics.wait`로 스레드를 막으면 송신기의 5ms 재전송 점검(`setTimeout`)이 돌지
  * 못해 이 스크립트가 재려는 것(재전송이 소실을 복구하는가)이 사라진다. 마지막 1.5ms만 스핀으로 맞춘다.

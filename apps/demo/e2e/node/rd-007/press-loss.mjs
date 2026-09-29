@@ -1,8 +1,7 @@
 /**
  * 눌림 소실·누락·이중 통계(node, 판정선). 실제 pyodide(node)에 저장소 worker 모듈을 worker와
  * 같은 순서로 배선하고, 별도 스레드가 저장소 송신기로 눌림을 쓴다. 5분 이상 걸리고 타이밍으로 판정하므로
- * `pnpm test`에 넣지 않는다. 출처 RD-007, `_works/_completed/20260922-07-rd-007-ctrl-c-running/verify/node/`에서
- * 이관(RD-018 DELTA-04).
+ * `pnpm test`에 넣지 않는다. 출처 RD-007에서 이관(RD-018).
  *
  * 사용(레포 루트에서):
  *   node --import packages/pyodide-testkit/src/ts-resolve-hook.mjs apps/demo/e2e/node/rd-007/press-loss.mjs --scenario single --n 3000
@@ -18,7 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-// apps/demo/e2e/node/rd-007/ 기준 5단계 위가 레포 루트(옛 `_works/.../verify/node/`의 4단계에서 +1).
+// apps/demo/e2e/node/rd-007/ 기준 5단계 위가 레포 루트다.
 const REPO = new URL("../../../../../packages/pyodide-repl/", import.meta.url);
 const RESULTS_DIR = process.env.E2E_RESULTS_DIR ?? path.join(scriptDir, "..", "..", "results");
 

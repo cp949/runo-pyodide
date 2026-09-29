@@ -1,9 +1,18 @@
 /**
  * Python 런타임 연결의 유일한 진입점. 규칙(순서·이유·실패 처리, 규칙 ID A1~A6): `docs/design/03-ctrl-c.md` 2.6.
  *
- * `ack`·`seq`·`discard`·`signalInterrupt`는 `protocol/interrupt-protocol`에서 직접 import해 `deps.interruptBuffer`로
- * 묶는다(호출자가 클로저를 만들 필요가 없다). 부품 `sigint-handler.ts`·`stdin-callback.ts`·`sleep-slice.ts`·
- * `webloop-reraise.ts`는 여전히 `protocol/`을 import하지 않는다.
+ * 연결 순서(A1):
+ * - WebLoop 재보고 억제(`suppressWebLoopReraise`)
+ * - `time.sleep` 조각(`installSleepSlice`)
+ * - SIGINT 핸들러(`installSigintHandler`)
+ * - 연결 전에 쓰인 SIGINT 폐기(`discardPendingInterrupt`)
+ * - interrupt buffer 연결(`setInterruptBuffer`)
+ * - stdin 콜백(`setStdin`)
+ *
+ * 클로저 주입:
+ * - `ack`·`seq`·`discard`·`signalInterrupt`는 `protocol/interrupt-protocol`에서 직접 import해 `deps.interruptBuffer`로 묶는다.
+ * - 호출자가 클로저를 만들 필요가 없다.
+ * - 부품 `sigint-handler.ts`·`stdin-callback.ts`·`sleep-slice.ts`·`webloop-reraise.ts`는 여전히 `protocol/`을 import하지 않는다.
  */
 import type { PyodideInterface } from "pyodide";
 import {
@@ -21,18 +30,29 @@ import { suppressWebLoopReraise } from "./webloop-reraise";
 
 /** `attachRuntime`이 받는 것. `stdin`은 전송 수단(메일박스)과 무관하게 주입한다. */
 export interface RuntimeAttachDeps {
+  /** 초기화 프레임의 interrupt 버퍼 */
   interruptBuffer: Int32Array;
+
+  /** stdin 콜백에 넘길 알림·대기 함수 */
   stdin: Pick<StdinCallbackDeps, "requestInput" | "wait">;
+
+  /** 설치 가드가 건너뛴 지점을 알린다. */
   report: ReportDegraded;
 }
 
 /** 연결 결과. `destroy`는 `interruptIdle` proxy만 놓는다(설치물 원복 없음). */
 export interface AttachedRuntime {
+  /** 감시 타이머가 정지한 실행을 깨울 때 쓰는 Python 함수 */
   interruptIdle: InterruptIdle;
+
+  /** `interruptIdle` proxy를 놓는다. */
   destroy(): void;
 }
 
-/** 순서·실패 처리는 03-ctrl-c.md 2.6(A1·A5). 던질 때는 `interruptIdle` proxy를 이미 놓은 뒤다(설치물 원복 없음). */
+/**
+ * Python 런타임을 연결한다. 순서·실패 처리는 03-ctrl-c.md 2.6(A1·A5).
+ * 던질 때는 `interruptIdle` proxy를 이미 놓은 뒤다(설치물 원복 없음).
+ */
 export function attachRuntime(
   pyodide: Pick<
     PyodideInterface,
@@ -68,7 +88,7 @@ export function attachRuntime(
       stdin: createStdinCallback({
         requestInput: stdin.requestInput,
         wait: stdin.wait,
-        // 버퍼가 이미 연결돼 있어 `checkInterrupt()`가 EINTR을 던진다.
+        // 위에서 버퍼를 연결했으므로 `checkInterrupt()`가 EINTR을 던진다.
         signalInterrupt: () => signalInterrupt(interruptBuffer),
         checkInterrupt: () => pyodide.checkInterrupt(),
       }),

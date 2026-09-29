@@ -1,14 +1,17 @@
 // @vitest-environment node
 /**
- * REPL worker driver의 옵션 파서(`replDriver.parseOptions`) 시험. 초기화 프레임의 `driver` 필드는 core가 모양을 모르므로
- * (`parseInitFrame`은 필드 존재만 본다) `topLevelAwait` 검증은 REPL driver 몫이다. worker 쪽 검증의 전체 경로는
- * `parseInitFrame`(core 필드) → `replDriver.parseOptions(frame.driver)`(driver 필드)다.
+ * REPL worker driver의 옵션 파서(`replDriver.parseOptions`) 시험.
+ *
+ * - 초기화 프레임의 `driver` 필드는 core가 모양을 모른다. `parseInitFrame`은 필드 존재만 본다.
+ * - 그래서 `topLevelAwait` 검증은 REPL driver 몫이다.
+ * - worker 쪽 검증의 전체 경로는 `parseInitFrame`(core 필드) → `replDriver.parseOptions(frame.driver)`(driver 필드)다.
  */
 import { parseInitFrame } from "@cp949/runo-pyodide-core/worker";
 import { createInitFrame } from "@cp949/runo-pyodide-core/test-utils";
 import { afterEach, describe, expect, it } from "vitest";
 import { replDriver } from "../../src/worker/repl-driver";
 
+/** `createFrame`이 연 포트. `afterEach`가 닫는다. */
 const ports: MessagePort[] = [];
 
 afterEach(() => {

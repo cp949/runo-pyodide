@@ -1,9 +1,12 @@
 // @vitest-environment node
 /**
- * core `bootWorker`와 dom-bridge 플러그인의 조합: 플러그인이 던진 오류가 `loadFailed`로 가고 문구가 `Error: plugin "dom-bridge": `
- * 로 시작한다(`loadFailed` 페이로드는 `String(error)`라 `Error: ` 접두가 붙는다). 성공하면 `createConsole` 앞에서 `runo` 모듈이
- * 등록된다. 가짜 pyodide(interrupt 공개 API와 `registerJsModule`만)와 가짜 브리지를 쓰고, `createConsole`이 던져 시퀀스를 거기서
- * 끝낸다(플러그인 이후 단계에 도달했는지 보는 표지).
+ * core `bootWorker`와 dom-bridge 플러그인 조합 시험.
+ *
+ * - 플러그인이 던진 오류는 `loadFailed`로 간다. 문구는 `Error: plugin "dom-bridge": `로 시작한다.
+ * - `loadFailed` 페이로드가 `String(error)`라 `Error: ` 접두가 붙는다.
+ * - 성공하면 `createConsole` 앞에서 `runo` 모듈이 등록된다.
+ * - 가짜 pyodide(interrupt 공개 API와 `registerJsModule`만)와 가짜 브리지를 쓴다.
+ * - 가짜 driver의 `createConsole`이 던져 시퀀스를 거기서 끝낸다. 플러그인 이후 단계에 도달했다는 표지다.
  */
 import type { PyodideInterface } from "pyodide";
 import { describe, expect, test, vi } from "vitest";
@@ -25,6 +28,10 @@ const driver: WorkerDriver = {
   }),
 };
 
+/**
+ * 가짜 pyodide·가짜 브리지로 플러그인을 끼운 `bootWorker`를 시작한다.
+ * `received`(부트스트랩 수신)·`native`(동기 브리지 가능)가 플러그인 판정 입력이다.
+ */
 function createBoot(options: { received: boolean; native: boolean }) {
   const registerJsModule = vi.fn();
   const pyodide = {

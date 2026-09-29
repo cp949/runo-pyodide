@@ -21,6 +21,6 @@ driver의 `writeOutput`·`writeError`)뿐이다: `createMainSide`의 `extraNotif
 ## 탐지/회피
 
 - 회피: driver 고유 ntf를 추가하는 DELTA의 체크리스트에 "그 driver 시험의 `createMainSide` `extraNotifications` 갱신"을 명시적으로 넣는다.
-- 탐지: 알림이 안 오는 것 같으면 `console.log`로 실제 `postMessage` 호출(`message.kind`, `message.name`)을 worker 쪽에서 임시로 찍어 "나가긴 했는데 하니스 events에 없다"인지부터 확인한다(RD-010 DELTA-04에서 이렇게 원인을 좁혔다).
+- 탐지: 알림이 안 오는 것 같으면 `console.log`로 실제 `postMessage` 호출(`message.kind`, `message.name`)을 worker 쪽에서 임시로 찍어 "나가긴 했는데 하니스 events에 없다"인지부터 확인한다(RD-010에서 이렇게 원인을 좁혔다).
 
-참고: RD-010 DELTA-04(`_works/_completed/20260922-11-rd-010-session-reset/`).
+참고: RD-010.

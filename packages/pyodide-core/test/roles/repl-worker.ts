@@ -1,6 +1,13 @@
 /**
- * REPL worker 쪽 역할(시험 전용). pyodide 없이 프로토콜만으로 01-protocols.md 5절 시퀀스 S1·S3의 worker 쪽을 따라 한다:
- * 초기화 프레임 수신 → `readLine` 요청 → 출력 알림 → `readInput` 알림 → 메일박스 정지 → 값 수신.
+ * REPL worker 쪽 역할(시험 전용).
+ * pyodide 없이 프로토콜만으로 `01-protocols.md` 5절 시퀀스 S1·S3의 worker 쪽을 따라 한다.
+ * 1. 초기화 프레임 수신
+ * 2. `readLine` 요청
+ * 3. 출력 알림
+ * 4. `readInput` 알림
+ * 5. 메일박스 정지
+ * 6. 값 수신
+ *
  * 결과는 시험 전용 알림 `received`로 main 역할에 보고한다.
  */
 import { parentPort } from "node:worker_threads";
@@ -12,11 +19,11 @@ import { createMailboxReader } from "../../src/protocol/stdin-mailbox";
 const port = parentPort;
 if (!port) throw new Error("worker 스레드에서만 실행한다");
 
-// 스크립트 최상단에서 첫 메시지를 받는다(첫 await 이전).
+// 스크립트 최상단에서 첫 메시지를 받는다. 첫 await 이전에 등록해야 프레임을 놓치지 않는다.
 port.once("message", (data: unknown) => {
   const frame = parseInitFrame(data);
   const rpc = createRpc(frame.rpcPort, {
-    // main의 Tab 완성 요청. worker 이벤트 루프가 살아 있는 동안(REPL 읽기 대기 중)에만 답할 수 있다.
+    // main의 Tab 완성 요청. worker 이벤트 루프가 살아 있는 동안(REPL 읽기 대기 중)에만 답한다.
     complete: (source: string) => ({
       completions: ["path"],
       start: source.length - 2,
@@ -29,7 +36,7 @@ port.once("message", (data: unknown) => {
 
   void (async () => {
     const line = await rpc.call<string>("readLine", ">>> ", undefined, true);
-    // input("x: "): 출력이 먼저 포트에 오르고, readInput 알림이 wait() 직전에 오른다.
+    // input("x: ") 흉내. 출력이 먼저 포트에 오르고, readInput 알림이 wait() 직전에 오른다.
     rpc.notify("write", "x: ");
     rpc.notify("readInput", true);
     const result = mailbox.wait();

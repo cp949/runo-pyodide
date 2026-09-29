@@ -6,7 +6,7 @@
  * 코드(`rewindTail`)를 위해 `screen`에 시험이 값을 지정한 커서 행·스크롤백·감긴 행만 둔다(VT 해석은 없다).
  * write 콜백은 동기로 돌리거나(`asyncWrite: false`) `flush()`까지 미룬다(`asyncWrite: true`).
  * 비동기 모드는 실제 xterm의 비동기 파싱을 흉내내 콜백이 다음 동기 문장 뒤에 오는 순서를 시험이 통제하게 한다.
- * 동기 모드만 쓰면 `read()`가 입력 상태를 콜백 안에서 만드는 데서 오는 오류(TRP-008)를 놓친다.
+ * 동기 모드만 쓰면 `read()`가 입력 상태를 콜백 안에서 만드는 데서 오는 오류(TRAP-14)를 놓친다.
  */
 import type {
   IBufferLine,
@@ -33,7 +33,7 @@ export interface FakeTerminalOptions {
 
 /** 시험이 값을 지정하는 화면 모델. `buffer.active.{cursorX, cursorY, baseY, getLine(row)?.isWrapped}`가 이것을 읽는다. */
 export interface FakeScreen {
-  /** 뷰포트 안 커서 열. 기본 0. `reset()`의 커서 행 처리(08-session.md, TRP-006)가 읽는다. */
+  /** 뷰포트 안 커서 열. 기본 0. `reset()`의 커서 행 처리(08-session.md, TRAP-12)가 읽는다. */
   cursorX: number;
   /** 뷰포트 안 커서 행. 기본 0. */
   cursorY: number;
@@ -58,7 +58,7 @@ export interface FakeTerminal {
   keyDown(init: KeyboardEventInit): boolean;
   /** 미뤄 둔 write 콜백을 콜백 안에서 새로 쌓인 것까지 모두 순서대로 실행한다. */
   flush(): void;
-  /** `dispose()` 뒤에 `buffer`를 읽은 횟수. 실제 xterm은 이때 `DisposableStore` 경고를 낸다(이전 구현 TRP-001). */
+  /** `dispose()` 뒤에 `buffer`를 읽은 횟수. 실제 xterm은 이때 `DisposableStore` 경고를 낸다(이전 구현 TRAP-11). */
   readonly disposedBufferReads: number;
   /** 시험이 선택 상태를 설정한다. 빈 문자열이면 선택 없음(`hasSelection() === false`)이다. */
   select(text: string): void;
@@ -284,7 +284,7 @@ export function createFakeTerminal(
       resizeListeners.clear();
       scrollListeners.clear();
       // `onWriteParsed`는 `CoreTerminal`이 `_register`로 소유해 `dispose()`에 같이 정리된다(write 콜백 자체는
-      // WriteBuffer가 별도로 계속 돌리는 TRP-001과 다른 대상 — xterm.js `CoreTerminal` 생성자의
+      // WriteBuffer가 별도로 계속 돌리는 TRAP-11과 다른 대상 — xterm.js `CoreTerminal` 생성자의
       // `Event.forward(this._writeBuffer.onWriteParsed, this._onWriteParsed)`도 `_register`로 묶인다).
       writeParsedListeners.clear();
       // 실제 xterm처럼 로드한 addon도 dispose한다. 그래서 호출자가 먼저 dispose한 addon은 두 번 dispose된다.

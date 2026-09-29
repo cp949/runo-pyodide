@@ -1,6 +1,7 @@
 // @vitest-environment node
 /**
- * 호환 탐지 보조(`worker/compat.ts`) 시험. 저하 지점 수집기와 interrupt 공개 API 확인은 pyodide 없이 가짜 객체로 전수 본다.
+ * 호환 탐지 보조(`worker/compat.ts`) 시험.
+ * 저하 지점 수집기와 interrupt 공개 API 확인을 pyodide 없이 가짜 객체로 전수 본다.
  * 실제 pyodide에서 지점마다 `degraded`가 실리는지는 `boot-compat.test.ts`가 본다.
  */
 import { describe, expect, test } from "vitest";

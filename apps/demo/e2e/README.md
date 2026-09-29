@@ -2,7 +2,7 @@
 
 실제 xterm 6 + 실제 브라우저(chromium)로 데모를 조작하는 Playwright 하니스. 판정 스크립트·측정
 스크립트·pty 기준 데이터·양성 대조 드라이버·node 통계를 전부 이 폴더 안에 저장소 코드로 커밋한다
-(RD-018부터, 옛 `_works/<작업>/verify/`는 이력이다 — `docs/design/12-previous-implementation.md`,
+(RD-018부터. 이력은 `docs/design/12-previous-implementation.md`,
 각 RD 요약은 `docs/history/first-roadmap.md` 참고, 상세 인계는 보관하지 않음).
 
 기준선(시나리오 ID별 현재 기대 결과)은 `apps/demo/e2e/BASELINE.md`에 있다. 이 문서는 실행법·폴더
@@ -25,8 +25,7 @@
 - `pnpm --filter demo e2e:<이름>`(개별 스크립트)은 서버가 **미리 떠 있어야** 한다 — 보통
   `pnpm --filter demo dev`(5173).
 - 서버 기동 확인은 `lsof`(포트 기준 프로세스 조회)에 의존한다 — 이 sandbox에는 있지만 `lsof`가 없는
-  환경에서는 `e2e/run.mjs`가 "이미 죽었다"로 조용히 오판할 수 있다(`pending-traps/01.md` 계열,
-  아래 함정 절 참고).
+  환경에서는 `e2e/run.mjs`가 "이미 죽었다"로 조용히 오판할 수 있다(아래 함정 절 참고).
 
 ## 명령 표(35항목, `apps/demo/package.json`)
 
@@ -88,8 +87,8 @@ preview`가 떠 있어야 함). `ONLY=<이름 접두어,…>` 환경변수로 �
 
 - 감속은 **메인 스레드(xterm 렌더·입력)만** 늦춘다.
 - **worker(Python 실행·`call_later` 타이머·SIGINT 처리)에는 적용되지 않는다.**
-- **감속 실행이 통과해도 판정선이 견고하다는 증거가 아니다.** worker 쪽 지연은 시험되지 않는다. 이슈 02 대상 3곳(C12·EC·TICK)은 rate 4에서 수정 전후 모두 통과했고 거짓 실패는 재현되지 않았다.
-- worker에 감속을 거는 별도 CDP 세션은 시험하지 않았다(`.scratch/e2e-time-dependence/issues/05-worker-cpu-throttle.md`, `deferred`).
+- **감속 실행이 통과해도 판정선이 견고하다는 증거가 아니다.** worker 쪽 지연은 시험되지 않는다. 감속 대상 3곳(C12·EC·TICK)은 rate 4에서 수정 전후 모두 통과했고 거짓 실패는 재현되지 않았다.
+- worker에 감속을 거는 별도 CDP 세션은 시험하지 않았다(`deferred`).
 
 두 값은 결과 JSON `notes`(`E2E_CPU_THROTTLE`·`E2E_TIME_SCALE`)에 기본값이어도 항상 기록되고, 기본값이 아니면 실행 시작
 시 콘솔에 경고 한 줄이 나온다. 잘못된 값(숫자가 아니거나 `E2E_CPU_THROTTLE` < 1)은 던진다.
@@ -110,7 +109,7 @@ preview`가 떠 있어야 함). `ONLY=<이름 접두어,…>` 환경변수로 �
 
 두 폴더 모두 `console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 Python 소스를 `?raw`로 import하므로
 `ts-resolve-hook.mjs` **먼저**, `py-raw-hook.mjs`(`node/rd-009/py-raw-hook.mjs`, 두 폴더가 공유) **나중**
-순서로 `--import`해야 한다(node 훅 체인은 스택 — 나중 등록이 먼저 실행된다, `pending-traps/02.md`).
+순서로 `--import`해야 한다(node 훅 체인은 스택 — 나중 등록이 먼저 실행된다).
 결과는 `E2E_RESULTS_DIR`(기본 `apps/demo/e2e/results/`)에 `node-*.json`으로 쓴다.
 
 ## 양성 대조(positive-controls)
@@ -151,8 +150,7 @@ pty 기준 데이터(`pty/rd-0NN/`)와 그 재생성 도구(`pty/tools/`)는 pnp
 
 `lib.mjs`의 `finish({ label = "dev", ...extra } = {})`는 stdout에 결과 JSON을 찍는 것과 별개로
 `process.env.E2E_RESULTS_DIR`(기본 `apps/demo/e2e/results/`)에
-`<호출 스크립트 파일명(확장자 제외)>-<label>.json`을 쓴다. `label`은 보통 `"dev"`(5173·4174 공용,
-DELTA-02 "## 결정")·`"preview"`(4173)다. 같은 프로세스에서 같은 이름이 반복되면 `-2`·`-3` 접미가 붙는다.
+`<호출 스크립트 파일명(확장자 제외)>-<label>.json`을 쓴다. `label`은 보통 `"dev"`(5173·4174 공용)·`"preview"`(4173)다. 같은 프로세스에서 같은 이름이 반복되면 `-2`·`-3` 접미가 붙는다.
 
 `repl-check.mjs`는 dev에서 세 모드(`normal`·`cdn-blocked`·`not-isolated`)를 각각 별도 프로세스로 돌리므로
 프로세스별 `-2` 접미로는 구분되지 않는다. 그래서 label에 모드를 넣어
@@ -208,7 +206,7 @@ eslint·tsc는 계속 `e2e/**`를 무시한다(`apps/demo/eslint.config.js`의 `
   `getBoundingClientRect()`)로 마우스 드래그 선택을 만든다. `endOutside: true`면 같은 행의 y를 유지한 채
   `.xterm` 요소 오른쪽 바깥(뷰포트 안, `.xterm-screen`보다 오른쪽)에서 뗀다. mouseup이 `.xterm` 밖에서
   일어나 document 리스너 경로를 확인한다. 단, 이 좌표에서는 xterm이 열 좌표를 그 행 끝으로 **clamp**한다
-  (실측, DELTA-04 2차 정정) — `toCol`은 무시되고 "`fromCol`부터 그 행 끝까지"가 선택된다. "행 전체/행
+  (실측) — `toCol`은 무시되고 "`fromCol`부터 그 행 끝까지"가 선택된다. "행 전체/행
   끝까지"를 확인하고 싶을 때만 써라(정확한 부분 문자열 검증에는 쓰지 마라). 터미널 위쪽으로 떼면(예: y가
   작은 값) xterm이 선택 방향을 뒤집어 드래그한 텍스트 자체가 선택에서 빠지므로 쓰지 않는다. 전제: 뷰포트
   폭이 `.xterm-screen` 오른쪽 경계보다 충분히 넓어야 한다(기본 1280×720이면 안전, 좁으면 mouseup이
@@ -232,8 +230,8 @@ eslint·tsc는 계속 `e2e/**`를 무시한다(`apps/demo/eslint.config.js`의 `
 ## 앞으로 새 RD를 추가할 때(RD-018부터)
 
 - 새 브라우저 확인 스크립트는 처음부터 `apps/demo/e2e/checks/`(또는 `measure/`)에 쓰고 작업 브랜치에
-  커밋한다 — 더 이상 `_works/<작업>/verify/`에 두지 않는다.
+  커밋한다.
 - 완료 조건 "기준선과 같다"는 변경 영역 개별 스크립트 통과 + 기대값이 바뀐 행의 `BASELINE.md`·`baseline.json`
   갱신이다. 전체 `e2e:baseline` 대조는 사용자가 지시할 때 한다.
-- 변이 검사 기록(`mutate-safe.mjs` 류)·`positive-controls.md`(수행 기록)·`results/`(실행 로그)는 여전히
-  `_works/<작업>/`에 둔다(일회성 근거 기록, 저장소 코드가 아니다).
+- 변이 검사 기록(`mutate-safe.mjs` 류)·`positive-controls.md`(수행 기록)·`results/`(실행 로그)는 저장소에
+  커밋하지 않는다(일회성 근거 기록, 저장소 코드가 아니다).

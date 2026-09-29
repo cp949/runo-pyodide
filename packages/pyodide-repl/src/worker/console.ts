@@ -1,8 +1,11 @@
 /**
- * worker 쪽 콘솔 코어(02-console-core.md 5.1·5.4). `PyodideConsole`을 만들어 콜백을 sink에 잇고, `sys.ps1/ps2`·배너·
- * TLA 비트를 갖추며, `push()` 결과를 Python `await_fut` 헬퍼로만 await하는 `runLine`을 제공한다.
- * 값 에코 문자열(`repr()` 전체)과 EOF에서 끊긴 문법 오류의 표준 문구 정규화도 Python 헬퍼가 만든다.
- * 취소·안전망은 이 위에 RD-005의 `submission-runner`가 얹는다.
+ * worker 쪽 콘솔 코어(02-console-core.md 5.1·5.4).
+ * - `PyodideConsole`을 만들어 콜백을 sink에 잇는다.
+ * - `sys.ps1/ps2`·배너·TLA 비트를 갖춘다.
+ * - `runLine`을 제공한다. `push()` 결과를 Python `await_fut` 헬퍼로만 await한다.
+ * - 값 에코 문자열(`repr()` 전체)은 Python 헬퍼가 만든다.
+ * - EOF에서 끊긴 문법 오류의 표준 문구 정규화도 Python 헬퍼가 만든다.
+ * - 취소·안전망은 이 위에 RD-005의 `submission-runner`가 얹는다.
  */
 import type { PyodideInterface } from "pyodide";
 import type { PyProxy } from "pyodide/ffi";
@@ -62,8 +65,11 @@ export interface ReplConsole {
    */
   compilerFlags(): number;
   /**
-   * pyodide 비공개 지점 두 곳의 저하 식별자(RD-021, driver `probe`가 부른다). `compiler-flags`는 생성 때 판정한 값이고
-   * `incomplete-input-message`는 부를 때 독립 콘솔로 `1 +`를 컴파일해 확인한다(실제 콘솔 상태를 바꾸지 않는다). 문제가 없으면 빈 배열.
+   * pyodide 비공개 지점 두 곳의 저하 식별자(RD-021). driver `probe`가 부른다.
+   * - `compiler-flags`: 생성 때 판정한 값.
+   * - `incomplete-input-message`: 부를 때 독립 콘솔로 `1 +`를 컴파일해 확인한다. 실제 콘솔 상태를 바꾸지 않는다.
+   *
+   * 문제가 없으면 빈 배열.
    */
   probe(): string[];
 }
@@ -85,8 +91,9 @@ const PS1 = ">>> ";
 const PS2 = "... ";
 
 /**
- * `sys.ps1/ps2`를 `pyimport("sys")` proxy에 JS에서 대입해 설정한다. `runPython("import sys")`는 `pyodide.globals`
- * (= `__main__`)에 `sys`를 남겨 새 REPL의 `globals()`에 없어야 할 이름이 생긴다(편차 22 해소).
+ * `sys.ps1/ps2`를 `pyimport("sys")` proxy에 JS에서 대입해 설정한다.
+ * `runPython("import sys")`는 `pyodide.globals`(= `__main__`)에 `sys`를 남긴다.
+ * 새 REPL의 `globals()`에 없어야 할 이름이 생긴다(편차 22 해소).
  */
 function setPrompts(pyodide: PyodideInterface): void {
   const sysModule = pyodide.pyimport("sys") as PyProxy & {
@@ -101,7 +108,7 @@ function setPrompts(pyodide: PyodideInterface): void {
   }
 }
 
-// await_fut·format_syntax_error·retrieve_exception 본체와 설명은 console-helpers.py에 있다(DELTA-00에서 이전).
+// await_fut·format_syntax_error·retrieve_exception 본체와 설명은 console-helpers.py에 있다.
 
 /** `await_fut`가 돌려주는 세 값. Python `None`은 JS `undefined`로 온다. */
 type AwaitFutResult = [
@@ -125,8 +132,8 @@ export function createConsole(
   const consoleModule = pyodide.pyimport("pyodide.console") as PyProxy & {
     BANNER: string;
   };
-  // `_compile.compiler.flags`가 없으면 TLA 토글을 건너뛴다: pyodide 기본이 TLA 켬이라 `topLevelAwait: false`는 무시된다(확정 7).
-  // 판정은 `setTopLevelAwait`보다 앞이어야 한다(뒤에서 하면 없는 경로에 쓰거나 던진다).
+  // `_compile.compiler.flags`가 없으면 TLA 토글을 건너뛴다. pyodide 기본이 TLA 켬이라 `topLevelAwait: false`는 무시된다(확정 7).
+  // 판정은 `setTopLevelAwait`보다 앞이어야 한다. 뒤에서 하면 없는 경로에 쓰거나 던진다.
   const flagsAvailable = hasCompilerFlags(pyconsole);
   if (flagsAvailable) setTopLevelAwait(pyconsole, options.topLevelAwait);
   // 별도 namespace(빈 dict)에서 정의해 사용자 globals를 오염시키지 않는다. 함수는 세션 동안 쓰므로 proxy를 유지한다.
@@ -162,16 +169,17 @@ export function createConsole(
   }
 
   /**
-   * pyodide는 EOF에서 끊긴 문법 오류를 `_IncompleteInputError: incomplete input`으로 표시한다. 3.14 REPL은
-   * `SyntaxError: invalid syntax`이므로 그 경우만 재컴파일한 문구로 바꾼다. 재컴파일이 오류 없이 끝나거나 실패하면 원문이다.
-   * `pending`은 push 전에 읽은 buffer(push가 끝나면 buffer는 비워진다)다.
+   * pyodide는 EOF에서 끊긴 문법 오류를 `_IncompleteInputError: incomplete input`으로 표시한다.
+   * 3.14 REPL은 `SyntaxError: invalid syntax`다. 그 경우만 재컴파일한 문구로 바꾼다.
+   * 재컴파일이 오류 없이 끝나거나 실패하면 원문이다.
+   * `pending`은 push 전에 읽은 buffer다. push가 끝나면 buffer는 비워진다.
    */
   function normalizeSyntaxError(
     raw: string,
     pendingBefore: string | undefined,
     source: string,
   ): string {
-    // `_compile.compiler.flags`가 없으면 재컴파일 플래그를 만들 수 없어 원문을 돌려준다(`compiler-flags` 저하).
+    // `_compile.compiler.flags`가 없으면 재컴파일 플래그를 만들 수 없다. 원문을 돌려준다(`compiler-flags` 저하).
     if (!flagsAvailable) return raw;
     if (!endsWithIncompleteMarker(raw)) return raw;
     const whole =

@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
  * REPL driver가 `{ source }` 실행기(`createSourceRunner`)를 세션마다 한 번 만들고 루프가 끝나면 놓는지 본다(RD-022a).
- * `run-source.ts`를 전달만 하는 모의로 감싸 만든 실행기의 `destroy` 호출을 센다. 실제 pyodide(node)와 실제 `MessageChannel`로
- * `bootWorker({ driver: replDriver })`를 돌리고 main 역할(core 하니스 `createMainSide`)은 각본형 `readLine` 응답만 한다.
+ *
+ * - `run-source.ts`를 전달만 하는 모의로 감싼다. 만든 실행기의 `destroy` 호출을 센다.
+ * - 실제 pyodide(node)와 실제 `MessageChannel`로 `bootWorker({ driver: replDriver })`를 돌린다.
+ * - main 역할(core 하니스 `createMainSide`)은 각본형 `readLine` 응답만 한다.
  */
 import { loadPyodide } from "pyodide";
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -19,7 +21,7 @@ vi.mock("../../src/worker/run-source", async (importOriginal) => {
     await importOriginal<typeof import("../../src/worker/run-source")>();
   return {
     ...original,
-    // 실행기를 그대로 만들고 `destroy`만 감시한다.
+    // 실행기는 원본 그대로 만든다. `destroy`만 감시한다.
     createSourceRunner: vi.fn(
       (...args: Parameters<typeof original.createSourceRunner>) => {
         const runner = original.createSourceRunner(...args);
@@ -34,7 +36,10 @@ afterEach(() => {
   vi.mocked(createSourceRunner).mockClear();
 });
 
-/** worker 역할이 받을 프레임과, main 역할이 받은 알림·요청 기록. `script`는 `readLine` 요청에 차례로 답할 값이다. */
+/**
+ * worker 역할이 받을 프레임과, main 역할이 받은 알림·요청 기록을 만든다.
+ * `script`는 `readLine` 요청에 차례로 답할 값이다.
+ */
 function scriptedMainSide(script: unknown[]) {
   return createHarnessMainSide({
     frame: { driver: { topLevelAwait: false } },
@@ -60,7 +65,7 @@ describe("REPL driver의 `{ source }` 실행기 수명", () => {
       .mocked(createSourceRunner)
       .mock.results.map((result) => result.value as SourceRunner);
     expect(runners).toHaveLength(1);
-    // 놓는 것은 루프가 끝난 뒤(`finally`)라 종료 통지보다 조금 늦게 온다.
+    // 실행기는 루프가 끝난 뒤(`finally`)에 놓는다. 종료 통지보다 늦게 온다.
     await waitFor(() => vi.mocked(runners[0]!.destroy).mock.calls.length > 0);
     expect(runners[0]!.destroy).toHaveBeenCalledTimes(1);
   }, 30_000);

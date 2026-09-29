@@ -5,7 +5,7 @@
 (core `test/roles/interrupt-presser.ts`)가 저장소 송신 프로토콜(`signalInterrupt`)로 눌림을 쓴다.
 JSPI 있음·없음 × 5 프로그램 × N=30 = 300시행이라 수 분 걸리고 타이밍으로 판정하므로 `pnpm test`에 넣지 않는다.
 
-출처 RD-009, `_works/_completed/20260922-09-rd-009-idle-ctrl-c/verify/node/`에서 이관(RD-018 DELTA-04).
+출처 RD-009에서 이관(RD-018).
 
 ## 왜 훅이 두 개인가
 

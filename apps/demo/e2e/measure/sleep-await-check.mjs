@@ -1,5 +1,5 @@
-// RD-012 DELTA-04 브라우저 지연 측정. RD-009 `sleep-await-check.mjs`
-// (`_works/_completed/20260922-09-rd-009-idle-ctrl-c/verify/sleep-await-check.mjs`) 사본에 TLA 셀 4개
+// RD-012 브라우저 지연 측정. RD-009 `sleep-await-check.mjs`
+// 사본에 TLA 셀 4개
 // (`await5`·`awaitloop`·`tla-sleep-0.1`·`tla-burst`)를 더했다. 측정 전용(판정선 재측정은 이 DELTA 범위 밖).
 //
 // 비TLA 12셀은 RD-009 원본과 동일(재현 확인용 기준선). TLA 4셀은 `tla: true`를 달고 있고, 셀 실행 순서를
@@ -7,8 +7,8 @@
 // `awaitloop`은 `either` 판정(`line` 규칙 또는 `tb1` 규칙 중 하나 통과)이라 셀별로 어느 가지를 탔는지
 // `branches: { line, tb1 }`로 센다(비율 판정 없음, 기록용).
 //
-// 출처 RD-012(canonical, 16셀판), `_works/_completed/20260923-13-rd-012-top-level-await/verify/`에서
-// 이관(RD-018 DELTA-04). 결과 파일 쓰기는 자기 `results/sleep-await-dev.json` 직접 쓰기에서 `finish({ label })`
+// 출처 RD-012(canonical, 16셀판)에서
+// 이관(RD-018). 결과 파일 쓰기는 자기 `results/sleep-await-dev.json` 직접 쓰기에서 `finish({ label })`
 // 기준(`E2E_RESULTS_DIR`)으로 통일했다 — 셀별 `{n, passed, median, max, pageErrors, tla, form}` 내용은 불변.
 //
 // 사용: node sleep-await-check.mjs <url>(생략 시 http://localhost:5173)     (16셀 × N=20 = 320회, 오래 걸린다)
@@ -22,7 +22,7 @@
 // "언제 다음 단계로 넘어가도 되는지"(정확성 게이트)에만 쓰고 통계에는 페이지 내부 타임스탬프를 쓴다.
 // 형식 판정은 셀 종류별로 다르다(아래 `checkForm`).
 // 우리 프레임 검사: 화면에 `<sigint-handler>`·`<sleep-slice>`·`webloop.py`·`<webloop-reraise>` 없음.
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙).
 import { performance } from "node:perf_hooks";
 import { open, same, show } from "../lib.mjs";
 
@@ -35,10 +35,10 @@ const ONLY = (process.env.ONLY ?? "")
 const label = url.includes(":4173") ? "preview" : "dev";
 
 // KeyboardInterrupt를 잡고 3회 세는 함수(계획서 CATCHER 예시 그대로, n·dl은 지역 변수라 호출마다 새로 돈다).
-// RD-018 DELTA-04: RD-013 자동 들여쓰기 프리필과 겹치므로(DELTA-02 `ctrl-c-check.mjs`와 같은 원인 — 코드는 안
+// RD-018: RD-013 자동 들여쓰기 프리필과 겹치므로(`ctrl-c-check.mjs`와 같은 원인 — 코드는 안
 // 바뀌었는데 이관한 스크립트가 dev에서 실패해 낡은 입력 가정으로 판정, 판정 문자열·로직은 불변) 본문 줄은
 // 들여쓰기 없이 그대로 치고(프리필이 이미 그 레벨), dedent가 필요한 줄만 `{ line, dedent }`로 Backspace 횟수를
-// 명시한다(DELTA-02가 실측한 규칙: `:`로 끝나는 줄 제출 뒤 프리필 +1단위, 아니면 유지, Backspace 1회 = 1단위 dedent).
+// 명시한다(실측한 규칙: `:`로 끝나는 줄 제출 뒤 프리필 +1단위, 아니면 유지, Backspace 1회 = 1단위 dedent).
 const CATCHER_LINES = [
   "def catcher():",
   "n = 0", // 프리필(4칸)이 def 본문 레벨과 일치한다
@@ -198,7 +198,7 @@ async function safeStep(name, fn) {
 /**
  * 여러 줄짜리 블록(함수 정의 등)을 제출한다. 마지막에 빈 줄로 닫히며 정의는 곧바로 실행되지 않으므로 `>>>`까지 기다린다.
  * 각 항목은 문자열(프리필 위에 그대로 친다) 또는 `{ line, dedent }`(`dedent`회 Backspace로 프리필을 한 단위씩
- * 줄인 뒤 친다, RD-013 자동 들여쓰기 — DELTA-04 `CATCHER_LINES` 참고).
+ * 줄인 뒤 친다, RD-013 자동 들여쓰기 — `CATCHER_LINES` 참고).
  */
 async function defineBlock(lines) {
   for (const item of lines) {

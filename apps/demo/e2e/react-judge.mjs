@@ -1,4 +1,4 @@
-// RD-024 DELTA-06: react-strictmode-check·react-fit-check의 판정 함수. 브라우저 없이 가짜 입력으로 시험할 수 있게 순수 함수로
+// RD-024: react-strictmode-check·react-fit-check의 판정 함수. 브라우저 없이 가짜 입력으로 시험할 수 있게 순수 함수로
 // 분리했다(`react-judge.test.mjs`, 양성 대조). 시간 값은 받지 않는다: 판정은 이벤트 열·DOM 수치·화면 행만 본다(9.7).
 
 /**

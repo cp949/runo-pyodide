@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
  * top-level await 비트 토글(`setTopLevelAwait`) 시험(02-console-core.md 5.4, TRAP-03).
- * 실제 `PyodideConsole`의 컴파일 플래그(`_compile.compiler.flags`, pyodide private 경로)를 읽고 쓴다.
- * 이 경로가 바뀌면 pyodide 버전 업그레이드 알림으로 첫 시험이 먼저 깨진다(09-testing.md 9.1).
+ * - 실제 `PyodideConsole`의 컴파일 플래그(`_compile.compiler.flags`, pyodide private 경로)를 읽고 쓴다.
+ * - 이 경로가 바뀌면 첫 시험이 먼저 깨진다. pyodide 버전을 올릴 때의 알림 구실이다(09-testing.md 9.1).
+ * - `asyncio.run(main())`이 TLA 꺼짐·켜짐 양쪽에서 완료되는지도 본다(RD-012).
+ * - `hasCompilerFlags`의 경로 탐지를 실제 콘솔과 가짜 holder로 본다.
  */
 import type { PyProxy } from "pyodide/ffi";
 import { loadPyodide, type PyodideInterface } from "pyodide";
@@ -20,6 +22,7 @@ interface TestConsole extends PyProxy, CompilerFlagsHolder {
   push(line: string): PyProxy & { syntax_check: string };
 }
 
+/** 파일 전체가 공유하는 pyodide 인스턴스. `beforeAll`에서 로드한다. */
 let pyodide: PyodideInterface;
 
 beforeAll(async () => {
@@ -27,15 +30,16 @@ beforeAll(async () => {
   pyodide.runPython("import asyncio");
 }, 60_000);
 
-/** 이 시험이 쓸 새 콘솔. 콜백은 잇지 않는다. */
+/** 시험이 쓸 새 `PyodideConsole`. 콜백은 잇지 않는다. */
 function createTestConsole(): TestConsole {
   const consoleModule = pyodide.pyimport("pyodide.console");
   return consoleModule.PyodideConsole(pyodide.globals) as TestConsole;
 }
 
 /**
- * top-level `await`를 push해 판정만 보고 future를 버린다. `await 1`은 켜진 상태에서 실제로 실행돼 회수되지 않는
- * `TypeError`가 stderr에 남으므로, 정상 완료되는 `asyncio.sleep(0)`을 쓴다.
+ * top-level `await`를 push해 판정(`syntax_check`)만 보고 future를 버린다.
+ * `await 1`은 켜진 상태에서 실제로 실행된다. 회수되지 않은 `TypeError`가 stderr에 남는다.
+ * 그래서 정상 완료되는 `asyncio.sleep(0)`을 쓴다.
  */
 function syntaxCheckOfAwait(pyconsole: TestConsole): string {
   const future = pyconsole.push("await asyncio.sleep(0)");
@@ -87,7 +91,9 @@ describe("setTopLevelAwait", () => {
 });
 
 /**
- * 처리되지 않은 Promise 거부 수를 센다(RD-009 기준선, `09-testing.md` 9.5 5번, `webloop-reraise.test.ts` 사본).
+ * 처리되지 않은 Promise 거부 수를 센다.
+ * `webloop-reraise.test.ts`의 사본이다(RD-009 기준선, `09-testing.md` 9.5 5번).
+ * 리스너는 `onTestFinished`로 뗀다.
  */
 function trackRejections(): { count(): number } {
   let count = 0;
@@ -101,7 +107,7 @@ function trackRejections(): { count(): number } {
   return { count: () => count };
 }
 
-/** 재보고는 실행이 끝난 뒤 이벤트 루프가 한 틱 돌 때 도착한다. */
+/** 재보고는 실행이 끝난 뒤 이벤트 루프가 한 틱 돌 때 도착한다. 그 틱까지 기다린다. */
 async function settle(): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, 50));
 }
@@ -114,8 +120,8 @@ describe("asyncio.run(main())(RD-012)", () => {
     "topLevelAwait=$topLevelAwait 에서도 asyncio.run(main())이 완료되고 값을 돌려준다",
     async ({ topLevelAwait, bareAwait }) => {
       const rejections = trackRejections();
-      // 정의는 console 층을 거치지 않는다(`sigint-handler-idle.test.ts`와 같은 방식). runLine이 보는 것은
-      // `asyncio.run(main())` 한 줄뿐이다.
+      // 정의는 console 층을 거치지 않는다(`sigint-handler-idle.test.ts`와 같은 방식).
+      // `runLine`이 보는 것은 `asyncio.run(main())` 한 줄뿐이다.
       pyodide.runPython(
         "async def main():\n    await asyncio.sleep(0)\n    return 42\n",
         { globals: pyodide.globals, filename: "<console>" },

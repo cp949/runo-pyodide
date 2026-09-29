@@ -1,5 +1,5 @@
 // RD-005 브라우저 확인(RD-004 repl-check.mjs 이식 + ROADMAP RD-005 시나리오 7개). 실제 xterm 6 + 실제 브라우저 + 실제 CDN pyodide.
-// 출처 RD-005, `_works/_completed/20260922-05-rd-005-repl-loop/verify/`에서 이관(RD-018).
+// 출처 RD-005에서 이관(RD-018).
 //   normal       : 배너·첫 프롬프트, 상태 ready, StrictMode 정리(터미널·worker 1개, 콘솔 0) + ROADMAP 7개(① 값 에코 ② 빈 Enter
 //                  ③ 블록 ④ SyntaxError ⑤ 트레이스백 ⑥ 개행 없는 출력 뒤 프롬프트 ⑦ exit())
 //   cdn-blocked  : CDN 차단 시 앱이 죽지 않고 빨간 "pyodide 로드 실패: …" + 상태 load-failed
@@ -7,10 +7,10 @@
 // 사용: node repl-check.mjs <normal|cdn-blocked|not-isolated> <url> [screenshot-prefix.png]
 //   normal에서 screenshot-prefix가 `x.png`이면 `x.png`(t>>> abc·트레이스백)와 `x-terminated.png`(exit() 뒤)를 남긴다.
 //   url 생략 시 http://localhost:5173. 결과 파일 label은 `<모드>-<서버>`다: 서버는 url 포트 4173이면 preview, 그 밖(5173·4174 등)은
-//   dev(RD-018 DELTA-02 결정). 모드를 넣는 이유: `run.mjs baseline`이 세 모드를 별도 프로세스로 돌려 `lib.mjs`의 `-2`·`-3`
+//   dev(RD-018 결정). 모드를 넣는 이유: `run.mjs baseline`이 세 모드를 별도 프로세스로 돌려 `lib.mjs`의 `-2`·`-3`
 //   접미 카운터가 매번 1부터 시작하므로, 모드가 없으면 세 모드가 같은 `repl-check-dev.json`을 덮어쓴다.
 //   결과 파일: `repl-check-normal-dev.json`·`repl-check-cdn-blocked-dev.json`·`repl-check-not-isolated-dev.json`·`repl-check-normal-preview.json`.
-// RD-018 DELTA-02 갱신: ③은 RD-013(자동 들여쓰기) 프리필을 그대로 쓰도록 수동 들여쓰기를 뺐고(화면 문자열은 불변),
+// RD-018 갱신: ③은 RD-013(자동 들여쓰기) 프리필을 그대로 쓰도록 수동 들여쓰기를 뺐고(화면 문자열은 불변),
 // ⑦은 RD-010(세션 리셋)이 덧붙인 종료 안내 문구로 기대값을 갱신했다(낡은 기대값, 판정 의도는 불변).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { hasFg, open, same, show } from "../lib.mjs";
@@ -182,7 +182,7 @@ if (mode === "normal") {
     await enter();
     await waitFor(async () => (await statusText()) === "terminated", "status = terminated", 10000);
     const text = await terminatedText();
-    // RD-010(세션 리셋)이 종료 문구에 안내 문장을 덧붙였다(RD-018 DELTA-02, 낡은 기대값 갱신).
+    // RD-010(세션 리셋)이 종료 문구에 안내 문장을 덧붙였다(RD-018, 낡은 기대값 갱신).
     const expectedText = 'Python session terminated. "세션 리셋" 버튼으로 새 세션을 시작하세요.';
     if (text !== expectedText) throw new Error(`terminated 텍스트 = ${show(text)}`);
     // 종료 뒤 새 프롬프트·추가 출력이 없다는 부정 확인은 폴링으로 증명할 수 없어 여유를 두고 본다.

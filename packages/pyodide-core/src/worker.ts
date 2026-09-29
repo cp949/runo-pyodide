@@ -1,4 +1,4 @@
-// worker 쪽 프로토콜(01-protocols.md)과 worker 커널(`runWorker`, driver 경계).
+// worker 쪽 진입점. worker 쪽 프로토콜(01-protocols.md)·부팅·driver 경계·`runWorker`를 다시 내보낸다.
 export { parseInitFrame } from "./protocol/init-frame";
 export type { InitFrame } from "./protocol/init-frame";
 export {

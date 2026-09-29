@@ -1,17 +1,21 @@
 /**
- * 벤더 `Readline.printAbove(text)` 시험(DELTA-01). 계약(`_works/20260923-16-rd-015-tab-completion/
- * DELTA-01.md`, 그릴링 확정 2·7): 활성 읽기 중에는 커서를 버퍼 끝으로 옮겨 원시 텍스트를 쓰고,
- * `term.write("", cb)` 콜백에서 앵커를 갱신한 뒤 원래 커서로 되돌려 같은 State를 다시 그린다.
- * 재그리기 중 들어온 키는 큐에 쌓았다가 콜백 뒤 순서대로 재생한다. 활성 읽기가 없으면 `println`과
- * 같고, dispose 뒤 늦게 도착한 콜백은 아무것도 하지 않는다.
- * DELTA-01a: 다중 행(감김·`\n` 포함 블록) 재그리기가 옛 레이아웃 기준으로 화면을 지우는 버그와,
- * `cancelRead()`가 재그리기 콜백보다 먼저 끝났을 때 죽은 입력줄을 다시 그리는 경합을 막는 시험을
- * 더한다(`resetLayout()`·`activeRead` 가드).
+ * 벤더 `Readline.printAbove(text)` 시험(RD-015).
+ * 계약(`docs/design/06-editing.md` 6.1 `printAbove` 항목):
+ * - 활성 읽기 중에는 커서를 버퍼 끝으로 옮겨 원시 텍스트를 쓴다.
+ * - `term.write("", cb)` 콜백에서 앵커를 갱신한 뒤 원래 커서로 되돌려 같은 State를 다시 그린다.
+ * - 재그리기 중 들어온 키는 큐에 쌓았다가 콜백 뒤 순서대로 재생한다.
+ * - 활성 읽기가 없으면 `println`과 같다.
+ * - dispose 뒤 늦게 도착한 콜백은 아무것도 하지 않는다.
+ *
+ * 회귀 방지 시험:
+ * - 다중 행(감김·`\n` 포함 블록) 재그리기가 옛 레이아웃 기준으로 화면을 지우는 버그(`resetLayout()`).
+ * - `cancelRead()`가 재그리기 콜백보다 먼저 끝났을 때 죽은 입력줄을 다시 그리는 경합(`activeRead` 가드).
  */
 import { describe, expect, test } from "vitest";
 import { Readline } from "../src/readline";
 import { StubTerminal } from "./stub-terminal";
 
+/** `StubTerminal`에 활성화한 `Readline`을 만든다. */
 function setup(cols = 20, rows = 8) {
   const term = new StubTerminal(cols, rows);
   const readline = new Readline({ persist: false });
@@ -19,6 +23,7 @@ function setup(cols = 20, rows = 8) {
   return { term, readline };
 }
 
+// ArrowLeft 키 시퀀스
 const ARROW_LEFT = "\x1b[D";
 
 describe("printAbove", () => {
@@ -111,8 +116,8 @@ describe("printAbove", () => {
     expect(term.cursorYReads).toBe(cursorYReadsBeforeDispose);
   });
 
-  // DELTA-01a: 재그리기가 moveCursorToEnd()가 남긴 옛 레이아웃(옛 커서 행) 기준으로 위로 올라가
-  // 방금 찍은 텍스트나 입력줄 일부를 \x1b[J로 지우는 버그(리뷰 repro A~D 이식).
+  // 회귀 방지: 재그리기가 moveCursorToEnd()가 남긴 옛 레이아웃(옛 커서 행) 기준으로 위로 올라가
+  // 방금 찍은 텍스트나 입력줄 일부를 \x1b[J로 지우던 버그.
   test("블록 입력(여러 논리 줄)에서 재그리기 뒤에도 입력줄이 남는다", () => {
     const { term, readline } = setup(40, 10);
     void readline.read(">>> ");
@@ -155,8 +160,8 @@ describe("printAbove", () => {
     expect(term.vt.screen()).toBe("> abcdef\ngh\nLIST\n> abcdef\ngh");
   });
 
-  // DELTA-04a: 코어 `tab-reader.ts`가 재그리기 중 큐의 키를 벤더 큐를 우회해 처리하지 않도록,
-  // `printAbove`가 돌려주는 프로미스가 재그리기가 실제로 끝난 뒤에만 resolve해야 한다.
+  // `printAbove`가 돌려주는 프로미스는 재그리기가 실제로 끝난 뒤에만 resolve해야 한다.
+  // 그래야 코어 `tab-reader.ts`가 재그리기 중 큐의 키를 벤더 큐를 우회해 처리하지 않는다.
   test("활성 읽기가 없으면 돌려준 프로미스가 즉시(println과 함께) resolve된다", async () => {
     const { term, readline } = setup();
     let resolved = false;
@@ -165,7 +170,7 @@ describe("printAbove", () => {
       resolved = true;
     });
 
-    // println은 동기이므로 write 콜백을 기다릴 필요가 없다 — 마이크로태스크 한 번이면 충분하다.
+    // println은 동기라 write 콜백을 기다릴 필요가 없다. 마이크로태스크 한 번이면 충분하다.
     await Promise.resolve();
     expect(resolved).toBe(true);
     expect(term.vt.screen()).toBe("x");
@@ -211,15 +216,15 @@ describe("printAbove", () => {
     readline.cancelRead();
     readline.println("[reset]");
 
-    // flush() 전에는(재그리기 콜백이 아직 안 왔으므로) resolve되지 않는다(pending-issue 02-1).
+    // flush() 전에는 재그리기 콜백이 아직 오지 않았으므로 resolve되지 않는다.
     await Promise.resolve();
     expect(resolved).toBe(false);
 
     term.flush();
     await printed;
 
-    // cancelRead() 뒤라 재그리기를 건너뛰지만, printAbove가 돌려준 프로미스는 여전히
-    // resolve된다 — 호출자(`tab-reader.ts`)의 `.finally(drainQueue)`가 매달리지 않는다.
+    // cancelRead() 뒤라 재그리기는 건너뛰지만 printAbove가 돌려준 프로미스는 여전히 resolve된다.
+    // 호출자(`tab-reader.ts`)의 `.finally(drainQueue)`가 매달리지 않는다.
     expect(resolved).toBe(true);
     // 죽은 입력줄("abc")이 [reset] 아래에 다시 그려지지 않는다.
     const screen = term.vt.screen();
@@ -229,8 +234,9 @@ describe("printAbove", () => {
     expect(screen).toBe(">>> abc\nL\n[reset]");
   });
 
-  // 이슈 03: cancelRead() 뒤 재그리기 콜백 전 창. 취소 이전 키는 옛 맥락이라 폐기하고, 이후 키는
-  // 새 맥락의 키라 type-ahead가 받아 다음 읽기에서 재생해야 한다.
+  // cancelRead() 뒤 재그리기 콜백 전 창을 다룬다.
+  // 취소 이전 키는 옛 맥락이라 폐기한다.
+  // 취소 이후 키는 새 맥락이라 type-ahead가 받아 다음 읽기에서 재생한다.
   describe("cancelRead() 뒤 재그리기 콜백 전 창", () => {
     test("취소 이전에 친 키는 폐기되어 다음 읽기에서 재생되지 않는다", () => {
       const { term, readline } = setup();

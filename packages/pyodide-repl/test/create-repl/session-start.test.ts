@@ -1,7 +1,8 @@
 /**
- * `createRepl` 세션 시작 시험(RD-004·RD-012). 격리 페이지에서는 worker를 만들고 초기화 프레임을 보내며 `ready`·`loadFailed`·
- * `sessionTerminated`·출력 알림 4종에 답한다. 비격리 페이지에서는 worker 없이 경고만 낸다. `topLevelAwait` 옵션이 첫 프레임과
- * `reset()` 뒤 프레임(`frame.driver`)에 sticky하게 실리는지도 여기서 본다.
+ * `createRepl` 세션 시작 시험(RD-004·RD-012).
+ * - 격리 페이지: worker를 만들고 초기화 프레임을 보낸다. `ready`·`loadFailed`·`sessionTerminated`·출력 알림 4종에 답한다.
+ * - 비격리 페이지: worker 없이 경고만 낸다.
+ * - `topLevelAwait` 옵션: 첫 프레임과 `reset()` 뒤 프레임(`frame.driver`)에 sticky하게 실리는지 본다.
  */
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -39,7 +40,8 @@ describe("격리 페이지의 세션 시작", () => {
 
     expect(createWorkerSpy).toHaveBeenCalledTimes(1);
     expect(fakeWorker.postMessage).toHaveBeenCalledTimes(1);
-    // MessagePort를 든 객체에는 toEqual·toContain을 쓰지 않는다(순환 내부 참조). 정체성으로 본다.
+    // MessagePort를 든 객체에는 toEqual·toContain을 쓰지 않는다. 순환 내부 참조가 있다.
+    // 정체성으로 본다.
     const [message, transfer] = fakeWorker.postMessage.mock.calls[0] as [
       InitFrame,
       Transferable[],
@@ -54,7 +56,8 @@ describe("격리 페이지의 세션 시작", () => {
 
   test("`DEFAULT_PYODIDE_INDEX_URL`은 core가 유도한 값의 재export이다", () => {
     expect(DEFAULT_PYODIDE_INDEX_URL).toBe(CORE_DEFAULT_PYODIDE_INDEX_URL);
-    // core dist가 낡아 두 값이 모두 undefined여도 통과하지 않게 형태도 본다(값 자체는 core 상수 시험이 맡는다).
+    // core dist가 낡아 두 값이 모두 undefined여도 통과하지 않게 형태도 본다.
+    // 값 자체는 core 상수 시험이 맡는다.
     expect(DEFAULT_PYODIDE_INDEX_URL).toMatch(
       /^https:\/\/cdn\.jsdelivr\.net\/pyodide\/v\d+\.\d+\.\d+\/full\/$/,
     );
@@ -172,7 +175,8 @@ describe("격리 페이지의 세션 시작", () => {
     fake.type("abc");
 
     expect(onStatus.mock.calls.at(-1)).toEqual(["terminated"]);
-    // 종료는 터미널에 아무것도 쓰지 않고(3.14도 종료 메시지가 없다) worker도 살려 둔다(복구는 RD-010 reset()).
+    // 종료는 터미널에 아무것도 쓰지 않는다. 3.14도 종료 메시지가 없다.
+    // worker도 살려 둔다. 복구는 RD-010 reset()이다.
     expect(fake.written).toHaveLength(writtenBefore);
     expect(fakeWorker.terminate).not.toHaveBeenCalled();
   });
@@ -185,8 +189,9 @@ describe("격리 페이지의 세션 시작", () => {
     fake.type("\x04");
     await expect(line).resolves.toEqual({ eof: true });
 
-    // 실제 worker의 `repl-loop.ts`는 `{ eof: true }` 응답에 `onTerminated()` → `sessionTerminated` 알림으로
-    // 답한다(단위 시험: `worker/repl-loop.test.ts` [R4]). 이 하니스는 worker를 흉내만 내므로 여기서 재현한다.
+    // 실제 worker의 `repl-loop.ts`는 `{ eof: true }` 응답에 `onTerminated()` → `sessionTerminated` 알림으로 답한다.
+    // 단위 시험은 `worker/repl-loop.test.ts` [R4]다.
+    // 이 하니스는 worker를 흉내만 내므로 알림을 여기서 재현한다.
     workerRpc.notify("sessionTerminated");
     await waitFor(() => onStatus.mock.calls.length === 2);
 

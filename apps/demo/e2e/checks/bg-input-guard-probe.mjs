@@ -1,14 +1,14 @@
 // RD-006 브라우저 확인: 프롬프트 대기 중 배경 콜백이 input()을 부르면 REPL 줄 → 배경 input 줄 → 콜백 출력 → REPL 줄 실행 순서로 진행하고
-// 이어서 REPL이 멈추지 않는다. 출처 RD-006, `_works/_completed/20260922-06-rd-006-stdin-input/verify/`에서 이관(RD-018). 이전 구현 RD-021 프로브
-// `pyodide-samples/_works/_completed/20260921-05-rd-021-async-prompt-channel/bg-input-guard-probe.mjs`를 하니스 lib.mjs로 옮겼다.
+// 이어서 REPL이 멈추지 않는다. 출처 RD-006에서 이관(RD-018). 이전 구현 RD-021의
+// `bg-input-guard-probe.mjs` 프로브를 하니스 lib.mjs로 옮겼다.
 // 가드(`terminal/read-guard.ts`)가 없으면 배경 input()이 REPL 읽기를 교체해 REPL 읽기가 고아가 되고, 사용자가 친 `x = 41`이 stdin 값이
 // 되어 `bg-got x = 41`이 나오며 이후 REPL 프롬프트가 돌아오지 않는다(시간 초과로 FAIL).
-// RD-022b DELTA-04(사용자 확정 선택지 C): REPL 읽기 중 배경 `input()`의 프롬프트 `bg> `는 REPL 줄 접두로 그려졌다가 곧이은 `readInput`
-// 알림에서 떼어져 stdin 프롬프트로 넘어간다(`DELTA-02.md` "## 결정" 3·4). 화면에 `bg>`가 보이는 순간이 사실상 없으므로, 중간 대기를
+// RD-022b(사용자 확정 선택지 C): REPL 읽기 중 배경 `input()`의 프롬프트 `bg> `는 REPL 줄 접두로 그려졌다가 곧이은 `readInput`
+// 알림에서 떼어져 stdin 프롬프트로 넘어간다. 화면에 `bg>`가 보이는 순간이 사실상 없으므로, 중간 대기를
 // "화면에 `bg>` 행"에서 "main이 `readInput` 알림을 처리함"(`installRpcTap`, 이벤트 신호 — 9.7)으로 바꿨다. 최종 판정 `ORDER`와
 // `x = 41` Enter 뒤 `waitLastEndsWith("bg>")`는 그대로다.
 // 사용: node bg-input-guard-probe.mjs <url>(생략 시 http://localhost:5173)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { installRpcTap, open, rpcNoticeCount, show } from "../lib.mjs";
 

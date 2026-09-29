@@ -12,6 +12,7 @@ export const ACK = 1;
 export const SEQ = 2;
 export const INTERRUPT_BUFFER_LENGTH = 4;
 
+/** 프로토콜 슬롯 4개짜리 interrupt 버퍼를 새로 만든다. 세션마다 하나씩 만든다. */
 export function createInterruptBuffer(): Int32Array {
   return new Int32Array(
     new SharedArrayBuffer(
@@ -26,8 +27,9 @@ export function hasProtocolSlots(buffer: Int32Array): boolean {
 }
 
 /**
- * SIGINT(2)를 쓰는 경로. 번호를 먼저 올려야 한다: SIGINT가 보이는 순간 핸들러가 읽는 번호는 이 눌림의 것이어야
- * 새 눌림을 직전 눌림의 재전송으로 오인하지 않는다.
+ * SIGINT(2)를 쓰는 경로. 요청 번호를 먼저 올린다.
+ * - SIGINT가 보이는 순간 핸들러가 읽는 번호는 이 눌림의 것이어야 한다.
+ * - 어긋나면 핸들러가 새 눌림을 직전 눌림의 재전송으로 오인해 무시한다.
  */
 export function signalInterrupt(buffer: Int32Array): void {
   if (hasProtocolSlots(buffer)) Atomics.add(buffer, SEQ, 1);
@@ -44,19 +46,25 @@ export function acknowledgeInterrupt(buffer: Int32Array): void {
   if (hasProtocolSlots(buffer)) Atomics.add(buffer, ACK, 1);
 }
 
-/** 대상 코드가 없는 SIGINT를 지운다. 2를 지웠을 때만 ack한다(이미 처리된 눌림을 두 번 ack하면 ack가 낡은 값이 된다). */
+/**
+ * 대상 코드가 없는 SIGINT를 지운다.
+ * - 지운 값이 2일 때만 ack한다.
+ * - 지울 것이 없는데 ack하면 이미 처리된 눌림을 중복 ack한다.
+ * - ack 없이 지우면 송신기가 소실로 오판해 2를 되살린다.
+ */
 export function discardPendingInterrupt(buffer: Int32Array): void {
   if (Atomics.exchange(buffer, SIGNAL, 0) === 2) acknowledgeInterrupt(buffer);
 }
 
-/** SIGINT 슬롯이 2(전달 대기)인가. 감시 타이머의 엿보기(03-ctrl-c.md 2.5). */
+/** SIGINT 슬롯이 2(전달 대기)인가. 감시 타이머가 소비하지 않고 엿볼 때 쓴다(03-ctrl-c.md 2.5). */
 export function hasPendingInterrupt(buffer: Int32Array): boolean {
   return Atomics.load(buffer, SIGNAL) === 2;
 }
 
 /**
- * 2 → 0 비교 교환이 성공했을 때만 ack하고 true를 돌려준다. 폴링이 먼저 비웠으면(핸들러가 이미 ack했다) false —
- * 감시 타이머가 되살리거나 다시 ack하지 않는다(03-ctrl-c.md 2.2 ack 지점 ②).
+ * 2 → 0 비교 교환이 성공했을 때만 ack하고 true를 돌려준다.
+ * 폴링이 먼저 비웠으면 false다(핸들러가 이미 ack했다).
+ * 감시 타이머는 되살리지도 다시 ack하지도 않는다(03-ctrl-c.md 2.2 ack 지점 ②).
  */
 export function consumeInterrupt(buffer: Int32Array): boolean {
   if (Atomics.compareExchange(buffer, SIGNAL, 2, 0) !== 2) return false;

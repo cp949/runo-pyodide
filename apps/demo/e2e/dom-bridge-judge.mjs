@@ -1,4 +1,4 @@
-// RD-023 DELTA-04: dom-bridge-check의 판정 함수. 브라우저 없이 가짜 입력으로 시험할 수 있게 순수 함수로 분리했다
+// RD-023: dom-bridge-check의 판정 함수. 브라우저 없이 가짜 입력으로 시험할 수 있게 순수 함수로 분리했다
 // (`dom-bridge-judge.test.mjs`, 양성 대조). 시간 값은 받지 않는다: 판정은 `?view=dom-bridge`가 남기는 이벤트 열(`window.__domBridge.events`)의
 // 앞뒤·화면 행·상태 전이만 본다(`docs/design/09-testing.md` 9.7).
 //
@@ -131,7 +131,7 @@ export const ORDER_METHODS = ["C", "Ag", "Ar"];
  * S6 경로 하나(core `createRunner` 직접 또는 `<PythonRunner>` + terminal)의 출력·DOM 도착 순서 판정. `methods`는 방식(`C`·`Ag`·`Ar`)별
  * `{ pairs, inversions, missing, outcomes }`(`outcomes`는 실행별 결말 `kind`)다. 필수는 세 방식이 모두 있고, 쌍이 있으며, 기록 누락 0·모든 실행 `ok`인 것이다.
  * **역전 수는 어느 경로·방식이든 판정하지 않고 `summary`·`reason`에 기록만 한다**(사용자 재확정 2026-09-25: 출력은 core MessagePort, DOM 호출은 coincident
- * 채널로 가서 두 채널 사이의 도착 순서는 보장되지 않는다. 관측 수치는 `.scratch/dom-bridge-followups/issues/03-output-dom-arrival-order-inversion.md`).
+ * 채널로 가서 두 채널 사이의 도착 순서는 보장되지 않는다. 관측 수치는 `docs/design/16-dom-bridge.md` 16.9).
  * @returns {{ ok: boolean, reason: string, summary: Record<string, { pairs: number, inversions: number, missing: number }> }}
  */
 export function judgeOrderPath(methods) {

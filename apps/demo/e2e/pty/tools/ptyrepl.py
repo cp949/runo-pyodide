@@ -198,7 +198,7 @@ class Session:
         if pid == 0:
             try:
                 os.chdir(self.cwd)
-                # TRP-015: 백그라운드 실행 대비 SIGINT를 기본값으로 되돌린다
+                # TRAP-20: 백그라운드 실행 대비 SIGINT를 기본값으로 되돌린다
                 signal.signal(signal.SIGINT, signal.SIG_DFL)
                 os.execve(py, [py, *args], env)
             finally:

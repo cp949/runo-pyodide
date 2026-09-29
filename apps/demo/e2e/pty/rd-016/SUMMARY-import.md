@@ -1,11 +1,11 @@
-# RD-016a DELTA-01 3.14 실측 재현 (import/from 줄 Tab 완성)
+# RD-016a 3.14 실측 재현 (import/from 줄 Tab 완성)
 
 - 측정 일자: 2026-09-21. 기준: CPython 3.14.4(네이티브 pty·직접 호출) 대 pyodide 314.0.7(Python 3.14.2, Node).
 - 이 파일은 `make_summary.py`가 JSON에서 생성한다. 원자료: `res_import.json`(A), `native_vs_pyodide.json`(B), `gate_corpus.json`(C).
 
 ## 1. 결론
 
-- 케이스 수: 측정 A 37(+추가 4), 측정 B 95, 측정 C 53. 모두 DELTA-01 계획 이상.
+- 케이스 수: 측정 A 37(+추가 4), 측정 B 95, 측정 C 53. 모두 계획 이상.
 - 기대값 49항목 중 일치 43, 불일치 6. 후보·화면 기대값은 전부 재현됐다. 불일치는 측정 B 카운트 5항목(사전 조사의 65케이스 줄 목록이 저장되지 않아 케이스 집합이 다름)과
   네이티브 전용 밑줄 모듈 17개(기대 목록에 없음) 1항목이다. 7절.
 - 측정 B: 95케이스 중 동일 75, 차이 20(환경 모듈 집합 16, zip stdlib 로직 4, 기타 0). `ImportParser` 파싱 결과는 95줄 전부 네이티브와 pyodide가 같다(불일치 0).
@@ -21,7 +21,7 @@
    `import os.pa  # c` Tab -> `import os.pa  # cs.path`, `from os import path,` Tab -> `from os import path,path`, `import os.pa\n` Tab -> 둘째 줄에 `os.path`, `import os  # c\n` Tab -> 둘째 줄에 `os`. 4절 표.
 3. **zip stdlib 차이는 4줄이다**(기대는 2줄). `from xml.parsers.expat import `, `import xml.parsers.expat.`도 pyodide에서 `[]`이다. 원인은 같다(`_is_stdlib_module`이 `FileFinder`만 stdlib로 인정해
    `zipimporter`인 pyodide에서 `HARDCODED_SUBMODULES`가 빠진다). 참고 진단: `_is_stdlib_module`만 오버라이드한 서브클래스로 4줄이 네이티브와 같아지고 퇴행 0줄
-   (`pyodide_zip_patch_check.json`; 채택 여부는 DELTA-02a에서 판단).
+   (`pyodide_zip_patch_check.json`; 채택 여부는 별도 판단).
 4. **`sys.modules`는 변하지 않는다.** 측정 B 95줄·C 53줄 실행 전후 추가·삭제 모듈 0개(네이티브·pyodide 모두). 설계 Q4 전제 확인.
 5. **`ModuleCompleter()`와 `ModuleCompleter(namespace={'__package__': None})`(pty가 쓰는 `make_default_module_completer()`)는 95+53줄에서 결과가 같다**(네이티브·pyodide 모두 차이 0줄).
    pty 훅의 `mc`(ModuleCompleter 원시 결과)와 측정 B 네이티브 직접 호출 결과도 A 37줄 + 추가 4줄에서 전부 같다.
@@ -33,7 +33,7 @@
 ```bash
 PY=/home/jjfive/.local/bin/python3.14
 NODE=/home/jjfive/.nvm/versions/node/v24.20.0/bin/node
-cd /work/cp949/pyodide-samples/_works/20260921-01-rd-016a-import-completion/reference/measure-3.14
+cd <이전 구현 RD-016a의 measure-3.14 폴더>
 
 # 측정 B: 네이티브 대 pyodide  -> native_vs_pyodide.json(+ .meta.json)
 $PY make_lines_B.py && $PY native_complete.py && $NODE pyodide_complete.mjs && $PY compare_native_pyodide.py
@@ -60,7 +60,7 @@ jq length res_import.json native_vs_pyodide.json gate_corpus.json
   (링크 대상은 uv 관리 CPython 3.14.4). 다른 인터프리터를 쓰려면 `PY314=<경로>`(`ptyrepl.py`가 읽음)와 위 `PY`를 바꾼다. 3.14.4가 아니면 결과가 달라질 수 있다.
 - `pyte` 0.8.2·`wcwidth` 0.8.4는 이 폴더 `pylib/`에 복사했다(`ptyrepl.py`가 `sys.path`에 넣는다. 이전 세션 scratchpad `pylib` 사본). 자식 REPL에는 노출되지 않는다.
 - pyodide는 `/work/cp949/pyodide-samples/apps/repl/node_modules/pyodide`(314.0.7)를 절대 경로로 import한다. `pnpm install` 상태에 의존한다.
-- 원본 하니스(`_works/_completed/20260920-04-rd-016-tab-completion/reference/measure-3.14/`) 대비 변경(복사본만): `ptyrepl.py` `pylib` 경로·`PY314` 환경 변수·자식 cwd를 빈 임시 폴더로 고정, `hook_startup.py`에 `mc` 필드
+- 원본 하니스(이전 구현 RD-016의 `measure-3.14/`) 대비 변경(복사본만): `ptyrepl.py` `pylib` 경로·`PY314` 환경 변수·자식 cwd를 빈 임시 폴더로 고정, `hook_startup.py`에 `mc` 필드
   (ModuleCompleter 원시 결과) 추가. 원본은 수정하지 않았다.
 - pty 조건: 24x80, `TERM=xterm`, `PYTHON_COLORS=0`, 임시 `HOME`·`PYTHON_HISTORY`, 케이스마다 새 세션에서 SETUP 5줄(`import os` 등) 실행 뒤 Ctrl+L. 다중 줄 입력은 bracketed paste. Tab 사이 대기 0.5초(pyte 렌더링 정착).
 - 측정 B·C의 네이티브 실행은 REPL과 같은 조건이다: `sys.path[0] = ''`(스크립트 폴더 아님), 빈 임시 cwd. pyodide는 `loadPyodide()` 기본 상태(cwd `/home/pyodide` 비어 있음).

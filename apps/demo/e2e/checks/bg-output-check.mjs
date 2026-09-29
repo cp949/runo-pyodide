@@ -1,10 +1,10 @@
-// RD-022b DELTA-04 브라우저 확인: 열린 읽기(REPL `>>> `, REPL `input()`) 위 배경 출력 조율. 실제 xterm 6 + 실제 브라우저 + 실제 CDN
+// RD-022b 브라우저 확인: 열린 읽기(REPL `>>> `, REPL `input()`) 위 배경 출력 조율. 실제 xterm 6 + 실제 브라우저 + 실제 CDN
 // pyodide. 열린 읽기 중 배경 출력은 입력줄을 지우고 출력을 쓴 뒤 프롬프트·입력·커서를 그 아래에 다시 그린다. 개행 없는 조각은 프롬프트
 // 앞 접두가 된다(checklist 확정 1·4). 화면은 xterm 행(`.xterm-rows > div`)으로 판정한다.
 //
 // 배경 출력 만들기: 초기 단계에서 Python에 BroadcastChannel(`bgout`) 수신기를 두고, 수신한 문자열을 asyncio 콜백(`loop.call_soon`)에서
 // `print(d, end="", flush=True)`로 낸다. 페이지가 같은 이름 채널로 문자열을 보내면(`emit`) 입력이 화면에 그려진 **뒤에** 배경 출력이
-// 난다 — `call_later(지연)`은 입력 전에 출력이 올 수 있어(느린 장비) 시간에 기대지 않으려고 바꿨다(9.7, DELTA-04 "## 결정").
+// 난다 — `call_later(지연)`은 입력 전에 출력이 올 수 있어(느린 장비) 시간에 기대지 않으려고 바꿨다(9.7).
 // REPL `input()` 대기 중에는 worker가 메일박스(`Atomics.wait`)에 멈춰 배경 출력을 낼 수 없으므로, B04만 main 포트에 `write` 알림을
 // 합성해 넣는다(`injectRpcNotice`, 실제 알림과 같은 핸들러 경로).
 //
@@ -16,7 +16,7 @@
 //   B04 `input("x: ")`에 `ab`를 친 상태에서 배경 `B04T\n`(합성 `write` 알림) → 행 `B04T` 아래 `x: ab`(커서 열 5), Enter → `got ab`
 //   B05 `pri` 입력 중 배경 `B05T\n` 뒤 `runSource("print(5)")` → `B05T` / `5` / `>>> pri`, 옛 `>>> pri`·`>>> priB05T` 흔적 없음
 //   B06 맨 아래 행(24행째) 프롬프트에서 배경 1행·2행 출력(스크롤) → 입력줄이 맨 아래 행에 한 번만, 출력 행 순서 보존, 이어 편집·Enter
-//       (checklist 멈추는 지점 3, DELTA-01 "남은 위험" 앵커 확인)
+//       (checklist 멈추는 지점 3)
 //   B07 `pri` 입력 중 `\r`로 끝나는 진행률 조각 `B07 50%\r`·`B07 100%\r` → `B07 100%>>> pri`(제자리 갱신, 커서 열 15), 이어 `\n` →
 //       `B07 100%` / `>>> pri`(`\r` 끝 조각이 사라지지 않고 그 행이 남는다, RD-022b 리뷰 SO-T1)
 //   B08 `pri` 입력 중 커서 숨김 진행률 조각 `\x1b[?25lB08 50%\r` → `B08 50%>>> pri`, 커서 열 14(실제 글자 끝). 벤더 폭 계산이 CSI 사설
@@ -33,7 +33,7 @@
 //
 // 사용: node bg-output-check.mjs [url](생략 시 http://localhost:5173)     ONLY=B01,B04 node bg-output-check.mjs
 //       FIT=1 node bg-output-check.mjs   (B09: 페이지를 `/?fit=1`로 열고 창 크기를 바꾼다. 초기·끝 확인은 함께 돈다)
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정과 같은 규칙). `FIT=1`이면 앞에 `fit-`을 붙인다.
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정과 같은 규칙). `FIT=1`이면 앞에 `fit-`을 붙인다.
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { injectRpcNotice, installRpcTap, open, same, show } from "../lib.mjs";
 

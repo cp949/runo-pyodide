@@ -1,4 +1,4 @@
-// 참고용 보조 진단(DELTA-02a 사전 확인, 채택 아님): _is_stdlib_module만 zipimporter도 stdlib로 인정하도록 오버라이드한
+// 참고용 보조 진단(사전 확인, 채택 아님): _is_stdlib_module만 zipimporter도 stdlib로 인정하도록 오버라이드한
 // 서브클래스를 pyodide에서 lines_B.json 전체에 돌려, 네이티브 결과와 같아지는 줄/남는 차이 줄을 기록한다.
 // 사용: node pyodide_zip_patch_check.mjs --dir <작업 폴더> [--pyodide <pyodide 패키지 폴더>]
 // 작업 폴더에 lines_B.json·native_result.json·pyodide_result.json이 먼저 있어야 하고, pyodide_zip_patch_check.json을 같은 폴더에 쓴다.

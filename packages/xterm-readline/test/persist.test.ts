@@ -1,7 +1,7 @@
 /**
  * `persist` 옵션 시험.
- * 옵션을 생략하면 원본 1.2.2처럼 localStorage에 저장·복원하고,
- * `persist: false`면 History와 Readline이 localStorage를 읽지도 쓰지도 않는지 확인한다.
+ * - 옵션을 생략하면 원본 1.2.2처럼 localStorage에 저장·복원한다.
+ * - `persist: false`면 `History`와 `Readline`이 localStorage를 읽지도 쓰지도 않는다.
  */
 import { beforeEach, describe, expect, test } from "vitest";
 import { History } from "../src/history";

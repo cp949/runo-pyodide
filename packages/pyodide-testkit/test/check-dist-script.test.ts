@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
- * 루트 `scripts/check-dist.mjs`(빌드 산출물에 `coincident`·`reflected-ffi` 문자열이 없는지, `.mjs`에 `pyodide` 런타임 import가 없는지 검사) 시험. 스크립트를 자식
- * 프로세스로 실행해 종료 코드와 메시지를 본다. 실제 패키지의 `dist`를 검사하는 것은 각 패키지의 `check-dist` 스크립트다(turbo
- * `check-dist`가 `build` 뒤에 돌린다).
+ * 루트 `scripts/check-dist.mjs` 시험.
+ * - 기본 검사: 산출물에 `coincident`·`reflected-ffi` 문자열이 없고, `.mjs`에 `pyodide` 런타임 import가 없다.
+ * - `--allow-sync-bridge`(dom-bridge 전용): 금지 문자열 검사 대신 CSP 정적 규칙과 관찰기 import 순서를 검사한다.
+ * - 스크립트를 자식 프로세스로 실행해 종료 코드와 메시지를 본다.
+ * - 실제 패키지의 `dist` 검사는 각 패키지의 `check-dist` 스크립트가 한다. turbo가 `build` 뒤에 돌린다.
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -15,6 +17,7 @@ const SCRIPT = fileURLToPath(
   new URL("../../../scripts/check-dist.mjs", import.meta.url),
 );
 
+// 시험마다 만든 임시 폴더. 끝나면 지운다.
 const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0))
@@ -33,6 +36,7 @@ function makeDist(files: Record<string, string>): string {
   return dir;
 }
 
+/** 스크립트를 자식 프로세스로 실행해 종료 코드와 stdout·stderr 합본을 돌려준다. */
 function run(...targets: string[]) {
   const result = spawnSync(process.execPath, [SCRIPT, ...targets], {
     encoding: "utf8",
@@ -40,12 +44,15 @@ function run(...targets: string[]) {
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
-/** 동기 브리지 허용 패키지(dom-bridge)용 옵션으로 실행한다. */
+/** `--allow-sync-bridge`(dom-bridge용 옵션)를 붙여 실행한다. */
 function runAllowSyncBridge(...targets: string[]) {
   return run("--allow-sync-bridge", ...targets);
 }
 
-/** 스크립트가 없어서(MODULE_NOT_FOUND) 종료 코드 1이 나오는 경우와 구분하려고, 검사가 스스로 실패했다는 표식을 함께 본다. */
+/**
+ * 검사가 스스로 실패했다는 표식.
+ * 스크립트 부재(MODULE_NOT_FOUND)로도 종료 코드 1이 나오므로, 이 표식으로 둘을 구분한다.
+ */
 const FAIL_MARK = "check-dist 실패";
 
 describe("check-dist 스크립트", () => {
@@ -162,7 +169,7 @@ describe("check-dist 스크립트: --allow-sync-bridge(dom-bridge 예외)", () =
   test("허용 진입점(coincident/window/main·worker) import는 통과한다", () => {
     const dist = makeDist({
       "index.mjs": 'import coincident from "coincident/window/main";\n',
-      // 관찰기 설치 import가 coincident보다 앞선다(아래 "관찰기 import 순서" 규칙).
+      // 관찰기 설치 import가 coincident보다 앞서야 한다(아래 "관찰기 import 순서" 참고).
       "worker.mjs":
         'import "./bootstrap-observer-install.mjs";\nimport coincident from "coincident/window/worker";\n',
     });
@@ -241,7 +248,8 @@ describe("check-dist 스크립트: --allow-sync-bridge(dom-bridge 예외)", () =
     });
   });
 
-  describe("@cp949/runo-coincident 지정자(coincident 4.1.1 → 포크 전환, 2026-09-28)", () => {
+  // 포크 패키지 이름도 옛 이름과 같은 규칙을 받는다.
+  describe("@cp949/runo-coincident 지정자", () => {
     test("허용 진입점(@cp949/runo-coincident/window/main·worker) import는 통과한다", () => {
       const dist = makeDist({
         "index.mjs":
@@ -360,7 +368,7 @@ describe("check-dist 스크립트: --allow-sync-bridge(dom-bridge 예외)", () =
   });
 
   describe("주석 제거가 코드를 지우지 않는다", () => {
-    // 줄 주석 속 `/*`가 블록 주석 시작으로 잡히면 다음 `*/`(번들러의 `/* @__PURE__ */` 등)까지 실제 코드가 사라진다.
+    // 줄 주석 속 `/*`를 블록 주석 시작으로 잘못 잡으면, 다음 `*/`(번들러의 `/* @__PURE__ */` 등)까지 실제 코드가 사라진다.
     test("줄 주석 속 `/*` 뒤의 금지 import는 여전히 실패한다", () => {
       const dist = makeDist({
         "worker.mjs":

@@ -1,11 +1,13 @@
-// Tab 처리의 계산 부분을 상태 없는 순수 함수로 둔다. 3.14 `_pyrepl` 규칙을 옮긴 것이다
-// (docs/design/07-tab-completion.md 7.2~7.4). worker·xterm-readline 의존이 없어 vitest로
-// 단정하기 쉽다 — 키 입력 배선과 pyodide 호출은 이 모듈을 부르기만 한다.
+// Tab 처리의 계산 부분을 상태 없는 순수 함수로 둔다. 3.14 `_pyrepl` 규칙을 옮겼다
+// (docs/design/07-tab-completion.md 7.2~7.4).
+// worker·xterm-readline 의존이 없어 vitest로 단정하기 쉽다.
+// 키 입력 배선과 pyodide 호출은 이 모듈을 부르기만 한다.
 //
-// 코드포인트/UTF-16 경계: `buf`·`source`는 JS 문자열(UTF-16 코드 유닛)이지만 worker가 돌려주는
-// `start`는 Python `str` 인덱스(코드포인트)다. 이모지 같은 서로게이트 쌍이 스템 앞에 있으면 두
-// 인덱스가 어긋나므로, 스템을 자를 때는 `[...str]`로 코드포인트 배열을 만든 뒤 `slice`한다.
-// UTF-16 `str.slice`를 그대로 쓰면 서로게이트 쌍이 반으로 잘려 깨진 문자가 남는다(TRP-031).
+// 코드포인트/UTF-16 경계: `buf`·`source`는 JS 문자열(UTF-16 코드 유닛)이다.
+// worker가 돌려주는 `start`는 Python `str` 인덱스(코드포인트)다.
+// 이모지 같은 서로게이트 쌍이 스템 앞에 있으면 두 인덱스가 어긋난다.
+// 그래서 스템을 자를 때는 `[...str]`로 코드포인트 배열을 만든 뒤 `slice`한다.
+// UTF-16 `str.slice`를 그대로 쓰면 서로게이트 쌍이 반으로 잘려 깨진 문자가 남는다(TRAP-32).
 
 // 스템 구분자: pyodide `Console.completer_word_break_characters`와 같은 33자.
 const STEM_DELIMITERS = ` \t\n\`~!@#$%^&*()-=+[{]}\\|;:'",<>/?`;
@@ -22,23 +24,25 @@ const CELL_GAP = 2;
 export type TabPlan =
   { kind: "indent"; text: string } | { kind: "complete"; source: string };
 
-// import·from 사전 게이트. 부분 문자열이고 단어 경계가 없다(TRAP-33): `\b`를 쓰면 `1import os` 류에서
-// 게이트가 거짓인데 3.14 파서는 후보를 내 결과가 어긋난다. 필요조건("키워드 글자열이 있어야 한다")만
-// 봐서 건전하다. 대가는 `important = ` 같은 식별자 안 키워드 줄의 빈 스템 왕복 1회다(worker가 None으로 판정).
+// import·from 사전 게이트. 부분 문자열이고 단어 경계가 없다(TRAP-33).
+// `\b`를 쓰면 `1import os` 류에서 게이트가 거짓인데 3.14 파서는 후보를 내 결과가 어긋난다.
+// 필요조건("키워드 글자열이 있어야 한다")만 봐서 건전하다.
+// 대가는 `important = ` 같은 식별자 안 키워드 줄의 빈 스템 왕복 1회다(worker가 None으로 판정).
 export function mentionsImportKeyword(text: string): boolean {
   return /import|from/.test(text);
 }
 
-// Tab을 눌렀을 때 공백을 넣을지 완성을 요청할지 커서 앞 텍스트만으로 정한다. 스템은 커서가 있는
-// 논리 줄(마지막 `\n` 뒤)에서 마지막 구분자 뒤이고, 커서 뒤 텍스트는 보지 않는다. 스템이 비면
-// (줄이 비었거나 마지막 글자가 구분자) 다음 4칸 단위 위치까지 공백을 넣는다 — 열은 논리 줄 안
-// 위치로 세고 `\t`도 1칸으로 센다. 단, `pending`(이전 줄 블록)과 커서 앞 텍스트를 `\n`으로 이은
-// 문맥에 import·from 글자열이 있으면 스템이 비어도 완성을 요청한다(worker가 모듈 후보 또는 공백
-// 후보로 판정한다, 7.5). 스템이 있으면 항상 `source`(커서 앞 전체 텍스트)로 완성을 요청한다.
+// Tab을 눌렀을 때 공백을 넣을지 완성을 요청할지 커서 앞 텍스트만으로 정한다.
+// 스템은 커서가 있는 논리 줄(마지막 `\n` 뒤)에서 마지막 구분자 뒤다. 커서 뒤 텍스트는 보지 않는다.
+// 스템이 비면(줄이 비었거나 마지막 글자가 구분자) 다음 4칸 단위 위치까지 공백을 넣는다.
+// 열은 논리 줄 안 위치로 세고 `\t`도 1칸으로 센다.
+// 단, `pending`(이전 줄 블록)과 커서 앞 텍스트를 `\n`으로 이은 문맥에 import·from 글자열이 있으면
+// 스템이 비어도 완성을 요청한다(worker가 모듈 후보 또는 공백 후보로 판정한다, 7.5).
+// 스템이 있으면 항상 `source`(커서 앞 전체 텍스트)로 완성을 요청한다.
 export function planTab(buf: string, pos: number, pending?: string): TabPlan {
   const source = buf.slice(0, pos);
   const line = source.slice(source.lastIndexOf("\n") + 1);
-  // `.at(-1)`(Chrome 92+)은 빌드 floor Chrome 84를 넘는다(ADR-0008) — 인덱스 접근으로 대체한다.
+  // `.at(-1)`(Chrome 92+)은 빌드 floor Chrome 84를 넘는다(ADR-0008). 인덱스 접근으로 대체한다.
   if (line === "" || STEM_DELIMITERS.includes(line[line.length - 1] ?? "")) {
     const context = pending ? `${pending}\n${source}` : source;
     if (mentionsImportKeyword(context)) return { kind: "complete", source };
@@ -63,8 +67,9 @@ export type CompletionAction =
   | { kind: "insert"; text: string }
   | { kind: "list"; completions: string[]; stem: string };
 
-// 후보로 무엇을 할지 정한다. 삽입은 공통 접두사에서 스템을 뺀 나머지를 커서 위치에 넣는 것이고
-// (후보 하나면 그 후보 전체가 공통 접두사), 채울 것이 없을 때만 연속 두 번째 Tab이 목록을 연다.
+// 후보로 무엇을 할지 정한다.
+// 삽입은 공통 접두사에서 스템을 뺀 나머지를 커서 위치에 넣는 것이다(후보 하나면 그 후보 전체가 공통 접두사).
+// 채울 것이 없을 때만 연속 두 번째 Tab이 목록을 연다.
 // 후보 하나가 이미 입력과 같으면(채울 것이 없으면) 목록을 열지 않는다.
 export function resolveCompletion({
   buf,
@@ -102,10 +107,11 @@ function codepointLength(text: string): number {
   return [...text].length;
 }
 
-// 두 번째 Tab의 목록을 3.14 `_pyrepl` 메뉴처럼 열 우선으로 배치한 행으로 만든다. 열 수는
-// floor(터미널 열 / 셀 폭)이고(최소 1) 행 수는 ceil(후보 수 / 열 수)이다. 셀 인덱스는
-// `row + k * rowCount`(왼쪽 열부터 위에서 아래로 채운다). 마지막 셀은 패딩하지 않는다(행 끝
-// 공백 없음). `LIST_CAP`을 넘는 후보는 "...N개 더" 한 행으로 줄인다.
+// 두 번째 Tab의 목록을 3.14 `_pyrepl` 메뉴처럼 열 우선으로 배치한 행으로 만든다.
+// 열 수는 floor(터미널 열 / 셀 폭)이다(최소 1). 행 수는 ceil(후보 수 / 열 수)이다.
+// 셀 인덱스는 `row + k * rowCount`(왼쪽 열부터 위에서 아래로 채운다).
+// 마지막 셀은 패딩하지 않는다(행 끝 공백 없음).
+// `LIST_CAP`을 넘는 후보는 "...N개 더" 한 행으로 줄인다.
 export function formatCompletionList(
   completions: string[],
   columns: number,

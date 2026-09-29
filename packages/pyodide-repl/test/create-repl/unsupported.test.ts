@@ -1,20 +1,28 @@
 // @vitest-environment node
 /**
- * `createRepl`의 `unsupported`(`detectRuntimeSupport()` wasm 미지원, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`) 분기만 따로 본다. 다른 `create-repl/*.test.ts`는
- * `useReplHarness()`로 `createRepl`을 최상위에서 정적 import해 core의 wasm 지원 캐시를 공유하므로, `WebAssembly.validate`를 거짓으로
- * 바꾸려면 `vi.resetModules()` + 동적 import로 이 파일만 독립된 모듈 인스턴스를 써야 한다(`pyodide-core/test/session/runner-unsupported.test.ts`와
- * 같은 이유). `@vitest-environment node`도 core와 같은 이유로 둔다 — jsdom 환경 파일들과 워커/컨텍스트를 공유하면 이 파일의
- * `WebAssembly.validate` 몽키패치가 다른 파일로 샌다(실측: environment 지시 없이 실행하면 `session-start.test.ts`의 비격리 페이지
- * 시험이 깨진다). `createFakeTerminal`은 `withElement`를 안 쓰므로 `document`가 필요 없어 node 환경에서도 동작한다.
+ * `createRepl`의 `unsupported` 분기 시험.
+ * - 조건: `detectRuntimeSupport()`가 wasm 미지원으로 판정한다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
+ *
+ * 이 파일만 따로 두는 이유:
+ * - 다른 `create-repl/*.test.ts`는 `useReplHarness()`로 `createRepl`을 최상위에서 정적 import한다. core의 wasm 지원 캐시를 공유한다.
+ * - `WebAssembly.validate`를 거짓으로 바꾸려면 `vi.resetModules()` + 동적 import로 독립된 모듈 인스턴스가 필요하다.
+ * - `pyodide-core/test/session/runner-unsupported.test.ts`와 같은 이유다.
+ *
+ * `@vitest-environment node`를 두는 이유:
+ * - core와 같다. jsdom 환경 파일들과 워커·컨텍스트를 공유하면 이 파일의 `WebAssembly.validate` 몽키패치가 다른 파일로 샌다.
+ * - 실측: environment 지시 없이 실행하면 `session-start.test.ts`의 비격리 페이지 시험이 깨진다.
+ * - `createFakeTerminal`은 `withElement`를 안 쓴다. `document`가 필요 없어 node 환경에서도 동작한다.
  */
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createFakeTerminal } from "@repo/pyodide-testkit/fake-terminal";
 import { createFakeWorker } from "./harness";
 
+/** 시험이 덮어쓰기 전의 `WebAssembly.validate`. `afterEach`가 복원한다. */
 const originalValidate = WebAssembly.validate;
 
 beforeEach(() => {
-  // 격리 여부와 무관하게 unsupported여야 한다(판정 순서: wasm 먼저) — 참으로 둬서 이 순서를 증명한다.
+  // 격리 여부와 무관하게 unsupported여야 한다(판정 순서: wasm 먼저).
+  // 격리를 참으로 둬서 이 순서를 증명한다.
   vi.stubGlobal("crossOriginIsolated", true);
   WebAssembly.validate = () => false;
 });

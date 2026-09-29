@@ -1,10 +1,15 @@
 // @vitest-environment node
 /**
- * `createRunner` 시험(가짜 worker + 가짜 타이머). 실제 `startCoreSession`·`MessageChannel`·인터럽트 송신기·stdin 메일박스를 쓰고
- * worker 쪽만 시험이 흉내 낸다: 초기화 프레임의 포트에 `createRpc`를 붙여 `runCode`를 받고 `ready`·`readInput`·`write` 알림을
- * 보낸다. 시간(`stop()`의 1000ms 폴백)은 vitest 가짜 타이머(`setTimeout`·`clearTimeout`만)로 밀고 실시간 대기는 없다.
- * MessagePort 왕복은 `setImmediate` 회전으로 기다린다(조건이 참이 될 때까지, 벽시계 시간 상한 없음).
- * 실제 pyodide 통합은 `runner-pyodide.test.ts`가 본다.
+ * `createRunner` 시험(가짜 worker + 가짜 타이머).
+ * - 실제 것: `startCoreSession`·`MessageChannel`·인터럽트 송신기·stdin 메일박스.
+ * - 흉내 내는 것: worker 쪽(`test/fake-worker.ts`).
+ *   - 초기화 프레임의 포트에 `createRpc`를 붙여 `runCode`를 받는다.
+ *   - `ready`·`readInput`·`write` 알림을 보낸다.
+ * - 시간: `stop()`의 폴백(`STOP_FALLBACK_MS` = 1000ms)은 vitest 가짜 타이머(`setTimeout`·`clearTimeout`만)로 민다. 실시간 대기는 없다.
+ * - MessagePort 왕복은 `setImmediate` 회전으로 기다린다. 조건이 참이 될 때까지 돌고 벽시계 상한은 없다.
+ * - 실제 pyodide 통합은 `runner-pyodide.test.ts`가 본다. `unsupported` 분기는 `runner-unsupported.test.ts`가 본다.
+ * - 테스트 제목의 `[I1]`~`[I4]`는 `docs/design/14-runner.md`의 `interrupt()` 판정 순서 ID다.
+ *   `[X1]`~`[X4]`는 `docs/design/08-session.md` 8.5의 콜백 예외 격리 규칙 ID다.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { SIGNAL } from "../../src/protocol/interrupt-protocol";
@@ -29,6 +34,7 @@ import {
   type RunResult,
 } from "../../src/session/runner";
 
+// 시험 중 만든 자원. `afterEach`가 정리한다.
 const factories: FakeWorkerFactory[] = [];
 const runners: RunnerHandle[] = [];
 
@@ -45,7 +51,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** MessagePort로 도착하는 메시지를 기다린다. 조건이 참이 될 때까지 이벤트 루프를 돌린다(시간 상한 없이 회전 수로 끊는다). */
+/**
+ * MessagePort로 도착하는 메시지를 기다린다.
+ * `predicate`가 참이 될 때까지 이벤트 루프를 돌린다. 끊는 기준은 시간이 아니라 회전 수(5000)다.
+ */
 async function until(predicate: () => boolean): Promise<void> {
   for (let turn = 0; turn < 5000; turn += 1) {
     if (predicate()) return;
@@ -54,30 +63,50 @@ async function until(predicate: () => boolean): Promise<void> {
   throw new Error("기다리던 상태가 되지 않았다");
 }
 
-/** 도착하지 않아야 할 메시지를 단언하기 전에 이벤트 루프를 충분히 돌린다. */
+/** "도착하지 않아야 한다"는 단언 앞에서 이벤트 루프를 충분히 돌려 메시지가 올 기회를 준다. */
 async function settle(): Promise<void> {
   for (let turn = 0; turn < 200; turn += 1) {
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
 }
 
+/** `start()`가 돌려주는 시험 도구 묶음. */
 interface Started {
+  /** 시험 대상 runner */
   runner: RunnerHandle;
+
+  /** 지금까지 만든 fake worker 전부(생성 순서) */
   workers: FakeWorker[];
-  /** 마지막으로 만든 fake worker. 단일 worker 시험에서 `workers[0]!`를 대체한다(재생성 시험은 `workers[i]`를 그대로 쓴다). */
+
+  /** 마지막으로 만든 fake worker. 단일 worker 시험에서 `workers[0]!`를 대체한다. 재생성 시험은 `workers[i]`를 쓴다. */
   worker(): FakeWorker;
+
   /** 가장 오래된 미종결 `runCode`를 끝낸다(호출마다 다음으로 오래된 것). 뒤따르는 status 대기는 호출자가 한다. */
   finishRun(outcome?: RunOutcome): Promise<void>;
+
   /** `worker().readInput()` 뒤 `worker().takeResponse()`를 돌려준다. 응답을 기다리지 않는 시험은 `worker().readInput()`을 직접 부른다. */
   readInput(): Promise<MailboxResponse>;
+
+  /** runner에 넘긴 `createWorker` 스파이 */
   createWorker: ReturnType<typeof vi.fn<() => Worker>>;
+
+  /** runner에 넘긴 `onOutput` 스파이 */
   onOutput: ReturnType<typeof vi.fn>;
+
+  /** runner에 넘긴 `onStatus` 스파이 */
   onStatus: ReturnType<typeof vi.fn<(status: RunnerStatus) => void>>;
+
+  /** runner에 넘긴 `onCrash` 스파이 */
   onCrash: ReturnType<typeof vi.fn<(message: string) => void>>;
+
+  /** runner에 넘긴 `onLoadFailed` 스파이 */
   onLoadFailed: ReturnType<typeof vi.fn<(message: string) => void>>;
+
+  /** `onStatus`로 받은 상태 기록 */
   statuses: RunnerStatus[];
 }
 
+/** 가짜 worker 공장으로 runner를 만든다. `ready`는 보내지 않는다(상태는 `loading`). `options`로 기본 옵션을 덮어쓴다. */
 function start(options: Partial<RunnerOptions> = {}): Started {
   const factory = createFakeWorkerFactory();
   factories.push(factory);
@@ -125,7 +154,7 @@ function start(options: Partial<RunnerOptions> = {}): Started {
   };
 }
 
-/** worker를 만들고 `ready`까지 진행한다. */
+/** `start()` 뒤 `ready` 알림을 보내 runner가 `ready`가 될 때까지 진행한다. */
 async function startReady(options: Partial<RunnerOptions> = {}) {
   const started = start(options);
   started.worker().ready();
@@ -133,7 +162,7 @@ async function startReady(options: Partial<RunnerOptions> = {}) {
   return started;
 }
 
-/** `run()`을 시작하고 worker가 `runCode`를 받을 때까지 기다린다. */
+/** `run()`을 시작하고 `worker`번째 fake worker가 `runCode`를 받을 때까지 기다린다. */
 async function runAndWait(
   { runner, workers }: Started,
   code = "print(1)",
@@ -147,7 +176,7 @@ async function runAndWait(
   return { result };
 }
 
-/** 영원히 끝나지 않는 provider. 받은 signal을 숨긴다. 호출 여부는 `provider`(vi.fn) 매처로 본다. */
+/** 영원히 끝나지 않는 provider. 받은 signal을 `signal()`로 꺼낸다. 호출 여부는 `provider`(vi.fn) 매처로 본다. */
 function stalledProvider() {
   let signal: AbortSignal | undefined;
   const provider = vi.fn<InputProvider>((_prompt, sig) => {
@@ -478,6 +507,7 @@ describe("createRunner: stop", () => {
 
     await expect(started.runner.stop()).resolves.toBe("idle");
 
+    // interrupt buffer의 SIGNAL 슬롯이 0이면 눌림을 보내지 않았다.
     expect(started.worker().signal()).toBe(0);
   });
 
@@ -486,6 +516,7 @@ describe("createRunner: stop", () => {
     const { result } = await runAndWait(started);
 
     const stopped = started.runner.stop();
+    // SIGNAL 슬롯 2는 SIGINT 눌림이다.
     expect(started.worker().signal()).toBe(2);
     await started.finishRun({
       kind: "interrupted",
@@ -566,7 +597,8 @@ describe("createRunner: stop", () => {
 
     await vi.advanceTimersByTimeAsync(STOP_FALLBACK_MS);
 
-    // 옛 worker가 terminate() 뒤에도 한동안 살아 있으면 같은 buffer의 눌림을 가로챈다(브라우저 실측). buffer를 나눠 막는다.
+    // 옛 worker가 terminate() 뒤에도 한동안 살아 있으면 같은 buffer의 눌림을 가로챈다(브라우저 실측, TRP-049).
+    // buffer를 나눠 막는다.
     expect(started.workers[1]!.frame().interruptBuffer).not.toBe(
       started.workers[0]!.frame().interruptBuffer,
     );
@@ -607,6 +639,7 @@ describe("createRunner: stop", () => {
 
     const first = started.runner.stop();
     await vi.advanceTimersByTimeAsync(600);
+    // 두 번째 호출은 새 타이머를 걸지 않는다. 처음 호출 뒤 600 + 400ms에서 폴백한다.
     const second = started.runner.stop();
     await vi.advanceTimersByTimeAsync(400);
 
@@ -752,7 +785,7 @@ describe("createRunner: 생애 사건(reset·dispose·크래시)", () => {
 
   test("ready 알림 콜백 안에서 reset을 부르면 대기 run은 준비 안 된 새 worker에 보내지 않고 그 worker가 ready가 되면 실행한다", async () => {
     let resetOnReady = true;
-    // 첫 상태(loading)는 `start()`가 반환하기 전에 오지만 ready가 아니라 `started`를 읽지 않는다.
+    // 첫 상태(loading)는 `start()`가 반환하기 전에 온다. 이 콜백은 ready에서만 `started`를 읽으므로 그때는 이미 채워져 있다.
     const started: Started = start({
       onStatus: (status) => {
         if (status === "ready" && resetOnReady) {
@@ -1123,7 +1156,7 @@ describe("createRunner: 출력과 InputProvider", () => {
 });
 
 describe("createRunner: 상태 콜백 안의 재진입과 dispose 뒤 알림", () => {
-  /** `onStatus`에서 `when` 상태를 처음 받을 때 `act(runner)`를 부르는 runner. */
+  // `onStatus`에서 `when` 상태를 처음 받을 때 `act(runner)`를 부르는 runner를 만든다.
   function startReentrant(
     when: RunnerStatus,
     act: (runner: RunnerHandle) => void,
@@ -1270,7 +1303,8 @@ describe("createRunner: 상태 콜백 안의 재진입과 dispose 뒤 알림", (
 });
 
 describe("createRunner: onRunAccepted", () => {
-  /** 수락 콜백이 부른 횟수와 매 호출 때의 `busy`·`status` 스냅샷을 모으는 runner. `act`는 콜백 안에서 runner를 다룬다. */
+  // `onRunAccepted`를 단 runner를 만든다. 호출 횟수와 매 호출 때의 `busy`·`status` 스냅샷을 모은다.
+  // `act`는 콜백 안에서 runner를 다룬다.
   function startAccepting(
     act?: (runner: RunnerHandle, calls: number) => void,
     options: Partial<RunnerOptions> = {},

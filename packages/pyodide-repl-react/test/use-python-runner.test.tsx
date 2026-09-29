@@ -1,7 +1,12 @@
 /**
- * `usePythonRunner` 시험(jsdom + React). 실제 core `createRunner`를 쓰고 worker만 가짜다(공용 `@cp949/runo-pyodide-core/test-utils`).
- * StrictMode 이중 마운트에서 살아 있는 worker 1개, 언마운트 뒤 0개, 콜백 latest-ref, 핸들이 없을 때의 위임 규칙(14.3),
- * 상태 콜백 안 재진입(TRP-051)을 본다.
+ * `usePythonRunner` 시험. jsdom + React.
+ * - 실제 core `createRunner`를 쓰고 worker만 가짜다(`@cp949/runo-pyodide-core/test-utils`).
+ * - worker 수명: StrictMode 이중 마운트 뒤 살아 있는 worker 1개, 언마운트 뒤 0개.
+ * - 콜백 latest-ref: 재렌더로 바꾼 콜백이 다음 통지부터 불린다.
+ * - 핸들이 없을 때의 위임 규칙(`docs/design/15-react.md` 15.3).
+ * - `status`와 SSR 하이드레이션.
+ * - 상태 콜백 안 재진입(`docs/traps/TRP-051`).
+ * - 공개 표면: 반환 키, 참조 안정성, `RunRejectedError` 동일성.
  */
 import { RunRejectedError as CoreRunRejectedError } from "@cp949/runo-pyodide-core";
 import { RunRejectedError as ReplRunRejectedError } from "@cp949/runo-pyodide-repl";
@@ -51,6 +56,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+// root를 언마운트한다. 이미 했으면 아무것도 하지 않는다.
 async function unmount(): Promise<void> {
   if (!root) return;
   const mounted = root;
@@ -58,21 +64,29 @@ async function unmount(): Promise<void> {
   await act(async () => mounted.unmount());
 }
 
+/** `mount`가 돌려주는 시험 조작 handle */
 interface Probe {
-  /** 마지막 렌더의 hook 반환값. */
+  /** 마지막 렌더의 hook 반환값 */
   api: UsePythonRunnerResult;
-  /** 렌더마다의 `status`. */
+
+  /** 렌더마다 기록한 `status` */
   renderedStatuses: RunnerStatus[];
-  /** 레이아웃 효과 시점(핸들 생성 전, StrictMode 재마운트 사이 포함)에 위임 함수를 부른 결과. */
+
+  /** 레이아웃 효과 시점(핸들 생성 전, StrictMode 재마운트 사이 포함)에 위임 함수를 부른 결과 */
   beforeHandle: {
     run: Promise<unknown>;
     stop: Promise<unknown>;
     busy: boolean;
   }[];
+
   /** 옵션을 바꿔 다시 렌더한다. */
   rerender(next: UsePythonRunnerOptions): void;
 }
 
+/**
+ * hook을 호출하는 시험용 컴포넌트를 `container`에 마운트한다.
+ * `strict`이면 StrictMode로 감싼다.
+ */
 function mount(
   initial: UsePythonRunnerOptions,
   { strict = false }: { strict?: boolean } = {},
@@ -88,20 +102,22 @@ function mount(
     },
   };
 
+  // hook 반환값·렌더별 status를 `probe`에 기록하는 시험용 컴포넌트.
   function Component() {
     const api = usePythonRunner(current);
     probe.api = api;
     probe.renderedStatuses.push(api.status);
-    // hook의 효과(passive)보다 이 레이아웃 효과가 먼저 돈다: 핸들이 아직 없을 때의 위임 규칙을 본다.
+    // 레이아웃 효과는 hook의 passive 효과(핸들 생성)보다 먼저 돈다. 핸들이 아직 없을 때의 위임 규칙을 본다.
     useLayoutEffect(() => {
       const run = api.run("1");
       run.catch(() => {});
       probe.beforeHandle.push({ run, stop: api.stop(), busy: api.busy });
-      // 마운트 때 한 번만 본다(재렌더마다 다시 재지 않는다).
+      // 마운트 때 한 번만 잰다. 재렌더마다 다시 재지 않는다.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     return null;
   }
+  // 현재 옵션으로 만든 엘리먼트
   const element = () => {
     const app = <Component />;
     return strict ? <StrictMode>{app}</StrictMode> : app;
@@ -111,6 +127,7 @@ function mount(
   return probe;
 }
 
+/** 가짜 worker factory를 쓰는 기본 옵션에 `overrides`를 덮는다. */
 function options(
   overrides: Partial<UsePythonRunnerOptions> = {},
 ): UsePythonRunnerOptions {
@@ -208,7 +225,7 @@ describe("usePythonRunner: 콜백 latest-ref", () => {
     const probe = mount(options());
     factory.workers[0]!.ready();
     await until(() => probe.api.status === "ready");
-    // 마운트 때는 공급자가 없었다. 재렌더로 넣은 것이 불려야 한다.
+    // 마운트 때는 공급자가 없었다. 재렌더로 넣은 공급자가 불려야 한다.
     const provider = vi.fn(async () => "abc");
     probe.rerender(options({ inputProvider: provider }));
     probe.api.run("input()").catch(() => {});
@@ -241,7 +258,7 @@ describe("usePythonRunner: 콜백 latest-ref(오류 통지)", () => {
   });
 });
 
-describe("usePythonRunner: 핸들이 없을 때 위임 규칙(14.3)", () => {
+describe("usePythonRunner: 핸들이 없을 때 위임 규칙(15.3)", () => {
   test("핸들 생성 전(레이아웃 효과 시점)에는 run reject disposed·stop idle·busy false다", async () => {
     const probe = mount(options());
     expect(probe.beforeHandle).toHaveLength(1);
@@ -256,14 +273,14 @@ describe("usePythonRunner: 핸들이 없을 때 위임 규칙(14.3)", () => {
 
   test("StrictMode cleanup 뒤 재마운트 사이에도 같은 규칙이고 첫 핸들을 재사용하지 않는다", async () => {
     const probe = mount(options(), { strict: true });
-    // 첫 마운트 전, cleanup 뒤 재마운트 사이 두 번이다.
+    // 두 번 잰다: 첫 마운트 때, cleanup 뒤 재마운트 사이.
     expect(probe.beforeHandle).toHaveLength(2);
     for (const sample of probe.beforeHandle) {
       await expect(sample.run).rejects.toMatchObject({ reason: "disposed" });
       await expect(sample.stop).resolves.toBe("idle");
       expect(sample.busy).toBe(false);
     }
-    // 두 번째 핸들은 살아 있어 run이 거부되지 않고 대기(loading)한다.
+    // 두 번째 핸들은 살아 있다. run은 거부되지 않고 두 번째 worker로 간다.
     factory.workers[1]!.ready();
     await until(() => probe.api.status === "ready");
     const run = probe.api.run("print(1)");
@@ -385,14 +402,14 @@ describe("usePythonRunner: status", () => {
 });
 
 describe("usePythonRunner: SSR 하이드레이션", () => {
-  /** `status`를 그리는 소비자. 서버 문자열과 하이드레이션 결과를 비교한다. */
+  // `status`를 그리는 소비자. 서버 렌더 문자열과 하이드레이션 결과를 비교하는 데 쓴다.
   function StatusView({ statuses }: { statuses?: RunnerStatus[] }) {
     const { status } = usePythonRunner(options());
     statuses?.push(status);
     return <span>{status}</span>;
   }
 
-  /** 서버 렌더: Node 서버처럼 `crossOriginIsolated`가 없다. */
+  // 서버 렌더를 흉내 낸다. Node 서버처럼 `crossOriginIsolated`가 없다.
   function renderOnServer(): string {
     vi.stubGlobal("crossOriginIsolated", undefined);
     const html = renderToString(<StatusView />);

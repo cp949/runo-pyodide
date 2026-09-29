@@ -1,7 +1,9 @@
 /**
- * main 사전 게이트 `mentionsImportKeyword`의 판정 시험(RD-016, docs/design/07-tab-completion.md 7.5, TRAP-33). 게이트는 부분 문자열
- * `/import|from/`이고, 거짓이면 3.14 `ModuleCompleter`가 항상 `None`이어야 한다(그 쪽 건전성은 `worker/complete-source.test.ts`가 실제
- * pyodide로 확인한다). 입력 코퍼스는 `import-gate-corpus.ts`(측정 C 53줄 + 대소문자 변형 2줄)다.
+ * main 사전 게이트 `mentionsImportKeyword`의 판정 시험(RD-016, `docs/design/07-tab-completion.md` 7.5, TRAP-33).
+ * 게이트는 부분 문자열 `/import|from/`이다.
+ * 게이트가 거짓이면 3.14 `ModuleCompleter`는 항상 `None`이어야 한다.
+ * 그 건전성은 `worker/complete-source.test.ts`가 실제 pyodide로 확인한다.
+ * 입력 코퍼스는 `import-gate-corpus.ts`(측정 C 53줄 + 대소문자 변형 2줄)다.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -42,7 +44,8 @@ describe("부분 문자열 게이트를 고른 근거: 단어 경계 게이트�
   it.each(NUMERIC_LITERAL_LINES)(
     "%j은 단어 경계 게이트가 거짓이지만 부분 문자열 게이트는 참이다",
     (line) => {
-      // 3.14 tokenize가 `NUMBER` + `NAME('import')`로 나눠 ModuleCompleter가 후보를 낸다(TRAP-33). 그 사실은 complete-source.test.ts가 단정한다.
+      // 3.14 tokenize는 `NUMBER` + `NAME('import')`로 나눈다. ModuleCompleter가 후보를 낸다(TRAP-33).
+      // 이 사실은 complete-source.test.ts가 단정한다.
       expect(/\b(import|from)\b/.test(line)).toBe(false);
       expect(mentionsImportKeyword(line)).toBe(true);
     },

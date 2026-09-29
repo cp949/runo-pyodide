@@ -1,8 +1,16 @@
 /**
- * `import`/`from` 사전 게이트(`mentionsImportKeyword`, RD-016, TRAP-33)의 시험 코퍼스 55줄. `terminal/import-gate.test.ts`(JS 게이트 판정)와
- * `worker/complete-source.test.ts`(실제 pyodide의 원본 `ModuleCompleter`가 `None`인지, 안전성)가 함께 쓴다. 시험 전용이라 `index.ts`가
- * 내보내지 않는다. 추적 파일은 `_works/`를 참조할 수 없어 `apps/demo/e2e/pty/rd-016/gate_corpus.json`(53줄) + 대소문자 변형 2줄을 리터럴로
- * 옮겼고 측정 ID(C01~C53)를 주석으로 남겼다. 측정 C 53줄은 네이티브 3.14.4와 pyodide 314.0.7의 `None` 여부가 같았다.
+ * `import`/`from` 사전 게이트(`mentionsImportKeyword`, RD-016, TRAP-33)의 시험 코퍼스 55줄.
+ *
+ * 쓰는 곳.
+ * - `terminal/import-gate.test.ts`: JS 게이트 판정.
+ * - `worker/complete-source.test.ts`: 실제 pyodide의 원본 `ModuleCompleter`가 `None`인지, 안전성.
+ *
+ * 시험 전용이라 `index.ts`가 내보내지 않는다.
+ *
+ * 출처는 `apps/demo/e2e/pty/rd-016/gate_corpus.json`(53줄) + 대소문자 변형 2줄이다.
+ * 시험은 이 JSON을 읽지 않고 리터럴로 옮겨 둔다.
+ * 줄 끝 주석에 측정 ID(C01~C53)를 남겼다.
+ * 측정한 53줄은 네이티브 3.14.4와 pyodide 314.0.7에서 `None` 여부가 같았다.
  */
 
 /** 게이트가 거짓(부분 문자열 `import`·`from`이 없음)인 줄. 전부 `None`이다. */
@@ -20,13 +28,19 @@ export const GATE_FALSE_LINES = [
   "x = [i for i in y]", // C21
   "x = 1\ny = 2", // C22
   "def f():\n    return", // C23
-  "ｉmport os", // C29: 전각 i라 NFKC로는 import지만 tokenize가 원문 그대로 다루므로 None이다.
-  // 대소문자 변형(측정 C에 없음): 3.14 tokenize가 NAME 토큰을 원문 그대로 주고 ImportParser의 키워드 비교가 대소문자를 구분하므로 None이다. 게이트도 대소문자를 구분한다.
+  "ｉmport os", // C29: 전각 i라 NFKC로는 import다. tokenize는 원문 그대로 다루므로 None이다.
+  // 대소문자 변형(측정 C에 없음).
+  // 3.14 tokenize는 NAME 토큰을 원문 그대로 준다. ImportParser의 키워드 비교는 대소문자를 구분한다. 그래서 None이다.
+  // 게이트도 대소문자를 구분한다.
   "IMPORT os",
   "FROM os",
 ];
 
-/** 게이트가 참이지만 `None`인 줄(오탐). 식별자·문자열·주석 안의 글자열이라 worker 왕복만 늘고 결과는 `None` 폴백과 같다. */
+/**
+ * 게이트가 참이지만 `None`인 줄(오탐).
+ * 식별자·문자열·주석 안의 글자열이거나 불완전한 키워드다.
+ * worker 왕복만 늘고 결과는 `None` 폴백과 같다.
+ */
 export const FALSE_POSITIVE_LINES = [
   "__import__('os')", // C04
   "important.x", // C05
@@ -58,7 +72,11 @@ export const FALSE_POSITIVE_LINES = [
   "import os\nos.pa", // C53
 ];
 
-/** 숫자 리터럴 바로 뒤에 키워드가 붙은 줄. 3.14 `tokenize`가 `NUMBER` + `NAME('import')`로 나눠 `ModuleCompleter`가 후보를 낸다(C24~C28). */
+/**
+ * 숫자 리터럴 바로 뒤에 키워드가 붙은 줄(C24~C28).
+ * 3.14 `tokenize`가 `NUMBER` + `NAME('import')`로 나눈다. `ModuleCompleter`가 후보를 낸다.
+ * 단어 경계 게이트는 이 줄에서 거짓이라 건전하지 않다.
+ */
 export const NUMERIC_LITERAL_LINES = [
   "1import os",
   "1from os",
@@ -78,7 +96,7 @@ export const NON_NONE_LINES = [
   "import os  # c\n", // C51
 ];
 
-/** 코퍼스 전체 55줄(게이트 거짓 16 + 오탐 28 + 참 양성 11). 숫자 리터럴 5줄은 참 양성 11줄에 포함된다. */
+/** 코퍼스 전체 55줄(게이트 거짓 16 + 오탐 28 + 참 양성 11). 숫자 리터럴 5줄은 참 양성 11줄에 든다. */
 export const CORPUS = [
   ...GATE_FALSE_LINES,
   ...FALSE_POSITIVE_LINES,

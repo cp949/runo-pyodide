@@ -1,9 +1,9 @@
 // @vitest-environment node
 /**
  * 전역 stdout/stderr Writer를 실제 pyodide(node)에 등록해 보는 경계 시험(09-testing.md 9.1).
- * `setStdout`/`setStderr`가 Writer를 어떤 단위로 부르는지, Python 버퍼가 언제 비워지는지를 고정한다.
- * 이 저장소의 첫 node + 실제 pyodide 시험이라 `loadPyodide()`(인자 없음, npm 패키지 자체 indexURL)가
- * vitest 안에서 도는 것도 함께 확인한다.
+ * - `setStdout`/`setStderr`가 Writer를 어떤 단위로 부르는지 고정한다.
+ * - Python 버퍼가 언제 비워지는지 고정한다.
+ * - 이 저장소의 첫 node + 실제 pyodide 시험이라 `loadPyodide()`(인자 없음, npm 패키지 자체 indexURL)가 vitest 안에서 도는 것도 함께 확인한다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";

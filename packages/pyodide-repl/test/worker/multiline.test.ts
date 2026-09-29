@@ -1,17 +1,23 @@
 // @vitest-environment node
 /**
- * 분할기(`split_paste`, 02-console-core.md 5.2) 시험. Python `ast`에 의존하므로 mock 없이 실제
- * pyodide를 로드해 검증한다. 이전 구현(`/work/cp949/pyodide-samples/apps/repl/src/repl/multiline.test.ts`)의
- * 21건을 이식하고 2차 `compile`·top-level await 관련 3건을 더했다.
+ * 분할기(`split_paste`, 02-console-core.md 5.2) 시험.
+ *
+ * - Python `ast`에 의존한다. mock 없이 실제 pyodide를 로드해 검증한다.
+ * - 이전 구현(`/work/cp949/pyodide-samples/apps/repl/src/repl/multiline.test.ts`)의 21건을 이식했다.
+ * - 2차 `compile`·top-level await 관련 3건을 더했다.
  */
 import { loadPyodide, type PyodideInterface } from "pyodide";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createConsole } from "../../src/worker/console";
 import { loadSplitPaste, type SplitPaste } from "../../src/worker/multiline";
 
+/** 파일 전체가 공유하는 pyodide 인스턴스. */
 let pyodide: PyodideInterface;
+/** 시험 대상 분할기. */
 let splitPaste: SplitPaste;
+/** top-level await를 끈 콘솔의 컴파일러 플래그. */
 let flagsOff: number;
+/** top-level await를 켠 콘솔의 컴파일러 플래그. */
 let flagsOn: number;
 
 beforeAll(async () => {

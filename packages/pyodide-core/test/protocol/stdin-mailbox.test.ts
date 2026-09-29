@@ -1,11 +1,13 @@
 // @vitest-environment node
 /**
- * stdin 메일박스 시험(01-protocols.md 2절, ADR-0002). 실제 SharedArrayBuffer 위에서 실제 worker 스레드가
- * `Atomics.wait`로 정지하고, main 역할(시험 본문)이 `deliver`/`cancel`/`fail`로 깨운다.
+ * stdin 메일박스 시험(01-protocols.md 2절, ADR-0002).
+ * - 실제 SharedArrayBuffer 위에서 실제 worker 스레드가 `Atomics.wait`로 정지한다.
+ * - main 역할(시험 본문)이 `deliver`/`cancel`/`fail`로 깨운다.
  *
- * 기존 계약(아래, worker adapter)에 더해 main 쪽 adapter(`takeMailboxResponse`)로 같은 계약을 한 번 더 돈다
- * ("main take adapter" 표시가 붙은 블록). 공유 해석 단계(`consumeReady`, 01-protocols.md 2.2)가 두 adapter에서
- * 같은 순서·부수 효과로 동작한다는 근거다. worker adapter 쪽 시험 제목은 바꾸지 않는다.
+ * worker adapter(`wait()`) 시험에 더해 main 쪽 adapter(`takeMailboxResponse`)로 같은 계약을 한 번 더 돈다.
+ * 제목에 "main take adapter"가 붙은 블록이다.
+ * 공유 해석 단계(`consumeReady`, 01-protocols.md 2.2)가 두 adapter에서 같은 순서·부수 효과로 동작한다는 근거다.
+ * worker adapter 쪽 시험 제목은 바꾸지 않는다.
  */
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { spawnRole } from "@repo/pyodide-testkit/thread";
@@ -21,7 +23,8 @@ import type { MailboxWriter } from "../../src/protocol/stdin-mailbox";
 type ReadResult =
   { ok: true; value: string | null } | { ok: false; message: string };
 
-// ADR-0002: CAPACITY를 바꾸면 청크 시험을 같이 바꾼다. 상수를 import하지 않고 리터럴로 둬서 바꾸면 시험이 실패하게 한다.
+// ADR-0002: src의 `CAPACITY`를 바꾸면 청크 시험도 같이 바꾼다.
+// 상수를 import하지 않고 리터럴로 둔다. 값이 바뀌면 시험이 실패한다.
 const CAPACITY = 64 * 1024;
 
 /** 위치마다 문자가 달라 청크 순서가 뒤바뀌거나 빠지면 비교에서 드러나는 ASCII 문자열(바이트 수 = 길이). */
@@ -31,6 +34,7 @@ function patterned(length: number): string {
   ).join("");
 }
 
+/** worker adapter: `mailbox-reader` 역할 스레드를 띄운다. `read()`는 그 스레드의 `wait()` 결과를 돌려준다. */
 function setup() {
   const mailbox = createStdinMailbox();
   const writer = createMailboxWriter(mailbox);
@@ -40,7 +44,7 @@ function setup() {
   );
   return {
     writer,
-    /** worker가 `wait()`에 들어가게 하고 그 결과를 기다린다. */
+    // worker가 `wait()`에 들어가게 하고 그 결과를 기다린다.
     read(): Promise<ReadResult> {
       role.post("wait");
       return role.next<ReadResult>();
@@ -48,7 +52,10 @@ function setup() {
   };
 }
 
-/** main adapter: worker 스레드 없이 같은 프로세스에서 `takeMailboxResponse`로 받는다. */
+/**
+ * main take adapter: worker 스레드 없이 같은 프로세스에서 `takeMailboxResponse`로 받는다.
+ * `read()`는 응답을 worker adapter와 같은 `ReadResult` 모양으로 바꿔 돌려준다. `eof`도 취소와 같은 null로 본다.
+ */
 function setupMain() {
   const mailbox = createStdinMailbox();
   const writer: MailboxWriter = createMailboxWriter(mailbox);
@@ -121,8 +128,8 @@ describe("청크 경계", () => {
     await expect(reading).resolves.toEqual({ ok: true, value: text });
   });
 
-  // 청크는 바이트 단위로 자르므로 UTF-8 시퀀스가 중간에서 갈릴 수 있다. 문자는 CAPACITY - split 바이트 위치에서 시작해
-  // 첫 청크에 split 바이트만 든다.
+  // 청크는 바이트 단위로 자르므로 UTF-8 시퀀스가 중간에서 갈릴 수 있다.
+  // 문자는 CAPACITY - split 바이트 위치에서 시작한다. 첫 청크에는 그 문자의 split 바이트만 든다.
   it.each([
     { label: "3바이트 문자(가) 1바이트째에서 갈림", char: "가", split: 1 },
     { label: "3바이트 문자(가) 2바이트째에서 갈림", char: "가", split: 2 },
@@ -206,9 +213,9 @@ describe("오류", () => {
   });
 });
 
-// worker가 표식(취소·오류)을 가져가기 전에 main이 다음 값을 deliver하면 main은 STATE가 IDLE로 돌아오길 기다린다. worker가
-// IDLE로 되돌릴 때 notify하지 않으면 그 대기는 영영 깨어나지 않는다. 여기서는 worker가 wait()에 들어가지 않은 채 표식이 쓰이고,
-// 그 뒤에 worker가 두 번 읽는다.
+// worker가 표식(취소·오류)을 가져가기 전에 main이 다음 값을 deliver하면 main은 STATE가 IDLE로 돌아오길 기다린다.
+// worker가 IDLE로 되돌릴 때 notify하지 않으면 그 대기는 영영 깨어나지 않는다.
+// 여기서는 worker가 wait()에 들어가지 않은 채 표식이 쓰이고, 그 뒤에 worker가 두 번 읽는다.
 describe("표식 직후의 deliver", () => {
   it.each([
     {
@@ -242,9 +249,10 @@ describe("표식 직후의 deliver", () => {
   );
 });
 
-// main 쪽 `untilIdle()`은 `Atomics.waitAsync`로 기다리고, 없는 환경(Firefox 등)에서는 setTimeout(1ms) 폴링으로 기다린다.
-// 어느 경로를 탔는지 결정적으로 보려고 worker가 wait()에 들어가기 전에 deliver를 먼저 시작한다: 첫 청크가 소비되지 않은 채라
-// main은 두 번째 청크 앞에서 반드시 대기에 들어간다.
+// main 쪽 `untilIdle()`은 `Atomics.waitAsync`로 기다린다.
+// 없는 환경(Firefox 등)에서는 setTimeout(1ms) 폴링으로 기다린다.
+// 어느 경로를 탔는지 결정적으로 보려고 worker가 wait()에 들어가기 전에 deliver를 먼저 시작한다.
+// 첫 청크가 소비되지 않은 채라 main은 두 번째 청크 앞에서 반드시 대기에 들어간다.
 describe("IDLE 복귀 대기 방식", () => {
   type WaitAsync = (
     typedArray: Int32Array,
@@ -253,14 +261,14 @@ describe("IDLE 복귀 대기 방식", () => {
   ) => unknown;
   const atomics = Atomics as unknown as { waitAsync?: WaitAsync };
 
-  /** 1ms 폴링 타이머 호출 수. */
+  // 1ms 폴링 타이머 호출 수를 세는 함수를 돌려준다.
   function watchPollTimers() {
     const spy = vi.spyOn(globalThis, "setTimeout");
     onTestFinished(() => spy.mockRestore());
     return () => spy.mock.calls.filter(([, delay]) => delay === 1).length;
   }
 
-  /** main이 첫 청크를 쓰고 두 번째 청크 앞 대기에 들어갈 때까지 이벤트 루프를 돌린다. */
+  // main이 첫 청크를 쓰고 두 번째 청크 앞 대기에 들어갈 때까지 이벤트 루프를 돌린다.
   const untilMainWaits = () =>
     new Promise<void>((resolve) => setImmediate(resolve));
 
@@ -408,7 +416,7 @@ describe("EOF — main take adapter", () => {
     await writer.eof();
     await expect(eofed).resolves.toEqual({ kind: "eof" });
 
-    // STATE가 IDLE로 돌아왔다 — 아니면 다음 읽기가 이어지지 못한다.
+    // STATE가 IDLE로 돌아왔는지 다음 읽기로 확인한다. 돌아오지 않았으면 다음 읽기가 이어지지 못한다.
     const next = takeMailboxResponse(mailbox);
     await writer.deliver("다음 줄");
 
@@ -441,7 +449,8 @@ describe("오류 — main take adapter", () => {
     await expect(next).resolves.toEqual({ ok: true, value: "복구" });
   });
 
-  // 메시지도 64KiB 고정 데이터 영역에 담긴다. 넘치면 문자 경계에서 잘라 깨진 문자가 남지 않게 한다(worker adapter와 같은 계약).
+  // 메시지도 64KiB 고정 데이터 영역에 담긴다.
+  // 넘치면 문자 경계에서 잘라 깨진 문자가 남지 않게 한다. worker adapter와 같은 계약이다.
   it("64KiB를 넘는 메시지는 온전한 문자까지만 잘라 전달한다", async () => {
     const { writer, read } = setupMain();
 
@@ -487,8 +496,8 @@ describe("표식 직후의 deliver — main take adapter", () => {
   );
 });
 
-// runner.test는 `vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })` 환경에서 take를 쓴다(design.md §1).
-// waitAsync 경로는 setTimeout에 기대지 않으므로 그 환경을 재현해도 멈추지 않아야 한다.
+// runner.test는 `vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })` 환경에서 take를 쓴다.
+// waitAsync 경로는 setTimeout에 기대지 않는다. 그 환경을 재현해도 멈추지 않아야 한다.
 describe("가짜 타이머에서도 take가 진행된다", () => {
   it("setTimeout만 가짜여도 waitAsync 경로로 진행해 응답을 받는다", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -504,9 +513,11 @@ describe("가짜 타이머에서도 take가 진행된다", () => {
   });
 });
 
-// 가설 A(design.md §4): 끝나지 않은 take가 있어도 node 이벤트 루프를 붙잡지 않는다. 이 시험은 아무도 deliver하지 않는
-// take를 방치한 채 끝난다. await하지 않은 promise는 원래 다음 시험을 막지 않으므로 이 시험은 가설의 근거가 아니다 —
-// 방치 경로가 예외 없이 끝나는지만 본다. `Atomics.waitAsync`가 없으면 폴링 타이머가 이벤트 루프를 계속 붙잡는다.
+// 가설 A: 끝나지 않은 take가 있어도 node 이벤트 루프를 붙잡지 않는다.
+// 이 시험은 아무도 deliver하지 않는 take를 방치한 채 끝난다.
+// await하지 않은 promise는 원래 다음 시험을 막지 않는다. 그래서 이 시험은 가설의 근거가 아니다.
+// 방치 경로가 예외 없이 끝나는지만 본다.
+// `Atomics.waitAsync`가 없으면 폴링 타이머가 이벤트 루프를 계속 붙잡는다.
 describe("가설 A: 응답 없는 take를 남겨도 다음 시험을 막지 않는다", () => {
   it("아무도 deliver하지 않는 take를 방치한 채 끝난다", () => {
     const { mailbox } = setupMain();
@@ -580,14 +591,17 @@ describe("peekMailbox", () => {
     });
   });
 
-  // peek는 STATE를 바꾸지 않는다: 청크 중간을 여러 번 봐도 같은 결과이고, writer는 여전히 다음 청크 앞에서 대기 중이며,
-  // take로 이어받으면 전체 줄을 정상적으로 받는다.
+  // peek는 STATE를 바꾸지 않는다.
+  // - 청크 중간을 여러 번 봐도 같은 결과다.
+  // - writer는 여전히 다음 청크 앞에서 대기 중이다.
+  // - take로 이어받으면 전체 줄을 정상적으로 받는다.
   it("chunk 중간(last:false)을 소비하지 않는다 — STATE 그대로, writer는 다음 청크 대기 유지", async () => {
     const { writer, mailbox } = setupMain();
     const text = patterned(CAPACITY + 1);
 
     const delivering = writer.deliver(text);
-    // 마이크로태스크만 도는 루프는 첫 청크가 끝내 안 쓰이면 vitest timeout까지 막으므로 `vi.waitFor`로 기다린다.
+    // 마이크로태스크만 도는 루프는 첫 청크가 끝내 안 쓰이면 vitest timeout까지 막는다.
+    // `vi.waitFor`로 기다린다.
     await vi.waitFor(() => expect(peekMailbox(mailbox).kind).not.toBe("none"));
 
     const firstPeek = peekMailbox(mailbox);
@@ -596,7 +610,7 @@ describe("peekMailbox", () => {
       text: patterned(CAPACITY),
       last: false,
     });
-    // 다시 봐도 같다 — 소비하지 않았다는 뜻.
+    // 다시 봐도 같다. 소비하지 않았다는 뜻이다.
     expect(peekMailbox(mailbox)).toEqual(firstPeek);
 
     await expect(takeMailboxResponse(mailbox)).resolves.toEqual({

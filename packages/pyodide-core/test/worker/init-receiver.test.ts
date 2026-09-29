@@ -1,7 +1,13 @@
 /**
- * worker init 프레임 수신기(`createInitReceiver`) 시험. 수신기는 모듈 평가 시점에 message 리스너를 걸어 `runWorker`를 늦게
- * 불러도 init 프레임을 잃지 않게 버퍼에 담는다(01-protocols.md 4절). 규칙은 `runWorker`가 직접 듣던 때와 같다: 배열은 무시,
- * `kind`가 init이 아닌 객체는 오류를 남기고 계속 듣기, init 후보를 받으면 리스너를 뗀 뒤 검증(필드 오류는 프레임을 버린다).
+ * worker init 프레임 수신기(`createInitReceiver`) 시험.
+ * 수신기는 모듈 평가 시점에 message 리스너를 걸어 init 프레임을 버퍼에 담는다.
+ * `runWorker`를 늦게 불러도 프레임을 잃지 않는다(01-protocols.md 4절).
+ *
+ * 메시지 규칙은 `runWorker`가 직접 듣던 때와 같다.
+ * - 배열은 무시한다.
+ * - `kind`가 init이 아닌 객체는 오류를 남기고 계속 듣는다.
+ * - init 후보를 받으면 리스너를 뗀 뒤 검증한다. 필드 오류는 프레임을 버린다.
+ *
  * 가짜 `EventTarget`을 주입해 worker 전역 없이 본다.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -16,16 +22,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** main이 보내는 것과 같은 모양의 올바른 초기화 프레임. */
+/** main이 보내는 것과 같은 모양의 올바른 초기화 프레임을 만든다. 포트는 `afterEach`가 닫는다. */
 function createInitFrame() {
   const { port1, port2 } = new MessageChannel();
   ports.push(port1, port2);
-  // 스프레드로 감싸 object literal 타입(암묵적 index signature)을 유지한다 —
+  // 스프레드로 감싸 object literal 타입(암묵적 index signature)을 유지한다.
   // 아래에서 `Record<string, unknown>`로 받아 필드를 지우는 시험이 있다.
   return { ...createBaseInitFrame({ rpcPort: port1 }) };
 }
 
-/** message 리스너 등록 수를 셀 수 있는 가짜 worker 전역. */
+/** message 리스너 등록 수를 셀 수 있는 가짜 worker 전역을 만든다. `receive`로 메시지를 흘려 보낸다. */
 function createSource() {
   const target = new EventTarget();
   let listeners = 0;
@@ -56,7 +62,7 @@ function createSource() {
   };
 }
 
-/** `take`가 받은 프레임을 모은다. */
+/** `take`에 넘길 소비 함수를 만든다. 받은 프레임을 `frames`에 모은다. */
 function collect() {
   const frames: InitFrame[] = [];
   return { frames, consume: (frame: InitFrame) => void frames.push(frame) };

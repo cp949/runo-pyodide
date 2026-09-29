@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """양성 대조 드라이버. 소스를 변조 → 브라우저 확인 실행(해당 확인만 실패해야 함) → git checkout으로 원복 → 재실행(통과).
-출처 RD-005, `_works/_completed/20260922-05-rd-005-repl-loop/verify/positive-controls.py`에서 이관(RD-018 DELTA-04).
+출처 RD-005에서 이관(RD-018).
 
 사용: python3 rd-005.py <1|2|3|4>
   1: pyodide-terminal/src/prompt-row.ts read()의 io.sinks.resetTail() 삭제(RD-027, 구 terminal/repl-reader.ts) → prompt-join-check (W4·U1 등 꼬리 물려받음)
   2: worker/submission-runner.ts의 withoutTrailingNewline 제거 → repl-check normal + trailing-newline-check (오류 경로 빈 줄)
   3: worker/boot.ts의 rpc.notify("sessionTerminated") 삭제    → repl-check normal (⑦ 상태 terminated 시간 초과)
-  4: worker/console.ts의 retrieveException(fut) 삭제(DELTA-01a) → carryover-check ((b) never retrieved 로그 누출)
+  4: worker/console.ts의 retrieveException(fut) 삭제 → carryover-check ((b) never retrieved 로그 누출)
 dev 서버(5173)는 이 드라이버가 변조·원복 때마다 다시 띄운다(끝나면 dev 서버가 하나 남는다). 원복은 `git checkout -- <파일>`이고 대상 파일은 시작 전에 깨끗해야 한다.
 깨끗한 트리에서만 실행해라(시작 전 `git status --short` 빈 출력을 확인).
 """
@@ -44,7 +44,7 @@ CONTROLS = {
         "scripts": [["repl-check.mjs", "normal", URL], ["trailing-newline-check.mjs", URL]],
     },
     "4": {
-        # DELTA-01a 수정 제거: 문법 오류 future의 예외를 회수하지 않으면 GC 때 never retrieved 로그가 새어야 한다.
+        # 수정 제거: 문법 오류 future의 예외를 회수하지 않으면 GC 때 never retrieved 로그가 새어야 한다.
         "file": "packages/pyodide-repl/src/worker/console.ts",
         "find": "          retrieveException(fut);\n",
         "replace": "",

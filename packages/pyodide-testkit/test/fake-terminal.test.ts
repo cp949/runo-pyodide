@@ -1,13 +1,13 @@
 /**
  * 가짜 터미널(`createFakeTerminal`) 시험.
- * 이 가짜는 이후 시험이 실제 `Readline`을 구동하는 바탕이라, 실제 xterm과 다르게 동작하면 그 시험들이
- * 통과해도 의미가 없다. write 콜백 타이밍, 입력 분해, addon·dispose 거동을 고정한다.
+ * - 다른 시험이 이 가짜로 실제 `Readline`을 구동한다. 실제 xterm과 다르게 동작하면 그 시험은 통과해도 의미가 없다.
+ * - 고정 대상: write 콜백 타이밍, 입력 분해, addon·dispose 거동, 화면 모델.
  */
 import type { ITerminalAddon, Terminal } from "@xterm/xterm";
 import { describe, expect, test } from "vitest";
 import { createFakeTerminal } from "../src/fake-terminal";
 
-/** activate에 받은 터미널과 activate·dispose 호출 순서를 기록하는 addon. */
+/** `activate`에 받은 터미널과 `activate`·`dispose` 호출 순서를 기록하는 addon을 만든다. */
 function createRecordingAddon() {
   const calls: string[] = [];
   const activatedWith: Terminal[] = [];
@@ -149,7 +149,7 @@ describe("addon과 dispose", () => {
     expect(received).toEqual([]);
   });
 
-  // 실제 xterm은 dispose 뒤에도 write 콜백을 돌린다(이전 구현 TRP-001). 가짜가 이를 막으면 해제 뒤 콜백 방어 시험이 의미를 잃는다.
+  // 실제 xterm은 dispose 뒤에도 write 콜백을 돌린다(TRAP-11). 가짜가 막으면 해제 뒤 콜백 방어 시험이 의미를 잃는다.
   test("dispose() 뒤에도 write 콜백은 실행된다", () => {
     const fake = createFakeTerminal();
     let fired = false;

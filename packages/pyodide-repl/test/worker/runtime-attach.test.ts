@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
- * Python 런타임 연결(`attachRuntime`) 시험(TRP-027). 규칙 ID(A1~A6)는 `docs/design/03-ctrl-c.md` 2.6의 표를 그대로
- * 쓴다. 실제 pyodide(node)를 mock 없이 쓴다. `setInterruptBuffer`는 폴링이 시작되는 순간을 만들려고 원본 호출 직전에
- * 훅을 끼워 감쌀 뿐 원본을 그대로 부른다.
+ * Python 런타임 연결(`attachRuntime`) 시험(TRAP-31).
+ * - 규칙 ID(A1~A6)는 `docs/design/03-ctrl-c.md` 2.6의 표를 그대로 쓴다.
+ * - 실제 pyodide(node)를 mock 없이 쓴다.
+ * - `setInterruptBuffer`는 원본 호출 직전에 훅만 끼워 감싼다. 폴링이 시작되는 순간을 만들기 위해서다.
+ * - 감싼 뒤에도 원본을 그대로 부른다.
  */
 import { describe, expect, test, vi } from "vitest";
 import { ACK, SIGNAL, createInterruptBuffer } from "@cp949/runo-pyodide-core";
@@ -27,8 +29,8 @@ const BUSY = "for _ in range(10**6): pass";
 
 /**
  * 각본 없는 stdin. 읽으면 던져 Python `OSError`가 된다(하니스 `setup()` 기본값과 같다).
- * 취소 표식(`null`)을 기본으로 두면 실수로 끼운 `input()`이 `KeyboardInterrupt` 트레이스백을 내 `CONSOLE_TRACEBACK` 단언을
- * 우연히 통과한다.
+ * 취소 표식(`null`)을 기본값으로 두지 않는다.
+ * 실수로 끼운 `input()`이 `KeyboardInterrupt` 트레이스백을 내 `CONSOLE_TRACEBACK` 단언을 우연히 통과하기 때문이다.
  */
 const NO_STDIN: RuntimeAttachDeps["stdin"] = {
   requestInput: () => {},
@@ -37,7 +39,7 @@ const NO_STDIN: RuntimeAttachDeps["stdin"] = {
   },
 };
 
-/** 새 콘솔·새 버퍼·각본 없는 stdin + `attachRuntime` deps. 연결은 시험이 직접 한다(시험 대상). */
+/** 새 콘솔·새 버퍼·각본 없는 stdin과 `attachRuntime` deps를 만든다. 연결은 시험이 직접 한다. */
 function setup() {
   const { pyconsole } = createConsole(
     pyodide,
@@ -54,7 +56,7 @@ function setup() {
   return { pyconsole, buffer, deps, report };
 }
 
-/** `attachRuntime`을 부르고, 연결한 버퍼와 돌려받은 proxy를 공용 해체에 맡긴다. */
+/** `attachRuntime`을 부르고, 연결한 버퍼와 돌려받은 proxy를 하니스 공용 해체에 맡긴다. */
 function attach(
   pyconsole: ReturnType<typeof setup>["pyconsole"],
   deps: RuntimeAttachDeps,
@@ -64,7 +66,7 @@ function attach(
   return attached;
 }
 
-/** 원본 `setInterruptBuffer`를 부르기 직전에 `hook`을 실행한다. 폴링이 시작되는 순간에 무슨 일이 일어나는지를 만든다. */
+/** 원본 `setInterruptBuffer`를 부르기 직전에 `hook`을 실행한다. 폴링이 시작되는 순간의 상태를 만든다. */
 function beforeConnect(hook: () => void) {
   const original = pyodide.setInterruptBuffer.bind(pyodide);
   return vi
@@ -95,7 +97,8 @@ describe("attachRuntime", () => {
     beforeConnect(() => signalInterrupt(buffer));
 
     attach(pyconsole, deps);
-    // 연결 직후 도는 Python 실행이 그 눌림을 폴링으로 읽는다. 사용자 프레임(`<console>`)이 없어 핸들러가 버린다.
+    // 연결 직후 도는 Python 실행이 그 눌림을 폴링으로 읽는다.
+    // 사용자 프레임(`<console>`)이 없어 핸들러가 버린다.
     expect(() => pyodide.runPython(BUSY)).not.toThrow();
 
     expect(Atomics.load(buffer, ACK)).toBe(1);
@@ -108,7 +111,7 @@ describe("attachRuntime", () => {
 
     attach(pyconsole, deps);
 
-    // 실행 전에 슬롯을 본다: 폴링이 아니라 연결 절차가 지운 것이어야 한다. [SIGNAL, ACK, SEQ, 예약]
+    // 실행 전에 슬롯을 본다. 폴링이 아니라 연결 절차가 지운 것이어야 한다. 슬롯 순서는 [SIGNAL, ACK, SEQ, 예약].
     expect([...buffer]).toEqual([0, 1, 1, 0]);
     expect(() => pyodide.runPython(BUSY)).not.toThrow();
     expect(Atomics.load(buffer, ACK)).toBe(1);
@@ -122,8 +125,9 @@ describe("attachRuntime", () => {
     expect([...buffer]).toEqual([0, 0, 0, 0]);
   });
 
-  // 조각 교체는 핸들러보다 먼저여야 한다: 래퍼의 코드 객체를 핸들러의 절단 목록에 넘겨야 트레이스백에서 우리 프레임이
-  // 잘린다(절단 결과는 아래 회귀 시험이 실제 배선으로 본다).
+  // 조각 교체는 핸들러보다 먼저여야 한다.
+  // 래퍼의 코드 객체를 핸들러의 절단 목록에 넘겨야 트레이스백에서 우리 프레임이 잘린다.
+  // 절단 결과는 아래 회귀 시험이 실제 배선으로 본다.
   test("[A2] 연결이 time.sleep 조각 교체까지 한다", () => {
     const { pyconsole, deps, report } = setup();
 
@@ -135,12 +139,13 @@ describe("attachRuntime", () => {
     expect(report).not.toHaveBeenCalled();
   });
 
-  // `installSigintHandler`에 조각 래퍼의 코드 객체(`extraOwnCodes`)를 안 넘기면 `formattraceback`이 그 프레임을
-  // 우리 것으로 못 알아봐 화면에 `<sleep-slice>` 줄이 샌다.
+  // `installSigintHandler`에 조각 래퍼의 코드 객체(`extraOwnCodes`)를 안 넘기면 화면에 `<sleep-slice>` 줄이 샌다.
+  // `formattraceback`이 그 프레임을 우리 것으로 못 알아보기 때문이다.
   test("[A2] 연결 뒤 sleep 중 눌림의 트레이스백에 sleep-slice 프레임이 없다", async () => {
     const { run, screen, presser } = harness.setup();
-    // 눌림 스레드가 Python이 sleep에 들어간 뒤(`started()`)에 쓴다. 같은 스레드 `press()`는 pyodide 폴링이 sleep 진입 전에
-    // 소비할 수 있어(약 50 바이트코드마다) 중단 지점이 흔들린다.
+    // 눌림 스레드가 Python이 sleep에 들어간 뒤(`started()`)에 쓴다.
+    // 같은 스레드의 `press()`는 pyodide 폴링(약 50 바이트코드마다)이 sleep 진입 전에 소비할 수 있다.
+    // 그러면 중단 지점이 흔들린다.
     const p = presser();
     p.press({ offsets: [200] });
 
@@ -152,7 +157,8 @@ describe("attachRuntime", () => {
 
   test("[A1] 폐기가 버퍼 연결보다 먼저다", () => {
     const { pyconsole, buffer, deps } = setup();
-    signalInterrupt(buffer); // 대상 코드 없는 SIGINT. 연결 절차가 지우고 ack해야 한다.
+    // 대상 코드가 없는 SIGINT. 연결 절차가 지우고 ack해야 한다.
+    signalInterrupt(buffer);
     let ackAtConnect: number | undefined;
     beforeConnect(() => {
       ackAtConnect = Atomics.load(buffer, ACK);
@@ -160,8 +166,8 @@ describe("attachRuntime", () => {
 
     attach(pyconsole, deps);
 
-    // setInterruptBuffer가 불리기 직전에 이미 ack돼 있다: 폐기가 그 앞에서 끝났다는 뜻이다. 폐기가 뒤로 가면
-    // 폴링이 시작된 뒤에야 지워져 ack 없이 SIGNAL이 비워질 위험이 생긴다(TRP-027).
+    // `setInterruptBuffer` 호출 직전에 이미 ack돼 있다. 폐기가 그 앞에서 끝났다는 뜻이다.
+    // 폐기가 뒤로 가면 폴링이 시작된 뒤에야 지워져 ack 없이 SIGNAL이 비워질 위험이 생긴다(TRAP-31).
     expect(ackAtConnect).toBe(1);
   });
 
@@ -179,8 +185,8 @@ describe("attachRuntime", () => {
 
   test("[A4] stdin 취소 표식(wait가 cancelled)은 input() 호출 지점의 KeyboardInterrupt가 되고 attach가 연결한 버퍼로 전달된다", async () => {
     const requestInput = vi.fn();
-    // SIGINT 핸들러는 스택에 `<console>` 프레임이 있을 때만 `KeyboardInterrupt`를 내므로 콘솔 러너 경로(하니스 `setup()`)로
-    // 돌린다(`runPython` 직접 호출로는 재현되지 않는다).
+    // SIGINT 핸들러는 스택에 `<console>` 프레임이 있을 때만 `KeyboardInterrupt`를 낸다.
+    // 그래서 콘솔 러너 경로(하니스 `setup()`)로 돌린다. `runPython` 직접 호출로는 재현되지 않는다.
     const { run, screen } = harness.setup({
       stdin: { requestInput, wait: () => ({ kind: "cancelled" }) },
     });
@@ -193,10 +199,10 @@ describe("attachRuntime", () => {
 
   test("[A5] 핸들러 설치 뒤 단계(버퍼 연결·stdin)가 던지면 interruptIdle을 destroy한 뒤 같은 오류를 다시 던진다", () => {
     const { pyconsole, deps } = setup();
-    // 평범한 파이썬 콜러블 PyProxy는 프로토타입을 공유한다(2026-09-27 실측: `installSigintHandler`가 돌려주는
-    // `interrupt_idle`과 `runPython`이 돌려주는 평범한 함수가 같은 prototype을 쓴다). attachRuntime은 이 실패
-    // 경로에서 이미 설치한 `installSleepSlice`·`installSigintHandler`·`suppressWebLoopReraise`의 내부 `install`
-    // 함수도 각자 destroy하므로, 실패가 일어난 시점을 기준으로 그 뒤 늘어난 호출 수만 본다.
+    // 파이썬 콜러블 PyProxy는 prototype을 공유한다.
+    // 2026-09-27 실측: `installSigintHandler`가 돌려주는 `interrupt_idle`과 `runPython`이 돌려주는 평범한 함수가 같은 prototype을 쓴다.
+    // 이 실패 경로에서 `installSleepSlice`·`installSigintHandler`·`suppressWebLoopReraise`의 내부 `install` 함수도 각자 destroy한다.
+    // 그래서 실패 시점의 호출 수를 기준으로 그 뒤 늘어난 호출 수만 본다.
     const sacrificial = pyodide.runPython("def _f(): pass\n_f") as unknown as {
       destroy(): void;
     };

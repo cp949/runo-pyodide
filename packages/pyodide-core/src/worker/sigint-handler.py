@@ -1,11 +1,11 @@
 # - 요청 번호(`seq()`)가 마지막으로 처리한 것과 같으면 main의 재전송이다: ack도 예외도 없다. 같은 눌림이 두 번 중단되는
-#   것을 막는다(TRP-025). 다르면 새 눌림이라 스택 검사·예외보다 먼저 ack한다: 아래에서 버려지는 SIGINT도 전달된 것이라
-#   ack가 없으면 main이 소실로 오판해 같은 번호로 다시 쓴다(TRP-019).
+#   것을 막는다(03-ctrl-c.md 2.2). 다르면 새 눌림이라 스택 검사·예외보다 먼저 ack한다: 아래에서 버려지는 SIGINT도 전달된 것이라
+#   ack가 없으면 main이 소실로 오판해 같은 번호로 다시 쓴다(TRAP-31).
 # - `frame.f_back` 사슬에 `console.filename`(`<console>`)과 같은 파일명의 프레임이 하나라도 있으면 사용자 코드 실행 중이다.
 #   `signal.default_int_handler`는 반드시 예외를 던져야 한다(`input()` 취소가 기대는 EINTR 경로, PEP 475).
 # - 사용자 프레임이 없어도 `runcode` 안이면(= `active`가 있으면) 사용자 코드가 정지한 채 실행 중이다: `interrupt_idle()`로
 #   깨운다. `asyncio.run`·`run_until_complete`·`run_sync` 대기는 JSPI로 사용자 스택이 정지하고, top-level await 대기는
-#   콘솔 task가 멈춰 있어 폴링이 사용자 프레임 없는 콜백에서 일어난다(TRP-020). 깨우기는 핸들러 자리에서 하지 않고
+#   콘솔 task가 멈춰 있어 폴링이 사용자 프레임 없는 콜백에서 일어난다(TRAP-07). 깨우기는 핸들러 자리에서 하지 않고
 #   `call_soon`으로 한 틱 미룬다: 핸들러는 asyncio 콜백의 bytecode 사이에서 돌아, 그 자리의 Task 취소가 콜백의
 #   검사-설정(`_set_result_unless_cancelled`)을 깨뜨린다. 이미 깨운 대기가 있으면 미루지 않고 `pending`만 세운다
 #   (그 대기가 올릴 KeyboardInterrupt에 합친다).
@@ -40,7 +40,7 @@
 #     취소하고 표지 예외 `IdleInterrupt`로 끝낸다. 취소로 끝난 task는 `ConsoleFuture`의 done 콜백이 `fut.exception()`에서
 #     `CancelledError`를 만나 영영 끝나지 않는다(HANG).
 #   - 취소는 await 지점에서 멈춘(`CORO_SUSPENDED`) Task에만 안전하다. 깨울 수 없는 순간(대기 코루틴 실행 중, 재개 직전)에
-#     핸들러가 소비한 SIGINT는 `pending`으로 표시해 두었다가 재개하는 `run_sync` 래퍼가 올린다(TRP-021).
+#     핸들러가 소비한 SIGINT는 `pending`으로 표시해 두었다가 재개하는 `run_sync` 래퍼가 올린다(TRAP-08).
 #   - 이벤트 루프가 비어 폴링이 아예 일어나지 않는 구간은 JS 감시 타이머가 `interrupt_idle()`을 불러 같은 일을 한다.
 #   - 설치 가드 3종에 걸리면 깨우기만 건너뛴다(`active`가 늘 `None`이라 `interrupt_idle()`은 언제나 거짓이고 위 규칙
 #     ①②④는 그대로다). 어긋난 이름마다 `report('run-sync', 이름)`을 부른다.

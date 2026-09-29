@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
 /**
  * REPL 루프(`runReplLoop`)의 순수 제어 흐름 시험(00-architecture.md 3.2).
- * core 프로토콜·RPC 구현을 import하지 않고 주입한 `readLine`·`run`으로 프롬프트와 pending 전달, 종료,
- * 실행 오류 복구, 읽기 요청 거절 정책을 고정한다.
+ *
+ * core 프로토콜·RPC 구현을 import하지 않는다. 주입한 `readLine`·`run`·`runSource`로 아래를 고정한다.
+ * - 프롬프트와 pending 전달.
+ * - 종료(`exit`, EOF 응답).
+ * - 실행 오류 복구.
+ * - 읽기 요청 거절 정책.
+ * - `readLine`·`setAtPrompt`·`discardPendingInterrupt`·`run` 호출 순서.
+ * - 루프 명령 `{ source }`의 실행과 결말 전달(RD-022a).
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { runReplLoop } from "../../src/worker/repl-loop";
@@ -10,19 +16,22 @@ import { isReadLineSourceReply } from "../../src/repl-protocol";
 import type { RunOutcome } from "@cp949/runo-pyodide-core/worker";
 import type { SubmissionResult } from "../../src/worker/submission-runner";
 
+/** 루프가 주입받는 `readLine`의 시험용 시그니처. `outcome`은 바로 앞 `{ source }` 실행의 결말이다. */
 type ReadLine = (
   prompt: string,
   pending: string | undefined,
   outcome?: RunOutcome,
 ) => Promise<string | null | { source: string } | { eof: true }>;
+/** 루프가 주입받는 `run`의 시험용 시그니처. 입력 취소는 `null`이다. */
 type Run = (line: string | null) => Promise<SubmissionResult>;
+/** 루프가 주입받는 `runSource`의 시험용 시그니처. */
 type RunSource = (source: string) => Promise<RunOutcome>;
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** 각본: 단계마다 `readLine`이 돌려줄 줄과 `run`이 돌려줄 결과(또는 던질 오류)를 차례로 쓴다. */
+/** 각본. 단계마다 `readLine`이 돌려줄 줄과 `run`이 돌려줄 결과(또는 던질 오류)를 차례로 쓴다. */
 function script(
   steps: { line: string | null; result: SubmissionResult | Error }[],
 ) {
@@ -36,7 +45,9 @@ function script(
   return { readLine, run };
 }
 
+/** 실행이 끝나 새 프롬프트 `>>> `를 요청하는 결과. */
 const READY: SubmissionResult = { prompt: ">>> ", exit: false };
+/** `exit()`로 세션이 끝난 결과. */
 const EXIT: SubmissionResult = { prompt: ">>> ", exit: true };
 
 describe("runReplLoop", () => {
@@ -61,7 +72,7 @@ describe("runReplLoop", () => {
       onError: vi.fn(),
     });
 
-    // 두 번째 결과에는 pending이 없으므로 세 번째 요청에서 이전 pending이 지워진다.
+    // 두 번째 결과에는 pending이 없다. 세 번째 요청에서 이전 pending이 지워진다.
     expect(readLine.mock.calls).toEqual([
       [">>> ", undefined],
       ["... ", "if True:"],
@@ -113,7 +124,7 @@ describe("runReplLoop", () => {
     });
 
     expect(onError.mock.calls).toEqual([[boom]]);
-    // 오류가 난 줄은 블록 입력 중이었다: 다음 요청은 `... `가 아니라 `>>> `이고 pending이 없다.
+    // 오류가 난 줄은 블록 입력 중이었다. 다음 요청은 `... `가 아니라 `>>> `이고 pending이 없다.
     expect(readLine.mock.calls).toEqual([
       [">>> ", undefined],
       ["... ", "if True:"],
@@ -210,7 +221,7 @@ describe("runReplLoop", () => {
       onError: vi.fn(),
     });
 
-    // 호출 전역 순번(invocationCallOrder)으로 네 함수의 호출을 한 줄로 펴서 순서를 본다.
+    // 전역 호출 순번(invocationCallOrder)으로 네 함수의 호출을 한 줄로 펴서 순서를 본다.
     const timeline = [
       ...setAtPrompt.mock.invocationCallOrder.map(
         (n, i) =>
@@ -276,7 +287,7 @@ describe("runReplLoop", () => {
   });
 });
 
-/** `{ source }` 응답 각본: 단계마다 `readLine`이 돌려줄 응답과 `runSource`가 돌려줄 결말(또는 던질 오류)을 쓴다. */
+/** `{ source }` 응답 각본. 단계마다 `readLine`이 돌려줄 응답과 `runSource`가 돌려줄 결말(또는 던질 오류)을 쓴다. */
 function sourceScript(
   steps: {
     reply: string | null | { source: string };
@@ -475,14 +486,14 @@ describe("runReplLoop: 루프 명령 `{ source }`", () => {
       onError: vi.fn(),
     });
 
-    // exit 결말 뒤에도 루프가 다음 readLine으로 돌아와 결말을 싣고, 이어진 명령이 실행된다.
+    // exit 결말 뒤에도 루프가 다음 readLine으로 돌아와 결말을 싣는다. 이어진 명령이 실행된다.
     expect(readLine.mock.calls[1]).toEqual([
       ">>> ",
       undefined,
       { kind: "exit", code: 3 },
     ]);
     expect(run.mock.calls).toEqual([["print(1)"], [null]]);
-    // 종료 통지는 마지막 `run(null)`의 exit 결과 한 번뿐이다.
+    // 종료 통지는 마지막 `run(null)`의 exit 결과에서 한 번뿐이다.
     expect(onTerminated).toHaveBeenCalledTimes(1);
     expect(readLine).toHaveBeenCalledTimes(3);
   });
@@ -506,7 +517,7 @@ describe("runReplLoop: 루프 명령 `{ source }`", () => {
     });
 
     expect(onError.mock.calls).toEqual([[boom]]);
-    // 사용자 코드 오류가 아니라 worker 내부 오류라는 표지: errorType이 `InternalError`다.
+    // 사용자 코드 오류가 아니라 worker 내부 오류라는 표지다. errorType이 `InternalError`다.
     expect(readLine.mock.calls[1]).toEqual([
       ">>> ",
       undefined,

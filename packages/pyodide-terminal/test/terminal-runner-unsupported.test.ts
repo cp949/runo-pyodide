@@ -1,10 +1,16 @@
 // @vitest-environment node
 /**
- * `createTerminalRunner`의 `unsupported`(`detectRuntimeSupport()` wasm 미지원, `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`) 분기만 따로 본다. 나머지
- * `terminal-runner*.test.ts`는 jsdom 환경에서 core `createRunner`를 실제로 붙이며 모듈을 공유하므로, `WebAssembly.validate`를
- * 거짓으로 바꾸려면 `vi.resetModules()` + 동적 import로 이 파일만 독립된 모듈 인스턴스를 써야 한다(`pyodide-core/test/session/runner-unsupported.test.ts`·
- * `pyodide-repl/test/create-repl/unsupported.test.ts`와 같은 이유). `@vitest-environment node`도 같은 이유(jsdom 파일과 워커를
- * 공유하면 몽키패치가 샌다) — `createFakeTerminal`은 `withElement`를 안 쓰므로 `document`가 필요 없다.
+ * `createTerminalRunner`의 `unsupported` 분기만 따로 보는 시험.
+ * - 분기 조건: `detectRuntimeSupport()`가 wasm 미지원으로 판정한다(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
+ * - 나머지 `terminal-runner*.test.ts`는 jsdom에서 core `createRunner`를 실제로 붙이고 모듈을 공유한다.
+ * - `WebAssembly.validate`를 거짓으로 바꾸면 그 파일들에 영향이 간다.
+ * - 그래서 이 파일만 `vi.resetModules()` + 동적 import로 독립된 모듈 인스턴스를 쓴다.
+ * - `@vitest-environment node`도 같은 이유다. jsdom 파일과 워커를 공유하면 몽키패치가 샌다.
+ * - `createFakeTerminal`은 `withElement`를 쓰지 않으므로 `document`가 필요 없다.
+ *
+ * 같은 구조의 시험:
+ * - `pyodide-core/test/session/runner-unsupported.test.ts`
+ * - `pyodide-repl/test/create-repl/unsupported.test.ts`
  */
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createFakeTerminal } from "@repo/pyodide-testkit/fake-terminal";
@@ -12,7 +18,7 @@ import { createFakeTerminal } from "@repo/pyodide-testkit/fake-terminal";
 const originalValidate = WebAssembly.validate;
 
 beforeEach(() => {
-  // 격리 여부와 무관하게 unsupported여야 한다(판정 순서: wasm 먼저) — 참으로 둬서 이 순서를 증명한다.
+  // 판정 순서는 wasm이 먼저다. 격리를 참으로 둬서 격리 여부와 무관하게 unsupported가 되는지 본다.
   vi.stubGlobal("crossOriginIsolated", true);
   WebAssembly.validate = () => false;
 });

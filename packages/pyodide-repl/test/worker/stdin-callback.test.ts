@@ -1,9 +1,11 @@
 // @vitest-environment node
 /**
  * `createStdinCallback`을 실제 pyodide(node)의 `setStdin({ stdin })`에 걸어 보는 경계 시험(09-testing.md 9.1).
- * 주입한 `requestInput`·`wait`가 어떤 순서·인자로 불리는지, pyodide가 돌려준 줄을 `input()`·`sys.stdin`의
- * 다섯 읽기 경로에서 어떻게 해석하는지, `wait()`의 `null`·예외가 Python에 어떤 예외로 도착하는지를 고정한다.
- * 스레드·메일박스는 쓰지 않는다(그 왕복은 `thread-scenario.test.ts`가 본다).
+ * - 주입한 `requestInput`·`wait`가 어떤 순서·인자로 불리는지 고정한다.
+ * - pyodide가 돌려준 줄을 `input()`·`sys.stdin`의 다섯 읽기 경로가 어떻게 해석하는지 고정한다.
+ * - `wait()`의 취소 표식·예외가 Python에 어떤 예외로 도착하는지 고정한다.
+ * - 취소 변환(RD-008)과 취소·눌림 경합은 콘솔 러너 경로로 본다.
+ * - 스레드·메일박스는 쓰지 않는다. 그 왕복은 core `test/protocol/thread-scenario.test.ts`가 본다.
  */
 import type { PyodideInterface } from "pyodide";
 import { describe, expect, test, vi } from "vitest";
@@ -27,14 +29,10 @@ import {
 } from "@cp949/runo-pyodide-core/test-utils/worker";
 
 /**
- * 취소 변환은 콘솔 러너 경로(`setup()`)로 돌린다: SIGINT 핸들러는 스택에 `<console>` 프레임이 있을 때만 `KeyboardInterrupt`를
- * 내므로, `runPython`(파일명 `<exec>`)에서는 취소가 버려지고 CPython이 읽기를 재시도한다. 하니스는 각본 없는 stdin을
- * attach에 넘기고, 시험마다 `installStdin`이 계측 콜백으로 `setStdin`을 다시 건다(attach의 stdin을 덮는다).
- */
-/**
- * 시험이 `pyodide.globals`에 만든 이름(`runResult`의 `json`·`sys`·`result`, 콘솔 제출의 `x`·`f` 등). 콘솔도 같은 `__main__`을
- * 쓰므로 남기면 "변수는 대입되지 않는다" 단언이 앞 시험의 `x`를 본다. 다음 시험으로 새지 않게 지운다.
- * `_`는 넣지 않는다: `globals.has`는 `builtins`까지 보므로 값 에코가 만든 `builtins._`에서 참이 되고 `delete`가 `KeyError`를 던진다.
+ * 시험이 `pyodide.globals`에 만든 이름. 시험이 끝나면 지운다.
+ * - 예: `runResult`의 `json`·`sys`·`result`, 콘솔 제출의 `x`·`f`.
+ * - 콘솔도 같은 `__main__`을 쓴다. 남기면 "변수는 대입되지 않는다" 단언이 앞 시험의 `x`를 본다.
+ * - `_`는 넣지 않는다. `globals.has`는 `builtins`까지 보므로 값 에코가 만든 `builtins._`에서 참이 된다. 그러면 `delete`가 `KeyError`를 던진다.
  */
 const TEST_GLOBALS = [
   "x",
@@ -47,6 +45,13 @@ const TEST_GLOBALS = [
   "f",
 ];
 
+/**
+ * 공용 하니스. 취소 변환은 콘솔 러너 경로(`setup()`)로 돌린다.
+ * - SIGINT 핸들러는 스택에 `<console>` 프레임이 있을 때만 `KeyboardInterrupt`를 낸다.
+ * - `runPython`(파일명 `<exec>`)에서는 취소가 버려지고 CPython이 읽기를 재시도한다.
+ * - 하니스는 각본 없는 stdin을 attach에 넘긴다.
+ * - 시험마다 `installStdin`이 계측 콜백으로 `setStdin`을 다시 건다. attach의 stdin을 덮는다.
+ */
 const { setup } = useConsoleHarness({
   // stdin 원복은 공용 해체가 한다. 프롬프트를 모은 stdout 시험의 sink만 되돌린다.
   afterEach: (pyodide) => {
@@ -61,22 +66,25 @@ const { setup } = useConsoleHarness({
   },
 });
 
-/** `wait()` 각본 한 칸: 문자열은 한 줄, `null`은 취소 표식, `Error`는 던진다. */
+/** `wait()` 각본 한 칸. 문자열은 한 줄, `null`은 취소 표식, `Error`는 던진다. */
 type Step = string | null | Error;
 
 /** 취소 변환에 쓸 버퍼와 잘못된 전송을 고르는 옵션. */
 interface StdinOptions {
-  /** 주면 취소 변환이 이 버퍼에 실제로 SIGINT를 쓴다(요청 번호 +1). 없으면 기록만 남긴다. */
+  /** 취소 변환이 SIGINT를 실제로 쓰는 버퍼(요청 번호 +1). 없으면 기록만 남긴다. */
   buffer?: Int32Array;
-  /** 요청 번호를 올리지 않는 잘못된 전송. 핸들러가 재전송으로 보고 버린다(TRP-035). */
+
+  /** 요청 번호를 올리지 않는 잘못된 전송 여부. 핸들러가 재전송으로 보고 버린다(TRAP-28). */
   signalWithoutSeq?: boolean;
-  /** 각본 칸을 돌려주기 직전에 부른다. 경합 시험이 "읽기가 열렸다"를 눌림 스레드에 알리는 데 쓴다. */
+
+  /** 각본 칸을 돌려주기 직전에 부르는 훅. 경합 시험이 "읽기가 열렸다"를 눌림 스레드에 알리는 데 쓴다. */
   onRead?: () => void;
 }
 
 /**
- * 각본대로 답하는 콜백을 `setStdin`에 건다. 반환값은 호출 기록(`"request:<cancelable>"`·`"wait"`)이다.
- * 각본이 소진된 뒤의 읽기는 던진다 — 기대보다 많이 읽는 코드가 EOF로 조용히 끝나지 않게 한다.
+ * 각본대로 답하는 콜백을 `setStdin`에 건다.
+ * - 반환값은 호출 기록이다(`"request:<cancelable>"`·`"wait"`·`"signal"`·`"check"`).
+ * - 각본이 소진된 뒤의 읽기는 던진다. 기대보다 많이 읽는 코드가 EOF로 조용히 끝나지 않게 한다.
  */
 function installStdin(script: Step[], options: StdinOptions = {}): string[] {
   const calls: string[] = [];
@@ -121,7 +129,7 @@ function runResult(code: string): unknown {
   return JSON.parse(json);
 }
 
-/** `wait` 호출 수 = pyodide가 콜백을 다시 부른 횟수. */
+/** `wait` 호출 수를 센다. pyodide가 콜백을 다시 부른 횟수와 같다. */
 function countWaits(calls: string[]): number {
   return calls.filter((call) => call === "wait").length;
 }
@@ -185,7 +193,8 @@ for line in sys.stdin:
   test("다섯 경로 모두 콜백 호출 수가 소비한 줄 수와 같다", () => {
     const calls = installStdin(["abc", "abc", "abc", "abc", "abc"]);
 
-    // `read(3)`은 줄의 `\n`을 Python 버퍼에 남기므로 마지막에 둔다(앞에 두면 남은 `\n`이 다음 경로의 첫 줄이 된다).
+    // `read(3)`은 줄의 `\n`을 Python 버퍼에 남기므로 마지막에 둔다.
+    // 앞에 두면 남은 `\n`이 다음 경로의 첫 줄이 된다(TRP-010).
     runResult(`
 input()
 sys.stdin.readline()
@@ -200,8 +209,9 @@ result = None
   });
 
   test("요청 알림이 `wait()`보다 먼저다(읽기마다)", () => {
-    // "readInput 알림 → wait()" 순서는 이 모듈이 소유한다(01-protocols.md 1.3). 뒤집으면 main이 알림을 못 받은 채
-    // worker가 정지해 교착한다. 변이 검사의 검출 시험이다.
+    // "readInput 알림 → wait()" 순서는 이 모듈이 소유한다(01-protocols.md 1.3).
+    // 뒤집으면 main이 알림을 못 받은 채 worker가 정지해 교착한다.
+    // 변이 검사의 검출 시험이다.
     const calls = installStdin(["a", "b"]);
 
     pyodide.runPython("input()\ninput()");
@@ -241,7 +251,7 @@ except BaseException as e:
   });
 });
 
-/** `screen.stderr`에 `KeyboardInterrupt`가 몇 번 나오는지. */
+/** `screen.stderr`에 `KeyboardInterrupt`가 몇 번 나오는지 센다. */
 const countInterrupts = (stderr: string) =>
   stderr.match(/KeyboardInterrupt/g)?.length ?? 0;
 
@@ -368,12 +378,12 @@ f()
     expect(screen.stderr).toMatch(/KeyboardInterrupt\n$/);
   });
 
-  test("요청 번호를 올리지 않은 전송은 핸들러가 재전송으로 보고 버려 읽기가 재시도된다(TRP-035)", async () => {
+  test("요청 번호를 올리지 않은 전송은 핸들러가 재전송으로 보고 버려 읽기가 재시도된다(TRAP-28)", async () => {
     const { run, screen, buffer } = setup();
-    // 실행 중 눌림 한 번을 처리시켜 핸들러의 `last_seq`를 0이 아닌 값으로 올린다. 핸들러는 설치 시점의 번호를
-    // `last_seq`로 잡으므로(`install`의 `last_seq = seq()`) 번호를 올리지 않은 전송은 **세션의 첫 취소부터** 이미
-    // 무시된다(브라우저 양성 대조 ②에서 실측). 이 순서는 "번호가 실제로 전진해야 처리된다"는 성질을 0 → 1 이후
-    // 구간에서도 고정하려고 둔다.
+    // 실행 중 눌림 한 번을 처리시켜 핸들러의 `last_seq`를 0이 아닌 값으로 올린다.
+    // 핸들러는 설치 시점의 번호를 `last_seq`로 잡는다(`install`의 `last_seq = seq()`).
+    // 그래서 번호를 올리지 않은 전송은 세션의 첫 취소부터 이미 무시된다(브라우저 양성 대조 ②에서 실측).
+    // 이 순서는 "번호가 실제로 전진해야 처리된다"는 성질을 0 → 1 이후 구간에서도 고정한다.
     expect(
       await run(execSource("press()\nfor _ in range(10**7): pass")),
     ).toEqual(READY);
@@ -386,7 +396,7 @@ f()
 
     expect(await run("x = input()")).toEqual(READY);
 
-    // 버려진 SIGINT라 예외가 없다: CPython이 읽기를 다시 시도해 둘째 각본 줄이 대입된다.
+    // 버려진 SIGINT라 예외가 없다. CPython이 읽기를 다시 시도해 둘째 각본 줄이 대입된다.
     expect(screen.stderr).toBe("");
     expect(countWaits(calls)).toBe(2);
     expect(pyodide.runPython("x")).toBe("abc");
@@ -397,7 +407,7 @@ f()
   test("`checkInterrupt()`가 SIGINT를 소비하지 않으면 EOF로 떨어지고 경고를 한 번 남긴다", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { run, screen, buffer } = setup();
-    // 버퍼를 떼면 `pyodide.checkInterrupt()`는 아무것도 던지지 않는다(연결 전 콜백이 불린 상황).
+    // 버퍼를 떼면 `pyodide.checkInterrupt()`는 아무것도 던지지 않는다. 연결 전 콜백이 불린 상황을 만든다.
     pyodide.setInterruptBuffer(
       undefined as unknown as Parameters<
         PyodideInterface["setInterruptBuffer"]
@@ -432,8 +442,9 @@ f()
 
 /**
  * 취소(worker 콜백이 쓰는 SIGINT)와 main 눌림(눌림 스레드가 쓰는 SIGINT)이 같은 버퍼에 동시에 쓰는 구간.
- * 방어가 여럿이라(콜백의 즉시 소비, 핸들러의 번호 확인, 루프의 `discardPendingInterrupt`) 최종 상태만 보면
- * 어느 방어가 일했는지 가려진다(TRP-013). 그래서 구간마다 따로 단언한다.
+ * - 방어가 여럿이다: 콜백의 즉시 소비, 핸들러의 번호 확인, 루프의 `discardPendingInterrupt`.
+ * - 최종 상태만 보면 어느 방어가 일했는지 가려진다(TRP-013).
+ * - 그래서 구간마다 따로 단언한다.
  */
 describe("취소와 눌림의 경합(RD-008)", () => {
   test.each([
@@ -449,7 +460,7 @@ describe("취소와 눌림의 경합(RD-008)", () => {
         await p.reset();
         screen.stdout = "";
         screen.stderr = "";
-        // 눌림 스레드는 읽기가 열린 순간(`wait()`가 취소 표식을 돌려주기 직전)을 기준으로 누른다.
+        // 눌림 스레드는 읽기가 열린 순간을 기준으로 누른다. `wait()`가 취소 표식을 돌려주기 직전이다.
         installStdin([null], {
           buffer,
           onRead: () => {
@@ -463,9 +474,9 @@ describe("취소와 눌림의 경합(RD-008)", () => {
         expect(countInterrupts(screen.stderr)).toBe(1);
         await p.done();
 
-        // 0ms 눌림은 취소와 같은 읽기 안에 떨어져 콜백의 `checkInterrupt()`가 함께 소비한다(실측 20라운드 전부 잔류
-        // 없음). 그래도 루프의 첫 방어를 그대로 거쳐 다음 제출이 깨끗한지 본다 — 잔류가 생기는 경우는 아래
-        // "트레이스백을 만드는 동안의 눌림"이 고정한다.
+        // 0ms 눌림은 취소와 같은 읽기 안에 떨어진다. 콜백의 `checkInterrupt()`가 함께 소비한다(실측 20라운드 전부 잔류 없음).
+        // 그래도 루프의 첫 방어를 그대로 거쳐 다음 제출이 깨끗한지 본다.
+        // 잔류가 생기는 경우는 아래 "취소 트레이스백을 만드는 동안의 눌림도 …" 시험이 고정한다.
         discardPendingInterrupt(buffer);
         expect(Atomics.load(buffer, SIGNAL)).toBe(0);
 
@@ -476,7 +487,7 @@ describe("취소와 눌림의 경합(RD-008)", () => {
         expect(screen.stderr).toBe("");
       }
 
-      // 요청 번호는 전송마다 오른다: 라운드마다 눌림 `presses`회 + 취소 1회.
+      // 요청 번호는 전송마다 오른다. 라운드마다 눌림 `presses`회 + 취소 1회다.
       expect(readRequestSeq(buffer)).toBe(20 * (presses + 1));
     },
     60_000,
@@ -491,7 +502,7 @@ describe("취소와 눌림의 경합(RD-008)", () => {
         markStarted();
       },
     });
-    // 읽기가 열린 뒤 5~28.75ms에 20회. 취소의 트레이스백이 만들어지는 구간을 덮는다.
+    // 읽기가 열린 뒤 5~28.75ms에 20회 누른다. 취소의 트레이스백이 만들어지는 구간을 덮는다.
     p.press({ offsets: Array.from({ length: 20 }, (_, i) => 5 + i * 1.25) });
 
     expect(await run("x = input()")).toEqual(READY);
@@ -499,12 +510,13 @@ describe("취소와 눌림의 경합(RD-008)", () => {
 
     expect(screen.stderr).toContain("Traceback (most recent call last):");
     expect(screen.stderr).toMatch(/KeyboardInterrupt\n$/);
-    // 요청 번호는 전송마다 오른다: 눌림 20 + 취소 1. ack는 폴링이 슬롯을 비우기 전에 덮어쓴 눌림이 하나로 합쳐져
-    // 전송 횟수보다 작을 수 있다(핸들러는 사용자 프레임이 없는 눌림을 버리고 ack한다).
+    // 요청 번호는 전송마다 오른다. 눌림 20 + 취소 1이다.
+    // ack는 전송 횟수보다 작을 수 있다. 폴링이 슬롯을 비우기 전에 덮어쓴 눌림이 하나로 합쳐지기 때문이다.
+    // 핸들러는 사용자 프레임이 없는 눌림을 버리고 ack한다.
     expect(readRequestSeq(buffer)).toBe(21);
     expect(Atomics.load(buffer, ACK)).toBeGreaterThanOrEqual(1);
-    // 취소가 끝난 뒤 도착한 눌림은 돌고 있는 Python이 없어 소비되지 않고 슬롯에 남는다. **루프의 첫 방어가 없으면
-    // 이 2가 다음 제출을 죽인다** — `discardPendingInterrupt`의 존재 이유다.
+    // 취소가 끝난 뒤 도착한 눌림은 돌고 있는 Python이 없어 소비되지 않고 슬롯에 남는다.
+    // 루프의 첫 방어가 없으면 이 2가 다음 제출을 죽인다. `discardPendingInterrupt`의 존재 이유다.
     expect(Atomics.load(buffer, SIGNAL)).toBe(2);
 
     discardPendingInterrupt(buffer);
@@ -514,8 +526,8 @@ describe("취소와 눌림의 경합(RD-008)", () => {
   }, 20_000);
 
   test("`except KeyboardInterrupt` 뒤 계산 중의 눌림은 그 계산을 끊는다", async () => {
-    // `input()` 취소에 main 게이트의 방어(`cancelSettling`)를 걸지 않는 근거다: 취소 뒤에도 사용자 코드가 계속 돌므로
-    // 그 구간의 Ctrl+C는 중단이어야 한다.
+    // `input()` 취소에 main 게이트의 방어(`cancel-settling` phase)를 걸지 않는 근거다.
+    // 취소 뒤에도 사용자 코드가 계속 돈다. 그 구간의 Ctrl+C는 중단이어야 한다.
     const { run, screen, buffer, presser } = setup();
     const program = [
       "try:",
@@ -527,7 +539,7 @@ describe("취소와 눌림의 경합(RD-008)", () => {
     ].join("\n");
     installStdin([null, null], { buffer });
 
-    // 대조: 눌림이 없으면 취소를 잡은 뒤 계산이 끝까지 돈다.
+    // 대조군. 눌림이 없으면 취소를 잡은 뒤 계산이 끝까지 돈다.
     const baselineAt = performance.now();
     expect(await run(execSource(program))).toEqual(READY);
     const baseline = performance.now() - baselineAt;
@@ -541,7 +553,7 @@ describe("취소와 눌림의 경합(RD-008)", () => {
     const elapsed = performance.now() - pressedAt;
     await p.done();
 
-    // 시간과 stderr 둘 다 본다(TRAP-26: 한쪽만 보면 "빨리 끝났지만 중단은 아니다"를 놓친다).
+    // 시간과 stderr 둘 다 본다. 한쪽만 보면 "빨리 끝났지만 중단은 아니다"를 놓친다(TRAP-26).
     expect(screen.stderr).toContain("KeyboardInterrupt");
     expect(elapsed).toBeLessThan(baseline * 0.8);
   }, 20_000);

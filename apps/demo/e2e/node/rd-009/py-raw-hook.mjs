@@ -5,7 +5,7 @@
  * 이 훅을 저장소의 `ts-resolve-hook.mjs`보다 **뒤에**(`--import` 두 번째) 등록해야 한다 — 나중에
  * 등록한 훅이 먼저 실행돼(node 훅 체인은 스택) `?raw` 지정자를 `ts-resolve-hook`이 `.ts`를 잘못 덧붙이기 전에
  * 가로챈다. 저장소 소스(`packages/pyodide-testkit/src/ts-resolve-hook.mjs`)는 건드리지 않는다 — 이 파일은 node 통계 전용이다.
- * 출처 RD-009, `_works/_completed/20260922-09-rd-009-idle-ctrl-c/verify/node/`에서 이관(RD-018 DELTA-04).
+ * 출처 RD-009에서 이관(RD-018).
  */
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";

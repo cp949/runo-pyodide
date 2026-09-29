@@ -1,10 +1,16 @@
 /**
- * dom-bridge worker 플러그인의 `prepare`. 브리지 준비(`bridge`)와 부트스트랩 수신 여부(`receivedBootstrap`)를 주입받아
- * coincident 없이 순서·오류 경로를 시험할 수 있다. `./worker`가 실제 coincident와 관찰기를 물려 `domBridge()`로 낸다.
+ * dom-bridge worker 플러그인의 `prepare`.
  *
- * 순서: ① 부트스트랩 미수신이면 명시 오류(`bridge()`를 부르지 않는다: 부르면 영원히 대기한다. 원인은 첫 정적 import 위반이거나 main이
- * `createBridgeMain()`의 `Worker`가 아닌 전역 `Worker`로 만든 것이다) → ② `await bridge()` →
- * ③ `native === false`면 명시 오류(동기 DOM이 오류 없이 무효가 되는 것을 막는다, TRP-065) → ④ `runo` 모듈 등록.
+ * - 브리지 준비(`bridge`)와 부트스트랩 수신 여부(`receivedBootstrap`)를 주입받는다. coincident 없이 순서·오류 경로를 시험할 수 있다.
+ * - `./worker`가 실제 coincident와 관찰기를 물려 `domBridge()`로 낸다.
+ *
+ * 순서:
+ * 1. 부트스트랩 미수신이면 명시 오류를 던진다. `bridge()`는 부르지 않는다(부르면 영원히 대기한다).
+ *    원인은 첫 정적 import 위반이거나, main이 `createBridgeMain()`의 `Worker`가 아닌 전역 `Worker`로 만든 것이다.
+ * 2. `await bridge()`.
+ * 3. `native === false`면 명시 오류를 던진다. 동기 DOM이 오류 없이 무효가 되는 것을 막는다(TRP-065).
+ * 4. `runo` 모듈을 등록한다.
+ *
  * 던진 오류는 core `bootWorker`가 `plugin "dom-bridge": ` 접두를 붙여 `loadFailed`로 알린다.
  */
 import type { WorkerPlugin } from "@cp949/runo-pyodide-core/worker";

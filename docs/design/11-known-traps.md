@@ -1,6 +1,8 @@
 # 알려진 함정 (이전 구현 35건 중 유효 33건 이관)
 
-번호 `TRAP-NN`은 이 문서 안의 식별자이고 괄호의 `TRP-0NN`은 이전 구현(`/work/cp949/pyodide-samples/docs/repl/traps/`)의 원본 번호다. 새 구현에서 새로 승격하는 함정은 `docs/agents/rubber-workflow.md`에 따라 `docs/traps/TRP-001`부터 따로 번호를 매긴다(이 문서와 번호가 겹치지 않는다).
+- `TRAP-NN`: 이 문서 안의 식별자.
+- 괄호의 `TRP-0NN`: 이전 구현(`/work/cp949/pyodide-samples/docs/repl/traps/`)의 원본 번호.
+- 새 구현에서 새로 승격하는 함정: `docs/agents/rubber-workflow.md`에 따라 `docs/traps/TRP-001`부터 따로 번호를 매긴다. 이 문서와 번호가 겹치지 않는다.
 
 ## 목록
 
@@ -66,49 +68,63 @@
 ### TRAP-04 (TRP-009) 실행 구간 밖에서 쓴 SIGINT가 남아 다음 문장에서 worker를 죽임
 
 - 증상: 화면에는 `^CKeyboardInterrupt` 한 줄만 어색하게 찍히고 오류가 없다. worker는 다음 문장을 실행할 때 죽어 원인과 증상이 떨어져 보인다.
-- 원인: SIGINT는 소비되기 전까지 버퍼에 남는다. 다음 `pyconsole.push`가 컴파일(`tokenize`) 중 신호를 폴링해 `KeyboardInterrupt`를 던지는데, 그 호출이 `try` 밖이면 worker 스크립트가 종료된다.
+- 원인: SIGINT는 소비되기 전까지 버퍼에 남는다. 다음 `pyconsole.push`가 컴파일(`tokenize`) 중 신호를 폴링해 `KeyboardInterrupt`를 던진다. 그 호출이 `try` 밖이면 worker 스크립트가 종료된다.
 - 새 구현이 지킬 규칙: `push`/`runsource` 호출 전체를 `try`로 감싼다. 매 실행 직전 interrupt buffer 슬롯 0을 비운다(비울 때 ack 규칙은 TRAP-31). worker SIGINT 핸들러는 스택에 `<console>` 프레임이 없는 SIGINT를 버린다. 실행할 코드가 없는 구간(취소 직후 ~ 다음 읽기 활성화 전)의 Ctrl+C는 SIGINT를 쓰지 않는다.
 - 검증 방법: 브라우저에서 Ctrl+C를 0ms 간격으로 2회 이상 누른 뒤 `print(1)`과 짧은 `for` 루프가 죽지 않는지 확인한다(화면과 단위 시험만으로는 안 드러난다).
 
 ### TRAP-05 (TRP-014) stdin 콜백에서 취소를 알리는 방법 대부분이 오류 없이 엉뚱하게 동작함
 
-- 증상: 취소 신호 방식마다 다르게 실패한다. `buf[0]=2` 후 정상 반환은 HANG·엉뚱한 프레임이 섞여 실행마다 결과가 다르고, `throw new Error(...)`는 `OSError: [Errno 29]`, `null`/`undefined` 반환은 `EOFError`, `errno`만 가진 `Error`는 `Pyodide already fatally failed`, `FS.ErrnoError(EINTR)`만 던지면 CPython이 무한 재시도한다.
-- 원인: pyodide `readWriteHelper`가 콜백 예외를 매핑한다(`err.code`가 `ERRNO_CODES`면 `ErrnoError`, `errno` 속성만 있으면 그대로 다시 던져 fatal, 나머지는 EIO(29), `EAGAIN`은 100ms 뒤 재시도). 올바른 경로는 `pyodide.checkInterrupt()`가 던지는 `ErrnoError(EINTR)`를 CPython `_Py_read`(PEP 475)가 받아 `PyErr_CheckSignals()`로 소비하는 것이다.
+- 증상: 취소 신호 방식마다 다르게 실패한다.
+  - `buf[0]=2` 후 정상 반환: HANG·엉뚱한 프레임이 섞여 실행마다 결과가 다르다.
+  - `throw new Error(...)`: `OSError: [Errno 29]`.
+  - `null`/`undefined` 반환: `EOFError`.
+  - `errno`만 가진 `Error`: `Pyodide already fatally failed`.
+  - `FS.ErrnoError(EINTR)`만 던짐: CPython이 무한 재시도한다.
+- 원인: pyodide `readWriteHelper`가 콜백 예외를 매핑한다. `err.code`가 `ERRNO_CODES`면 `ErrnoError`다. `errno` 속성만 있으면 그대로 다시 던져 fatal이다. 나머지는 EIO(29)다. `EAGAIN`은 100ms 뒤 재시도한다. 올바른 경로는 `pyodide.checkInterrupt()`가 던지는 `ErrnoError(EINTR)`를 CPython `_Py_read`(PEP 475)가 받아 `PyErr_CheckSignals()`로 소비하는 것이다.
 - 새 구현이 지킬 규칙: 취소는 `interruptBuffer[0] = 2` 뒤 `pyodide.checkInterrupt()` 하나만 쓴다. 버퍼는 main이 아니라 stdin 콜백(worker)이 쓴다. 메일박스가 돌려준 취소 표식을 `null`/예외로 바꿔 pyodide에 넘기지 않는다.
 - 검증 방법: 실제 pyodide 시험으로 취소 뒤 `interruptBuffer[0] === 0`, `input()`과 `sys.stdin.readline()`이 호출 지점에서 `KeyboardInterrupt`를 내며, `except Exception`이 삼키지 않고 20회 반복에도 멈추지 않는지 확인한다.
 
 ### TRAP-06 (TRP-019) 신호 폴링이 읽기와 비우기를 나눠 해서 그 사이에 쓴 Ctrl+C가 사라짐
 
 - 증상: `^C`는 찍히고 `interruptBuffer[0]`도 0으로 돌아왔는데 루프가 계속 돈다. 트레이스백도 오류도 없고 다시 누르면 멈춰서 "일시 지연"으로 읽힌다.
-- 원인: `pyodide.asm.mjs`의 `_Py_CheckEmscriptenSignals_Helper`가 `r = buf[0]; buf[0] = 0; return r`로 읽기와 비우기를 나눠 하며 원자적이지 않다. 업스트림 python/cpython#157548(열림, 영향 버전 main·3.15·3.14·3.13), 수정 PR python/cpython#157553(읽기·비우기를 `Atomics.exchange()` 한 번으로, main 대상, 3.14·3.13 백포트 표지 없음). 실측 소실률은 `while True: pass` 단일 눌림 3.3~4.7%.
-- 새 구현이 지킬 규칙: interrupt buffer를 3슬롯(`[signal, ack, seq]`)으로 두고, main이 `Atomics.add(buffer, 2, 1)` → `Atomics.store(buffer, 0, 2)` 순서로 쓴 뒤 5ms마다 ack를 점검해 같은 요청 번호로 재전송한다(상한 10회). worker 핸들러는 이미 처리한 요청 번호의 재도착을 무시한다. 첫 눌림 뒤 이후 눌림을 버리는 게이트는 두지 않는다(소실된 눌림이 영구 HANG이 된다).
+- 원인: `pyodide.asm.mjs`의 `_Py_CheckEmscriptenSignals_Helper`가 `r = buf[0]; buf[0] = 0; return r`로 읽기와 비우기를 나눠 한다. 원자적이지 않다.
+  - 업스트림: python/cpython#157548(열림, 영향 버전 main·3.15·3.14·3.13).
+  - 수정 PR: python/cpython#157553(읽기·비우기를 `Atomics.exchange()` 한 번으로, main 대상, 3.14·3.13 백포트 표지 없음).
+  - 실측 소실률: `while True: pass` 단일 눌림 3.3~4.7%.
+- 새 구현이 지킬 규칙: interrupt buffer를 3슬롯(`[signal, ack, seq]`)으로 둔다.
+  - main은 `Atomics.add(buffer, 2, 1)` → `Atomics.store(buffer, 0, 2)` 순서로 쓴다.
+  - 그 뒤 5ms마다 ack를 점검해 같은 요청 번호로 재전송한다(상한 10회).
+  - worker 핸들러는 이미 처리한 요청 번호의 재도착을 무시한다.
+  - 첫 눌림 뒤 이후 눌림을 버리는 게이트는 두지 않는다(소실된 눌림이 영구 HANG이 된다).
 - 검증 방법: 재전송을 끈 채 Node `while True: pass` 단일 눌림 N=3000에서 소실 0이면 업스트림 수정이 들어온 것이고, 그때 재전송 송신기·ack·요청 번호 슬롯을 함께 제거한다.
 
 ### TRAP-07 (TRP-020) `time.sleep`이 `run_sync`로 바뀌어 SIGINT가 사용자 프레임 없는 콜백에서 소비됨
 
 - 증상: `^C`가 찍히고 오류도 없다. `await asyncio.sleep(5); print('done')`은 `^Cdone`이 찍혀 Ctrl+C가 통째로 무시된 것이 드러나고, `while True: time.sleep(0.1)`은 프롬프트가 안 돌아오며 두 번째 Ctrl+C도 먹지 않는다. `while True: pass`만 검증하면 못 본다.
-- 원인: JSPI가 가능하면 pyodide가 `time.sleep`을 `run_sync(asyncio.sleep(t))`로 교체하고(`webloop.py` `_sleep`), `asyncio.run`도 `WebLoop.run_until_complete` → `run_sync`로 간다. 대기 중 사용자 `<console>` 스택은 JSPI로 정지하고 폴링은 다른 콜백(`run_handle`)에서 일어나므로 "스택에 `<console>` 프레임이 있을 때만"인 핸들러가 그 SIGINT를 버린다.
+- 원인: JSPI가 가능하면 pyodide가 `time.sleep`을 `run_sync(asyncio.sleep(t))`로 교체한다(`webloop.py` `_sleep`). `asyncio.run`도 `WebLoop.run_until_complete` → `run_sync`로 간다. 대기 중 사용자 `<console>` 스택은 JSPI로 정지한다. 폴링은 다른 콜백(`run_handle`)에서 일어난다. "스택에 `<console>` 프레임이 있을 때만"인 핸들러가 그 SIGINT를 버린다.
 - 새 구현이 지킬 규칙: `time.sleep`을 20ms 블로킹 조각 래퍼로 감싸고 조각마다 `pyodide_js.checkInterrupt()`를 부른다. 핸들러 규칙에 "사용자 실행 중(`runcode` 안)이면 사용자 스택이 없어도 정지한 실행을 깨운다"를 더한다. 이벤트 루프가 비는 구간은 worker JS 감시 타이머(20ms)가 맡는다.
 - 검증 방법: 시나리오에 `time.sleep` 루프·단발, `asyncio.run`, top-level await `await`를 모두 넣는다.
 
 ### TRAP-08 (TRP-021) 핸들러가 소비한 SIGINT는 되돌릴 수 없음
 
 - 증상: 대부분의 시행이 통과하고(프로토타입 60/60) 드물게 두 모양으로 실패한다 — 눌림이 조용히 사라지거나(화면에 `^C`만) 시험이 시간 초과로 멈춘다.
-- 원인: 폴링이 이미 버퍼를 비운 뒤 Python 핸들러가 돈다. 깨울 Task의 코루틴이 `CORO_RUNNING`이면 `task.cancel()`이 `_must_cancel`만 세워 `pyodide.console`의 `done_cb`가 `CancelledError`를 만나 `ConsoleFuture`가 영영 끝나지 않는다. 대기 Task가 막 `fut.done()`이면 깨울 대상이 없고 SIGINT를 되돌릴 수 없다.
+- 원인: 폴링이 이미 버퍼를 비운 뒤 Python 핸들러가 돈다.
+  - 깨울 Task의 코루틴이 `CORO_RUNNING`이면 `task.cancel()`이 `_must_cancel`만 세운다. `pyodide.console`의 `done_cb`가 `CancelledError`를 만나 `ConsoleFuture`가 영영 끝나지 않는다.
+  - 대기 Task가 막 `fut.done()`이면 깨울 대상이 없다. SIGINT를 되돌릴 수 없다.
 - 새 구현이 지킬 규칙: 취소는 `inspect.getcoroutinestate(task.get_coro()) == inspect.CORO_SUSPENDED`인 Task에만 한다. 깨울 수 없는 순간에 소비한 SIGINT는 `pending`으로 표시하고 재개하는 `run_sync` 래퍼가 `KeyboardInterrupt`로 올린다. 표시는 `runcode` 진입·종료에서 지운다.
 - 검증 방법: `signal.raise_signal(signal.SIGINT)`로 두 순간을 결정적으로 고정한 시험을 둔다(코루틴은 `<console>`이 아닌 파일명으로 정의). 무작위 N=60 반복으로는 이 경합을 못 잡는다.
 
 ### TRAP-09 (TRP-022) pyodide가 예외를 JS로 변환할 때 트레이스백을 stderr에 찍음
 
 - 증상: 기대한 `KeyboardInterrupt` 트레이스백 앞에 `Traceback…` + `File ".../asyncio/tasks.py", line 702, in sleep` + `asyncio.exceptions.CancelledError`가 한 번 더 붉게 나온다. 하니스가 stderr를 버리면 안 보인다.
-- 원인: `_pyodide/__init__.py`가 `sys.excepthook = traceback.print_exception`으로 두고 C의 `wrap_exception()`이 `PyErr_Print()`으로 그 훅을 부른다. `runcode` 중에는 `sys.stderr`가 `stderr_callback`으로 리다이렉트돼 있어 화면으로 샌다(`runcode` 밖에서는 안 나온다).
+- 원인: `_pyodide/__init__.py`가 `sys.excepthook = traceback.print_exception`으로 둔다. C의 `wrap_exception()`이 `PyErr_Print()`으로 그 훅을 부른다. `runcode` 중에는 `sys.stderr`가 `stderr_callback`으로 리다이렉트돼 있어 화면으로 샌다. `runcode` 밖에서는 안 나온다.
 - 새 구현이 지킬 규칙: 정지한 대기를 깨울 때 그 Task를 취소·예외로 끝내지 않고 센티널 정상 값으로 끝낸 뒤 사용자 스택에서 `KeyboardInterrupt`를 올린다. `checkInterrupt()` 호출 동안만 `sys.excepthook`을 no-op으로 바꿨다가 되돌린다(`run_sync` 대기 전체를 덮으면 그 창에서 도는 사용자 콜백이 바뀐 훅을 쓴다).
 - 검증 방법: 시험·측정 하니스의 화면 단언에 `writeError`와 `stderr_callback` 출력을 함께 모은다.
 
 ### TRAP-10 (TRP-032) zip stdlib에서 ModuleCompleter가 HARDCODED_SUBMODULES를 잃음
 
 - 증상: `import collections.a`가 예외 없이 `[]`를 돌려준다(네이티브 3.14는 `collections.abc`). `[]`는 "후보 없음"과 같은 모양이라 오류로 안 보이고, `import os.p` 같은 흔한 스모크는 통과한다.
-- 원인: `_pyrepl._module_completer.ModuleCompleter`의 `_is_stdlib_module`이 `module_info.module_finder`가 `FileFinder`이고 `path == _stdlib_path`일 때만 stdlib로 본다. pyodide stdlib는 zipimporter라 False가 되어 `HARDCODED_SUBMODULES` 확장이 적용되지 않는다.
+- 원인: `_pyrepl._module_completer.ModuleCompleter`의 `_is_stdlib_module`은 `module_info.module_finder`가 `FileFinder`이고 `path == _stdlib_path`일 때만 stdlib로 본다. pyodide stdlib는 zipimporter다. 판정이 False가 되어 `HARDCODED_SUBMODULES` 확장이 적용되지 않는다.
 - 새 구현이 지킬 규칙: 서브클래스에서 `_is_stdlib_module`만 오버라이드해 zipimporter의 `archive == _stdlib_path`도 stdlib로 더한다(vendoring·원본 수정·`importlib` 패치는 하지 않는다). `_pyrepl` import 실패는 try/except로 삼키지 않고 worker 시작을 실패시킨다(조용한 기능 상실보다 낫다).
 - 검증 방법: 오버라이드 없는 원본이 해당 4줄에서 `[]`라는 사전 조건과, 의존하는 비공개 이름(`_stdlib_path`가 `str`, `_is_stdlib_module` 존재)을 각각 따로 단정한다(`get_completions`가 `AttributeError`를 삼켜 런타임에서는 조용히 실패한다).
 
@@ -117,10 +133,20 @@
 ## readline — xterm-readline 함정 7건과 이전 우회 방식
 
 벤더링 결정 근거: 아래 7건 중 4건(TRAP-13·14·15·17)의 우회가 라이브러리 비공개 내부에 의존한다.
-TRAP-13은 `readPaste` 런타임 패치와 `InputType` enum 값, TRAP-14는 `read()`의 write 콜백 타이밍과 `activeRead`/`State` 생성 순서,
-TRAP-15는 `Tty`가 export되지 않아 레이아웃 계산을 자체 재구현, TRAP-17은 `readline.state`(`moveCursorBack`, `editing`)와 `line.pos`의 단위에 의존한다.
-TRAP-12는 공개 `read(prompt)`만 쓰지만 `refreshLineInner`의 재그리기 전제에 기댄다. TRAP-11은 `dispose()`의 미완 정리, TRAP-16은 수정 없이 한계로 기록했다.
-벤더링하면 TRAP-13·15·17은 소스 직접 수정으로 단순해지고 TRAP-14는 타이밍 계약을 명시할 수 있다. 벤더링하지 않으면 이 4건은 라이브러리 업그레이드마다 재검증 대상이다.
+
+- TRAP-13: `readPaste` 런타임 패치와 `InputType` enum 값에 의존한다.
+- TRAP-14: `read()`의 write 콜백 타이밍과 `activeRead`/`State` 생성 순서에 의존한다.
+- TRAP-15: `Tty`가 export되지 않아 레이아웃 계산을 자체 재구현했다.
+- TRAP-17: `readline.state`(`moveCursorBack`, `editing`)와 `line.pos`의 단위에 의존한다.
+- TRAP-12: 공개 `read(prompt)`만 쓰지만 `refreshLineInner`의 재그리기 전제에 기댄다.
+- TRAP-11: `dispose()`의 미완 정리 문제다.
+- TRAP-16: 수정 없이 한계로 기록했다.
+
+벤더링 효과:
+
+- TRAP-13·15·17: 소스 직접 수정으로 단순해진다.
+- TRAP-14: 타이밍 계약을 명시할 수 있다.
+- 벤더링하지 않으면 이 4건은 라이브러리 업그레이드마다 재검증 대상이다.
 
 ### TRAP-11 (TRP-001) StrictMode 이중 마운트 + `read()` 재귀 루프 경합
 
@@ -187,15 +213,15 @@ TRAP-12는 공개 `read(prompt)`만 쓰지만 `refreshLineInner`의 재그리기
 
 측정·테스트 방법론 함정은 전부 "측정이 통과했는데 사실이 아니다"라는 같은 모양이다. 규칙으로 압축한다.
 
-1. **TRAP-18 (TRP-011) pty `_pyrepl` 화살표는 `TERM`에 맞춰 보낸다.** `TERM=xterm`이면 ↑ `\x1bOA`·↓ `\x1bOB`, `TERM=linux`면 `\x1b[A`·`\x1b[B`. 다른 쪽은 오류 없이 버려져 "↑ 무동작"으로 오인된다. 인식 여부는 "직전 입력이 다시 그려지는지"로 판정하고 `PYTHON_COLORS=0`·`NO_COLOR=1`로 색을 끈다(색 이스케이프가 `print(12345)` 부분 문자열 검사를 오탐으로 만든다). 홈 오염 방지로 `PYTHON_HISTORY`는 임시 파일로 고정한다. 시퀀스를 바꿔 한 번 확인하기 전에는 실측 결론을 쓰지 않는다.
-2. **TRAP-19 (TRP-013) pty CPython의 무개행 stderr·stdin 중 stdout은 명시 flush로 잰다.** `sys.stderr.line_buffering=True`, `write_through=False`라 `\n`·`\r` 없는 조각은 다음 flush까지 안 나오고, 그 텍스트가 다음 케이스 바이트에 섞여 나온다. 실측 문장에 `sys.stderr.flush()`(또는 `flush=True`)를 명시하고, 바이트가 섞여 보이면 이전 케이스의 잔류부터 의심한다. 웹 REPL은 stderr 버퍼가 없어 무개행 조각을 즉시 표시하는 의도된 편차다.
-3. **TRAP-20 (TRP-015) 배경 실행 pty 자식은 SIGINT 처분을 먼저 확인한다.** 비대화형 셸이 `&` 비동기 명령의 SIGINT를 SIG_IGN으로 두고 exec 뒤에도 유지된다. `pty.fork()` 자식에서 exec 전에 `signal.signal(signal.SIGINT, signal.SIG_DFL)`를 부르고, 스크립트 시작 시 자식의 `signal.getsignal(signal.SIGINT)`가 SIG_DFL인지 단언한다.
-4. **TRAP-21 (TRP-018) Ctrl+C 연타는 간격을 스윕하고 눌림이 아니라 `KeyboardInterrupt` 수로 센다.** 간격 0(실제 약 1µs)은 쓰기가 합쳐져 눌림 한 번과 같아지고, pty의 0ms 송신은 커널이 `^C` 에코를 합친다. 간격 0·0.2·0.5·1·2·5·20·50ms를 스윕하되 0은 "합쳐짐" 셀로 따로 읽고, 실제 대상의 이벤트 타임스탬프로 간격 분포를 먼저 잰다. 결과를 종류별로 집계하고 종류가 모두 드러날 때까지 표본을 늘린다(3.14 pty는 50회에서 세 종류, 확률 3% 셀은 20회로는 안 보인다). 콜드(세션 첫 트레이스백)와 웜을 구분한다.
+1. **TRAP-18 (TRP-011) pty `_pyrepl` 화살표는 `TERM`에 맞춰 보낸다.** `TERM=xterm`이면 ↑ `\x1bOA`·↓ `\x1bOB`, `TERM=linux`면 `\x1b[A`·`\x1b[B`. 다른 쪽은 오류 없이 버려져 "↑ 무동작"으로 오인된다. 인식 여부는 "직전 입력이 다시 그려지는지"로 판정한다. `PYTHON_COLORS=0`·`NO_COLOR=1`로 색을 끈다(색 이스케이프가 `print(12345)` 부분 문자열 검사를 오탐으로 만든다). 홈 오염 방지로 `PYTHON_HISTORY`는 임시 파일로 고정한다. 시퀀스를 바꿔 한 번 확인하기 전에는 실측 결론을 쓰지 않는다.
+2. **TRAP-19 (TRP-013) pty CPython의 무개행 stderr·stdin 중 stdout은 명시 flush로 잰다.** `sys.stderr.line_buffering=True`, `write_through=False`다. `\n`·`\r` 없는 조각은 다음 flush까지 안 나온다. 그 텍스트가 다음 케이스 바이트에 섞여 나온다. 실측 문장에 `sys.stderr.flush()`(또는 `flush=True`)를 명시하고, 바이트가 섞여 보이면 이전 케이스의 잔류부터 의심한다. 웹 REPL은 stderr 버퍼가 없어 무개행 조각을 즉시 표시하는 의도된 편차다.
+3. **TRAP-20 (TRP-015) 배경 실행 pty 자식은 SIGINT 처분을 먼저 확인한다.** 비대화형 셸이 `&` 비동기 명령의 SIGINT를 SIG_IGN으로 둔다. 이 처분은 exec 뒤에도 유지된다. `pty.fork()` 자식에서 exec 전에 `signal.signal(signal.SIGINT, signal.SIG_DFL)`를 부르고, 스크립트 시작 시 자식의 `signal.getsignal(signal.SIGINT)`가 SIG_DFL인지 단언한다.
+4. **TRAP-21 (TRP-018) Ctrl+C 연타는 간격을 스윕하고 눌림이 아니라 `KeyboardInterrupt` 수로 센다.** 간격 0(실제 약 1µs)은 쓰기가 합쳐져 눌림 한 번과 같아진다. pty의 0ms 송신은 커널이 `^C` 에코를 합친다. 간격 0·0.2·0.5·1·2·5·20·50ms를 스윕한다. 0은 "합쳐짐" 셀로 따로 읽는다. 실제 대상의 이벤트 타임스탬프로 간격 분포를 먼저 잰다. 결과를 종류별로 집계하고 종류가 모두 드러날 때까지 표본을 늘린다(3.14 pty는 50회에서 세 종류, 확률 3% 셀은 20회로는 안 보인다). 콜드(세션 첫 트레이스백)와 웜을 구분한다.
 5. **TRAP-22 (TRP-023) `unhandledRejection` 리스너를 붙인 시험은 집계에 기대지 않는다.** vitest의 `catchError`가 해당 이벤트 프로세스 리스너 수가 1을 넘으면 집계하지 않는다(vitest 5.0.1). 리스너로 모은 목록의 단언(`expect(rejections).toEqual([])`)이 유일한 신호다. 리스너는 `onTestFinished`로 반드시 뗀다. vitest를 올릴 때 이 판정이 바뀌었는지 확인한다.
 6. **TRAP-23 (TRP-024) 폴링 경로에는 JS 코드를 더하지 않는다.** 접근자·Proxy 비용은 폴링 횟수에 비례하고 폴링 밀도가 작업량마다 약 100배 다르다(맨몸 `while` 반복당 0.02~0.04회 대 `str(i)` 반복당 약 2.04회). 3M회 맨몸 루프 +10%만 보면 통과처럼 보이지만 `''.join(str(i) …)`는 2.93배다. 소실은 폴링 쪽이 아니라 눌림 쪽(ack + 재전송)에서 푼다. 폴링 경로를 건드리는 변경은 `str(i)` 루프로도 재고(plain 대비 1.03 이내, 10회 교차), 폴링 횟수는 카운터 래퍼로 센다.
 7. **TRAP-24 (TRP-025) 재전송 횟수를 소실로 세지 않는다.** 폴링이 슬롯을 비운 뒤 핸들러가 ack를 올리기 전 약 40µs 창에 점검이 걸리면 가짜 재전송이 생긴다(5ms 점검에서 발생률 0.8%, 추적 11/11이 이 창). 소실은 `KeyboardInterrupt`가 0인 눌림이나 감시견이 살려야 했던 라운드로 센다. 통과선을 "재전송 0"이 아니라 "미소비 구간(슬롯이 2인 동안)의 재전송 0 + 중단 정확히 1회"로 나눠 잰다.
-8. **TRAP-25 (TRP-028) 지연 측정은 눌림 시각을 무작위로 두고 N≥30의 최대값으로 판정한다.** 폴링을 pyodide 틱 클럭에 맡긴 대기는 최대 지연이 (반복 1회 시간)×12.5~13.1까지 늘어나는데, 눌림 시각 고정 하니스(브라우저 `sleep-0.01` 166ms)와 판정선 1초 단위 시험은 통과한다. 눌림 시각이 고정인 결과는 "위상 하나"임을 적고, 대기 시간 조합을 20ms 경계 근처까지 넓힌다. 시험은 지연 시간이 아니라 폴링 호출 횟수로 가른다.
-9. **TRAP-26 (TRP-029) 블로킹 대기의 눌림은 별도 스레드로 넣는다.** 블로킹 대기 동안 Node 이벤트 루프가 멈춰 `setTimeout` 눌림이 대기가 끝난 뒤 도착하므로 `pressed > 0` 그리고 `sincePress < 1s`가 끊기지 않았는데도 만족된다(`time.sleep(3)`이 3006ms 걸렸는데 통과). `worker_threads` 눌림 스레드와 `process.hrtime.bigint()` 공유 시계를 쓰고, 눌림 뒤 지연뿐 아니라 실행 전체 시간과 `screen.stderr`(트레이스백)도 단언한다. 새 시험은 기준선 코드에서 RED인지 확인한다.
+8. **TRAP-25 (TRP-028) 지연 측정은 눌림 시각을 무작위로 두고 N≥30의 최대값으로 판정한다.** 폴링을 pyodide 틱 클럭에 맡긴 대기는 최대 지연이 (반복 1회 시간)×12.5~13.1까지 늘어난다. 눌림 시각 고정 하니스(브라우저 `sleep-0.01` 166ms)와 판정선 1초 단위 시험은 이를 놓치고 통과한다. 눌림 시각이 고정인 결과는 "위상 하나"임을 적고, 대기 시간 조합을 20ms 경계 근처까지 넓힌다. 시험은 지연 시간이 아니라 폴링 호출 횟수로 가른다.
+9. **TRAP-26 (TRP-029) 블로킹 대기의 눌림은 별도 스레드로 넣는다.** 블로킹 대기 동안 Node 이벤트 루프가 멈춘다. `setTimeout` 눌림이 대기가 끝난 뒤 도착한다. 그래서 `pressed > 0` 그리고 `sincePress < 1s`가 끊기지 않았는데도 만족된다(`time.sleep(3)`이 3006ms 걸렸는데 통과). `worker_threads` 눌림 스레드와 `process.hrtime.bigint()` 공유 시계를 쓰고, 눌림 뒤 지연뿐 아니라 실행 전체 시간과 `screen.stderr`(트레이스백)도 단언한다. 새 시험은 기준선 코드에서 RED인지 확인한다.
 10. **TRAP-27 (TRP-034) 모듈 완성 후보는 개수·전체 목록을 단정하지 않는다.** `sys.path[0] == ''`라 cwd의 `.py` 파일이 후보가 되고 환경 모듈 집합도 다르다(3.14.4 네이티브 192개, pyodide 178개, 하니스 폴더 pty 196개). 시험·문서는 접두사·포함 여부·삽입 결과·구조(열 우선 배치, 200개 상한)를 단정하고, 후보 리터럴은 네이티브와 pyodide가 같은 케이스에만 쓴다. 문서에 개수를 적을 때는 측정 환경(빈 임시 cwd, 번들 버전)을 함께 적고, pty 측정 하니스는 자식 REPL의 cwd를 빈 임시 폴더로 고정한다.
 11. **TRAP-28 (TRP-035) SIGINT를 심는 프로브는 실제 경로와 같은 순서로 쓰고 ack로 판정한다.** 핸들러가 요청 번호(슬롯 2)가 그대로면 재전송으로 보고 무시하므로, 슬롯 0에만 쓴 프로브는 "영향 없음"으로 오판된다. 프로브도 `Atomics.add(buffer, 2, 1)` 뒤 `Atomics.store(buffer, 0, 2)` 순서로 쓰고, 소비 여부는 슬롯 0이 아니라 ack(슬롯 1) 증가로 본다. "영향 없음" 결론 전에 같은 대상이 실제 Ctrl+C 경로에서는 끊기는지 양성 대조를 둔다.
 
@@ -206,21 +232,21 @@ TRAP-12는 공개 `read(prompt)`만 쓰지만 `refreshLineInner`의 재그리기
 ### TRAP-29 (TRP-012) sink가 개행을 붙이는데 호출부도 끝 개행을 붙임
 
 - 증상: 단위 시험이 통과하고 화면에는 값·트레이스백·배너 뒤에 빈 줄이 하나 더 생긴다. 오류도 경고도 없다. 테스트 fake가 받은 텍스트를 그대로 누적하면 기대값과 맞아떨어지고, 빈 줄 허용 정규식을 쓴 브라우저 검증도 통과한다.
-- 원인: `readline.println(text)`는 `write(text + "\r\n")`이고 `write()`가 `\n`을 `\r\n`으로 정규화한다. 호출부가 `text`에 `\n`을 붙이면 개행이 두 번 나간다. pyodide의 `formatted_error`에는 끝 개행이 이미 붙어 온다.
+- 원인: `readline.println(text)`는 `write(text + "\r\n")`이다. `write()`가 `\n`을 `\r\n`으로 정규화한다. 호출부가 `text`에 `\n`을 붙이면 개행이 두 번 나간다. pyodide의 `formatted_error`에는 끝 개행이 이미 붙어 온다.
 - 새 구현이 지킬 규칙: 줄 단위 출력(`writeOutput`/`writeError`)에는 끝 개행 없는 텍스트를 넘기고, 오류 문자열은 끝 개행 1개만 떼어 넘긴다. 조각 단위로 오는 출력(`stdout_callback`, `stderr_callback`)은 줄 단위 경로가 아니라 raw 경로로 보낸다. 개행 계약을 DESIGN의 표로 고정한다.
 - 검증 방법: 테스트 fake가 `text + '\n'`을 누적해 sink를 모사하고, 새 출력 경로는 끝 개행까지 `toBe`로 단언한다. sink 시험은 fake가 아니라 실제 sink + 실제 `Readline`(가짜 터미널)의 터미널 바이트로 단언한다.
 
 ### TRAP-30 (TRP-026) 읽기 진입에서 취소한 인터럽트 송신기가 readline 활성화 전 눌림으로 되살아남
 
 - 증상: 프롬프트가 뜬 뒤에도 5ms 점검 타이머가 남아 "취소 배선 결함"으로 읽힌다. 배선은 맞고 취소 뒤에 새 `send()`가 걸린 것이다. 가짜 타이머 단위 시험은 "진입이 `cancel()`을 부른다"만 확인하므로 통과한다.
-- 원인: `read()`가 `activeRead`를 `term.write("", cb)` 콜백 안에서 세운다(TRAP-14와 같은 뿌리). 진입의 `cancel()`과 `activeRead` 설정 사이 간격(실측 17.0ms·32.7ms) 동안 들어온 Ctrl+C가 `activeRead === undefined` 분기를 타 송신기를 다시 건다.
+- 원인: `read()`가 `activeRead`를 `term.write("", cb)` 콜백 안에서 세운다(TRAP-14와 같은 뿌리). 진입의 `cancel()`과 `activeRead` 설정 사이에 간격이 있다(실측 17.0ms·32.7ms). 그동안 들어온 Ctrl+C가 `activeRead === undefined` 분기를 타 송신기를 다시 건다.
 - 새 구현이 지킬 규칙: 읽기 진입에서 "Python 정지" 플래그를 세우고 그 읽기가 끝날 때 내린다. 플래그가 선 동안 Ctrl+C 핸들러는 `^C` 에코만 하고 `send()`하지 않는다. 이 플래그는 REPL 프롬프트 읽기에만 걸고 `input()` 대기에는 걸지 않는다(그 구간은 사용자 프로그램이 실행 중이라 SIGINT가 전달돼야 한다). 같은 플래그로 부팅 중·`exit()` 뒤 잔류도 막는다.
 - 검증 방법: 브라우저 측정에서 프롬프트 파싱 뒤 남은 점검 타이머 수(`leak>0`)를 센다. 5.5ms 간격 눌림 시나리오를 60시행 돌린다.
 
 ### TRAP-31 (TRP-027) SIGINT 슬롯을 ack 없이 지우면 송신기가 되살려 부팅 중 Ctrl+C가 worker를 죽임
 
 - 증상: 시험 전체·타입체크·lint·브라우저 매트릭스가 모두 통과한 채 남는다(그 측정들은 전부 프롬프트가 뜬 뒤에 누른다). 부팅 크래시 트레이스백이 시작 코드(`eval_code`, `signal.signal`) 안의 `KeyboardInterrupt`라 "pyodide 시작이 불안정하다"로 읽힌다. 실측 수정 전 30/30 크래시.
-- 원인: 부팅 중 눌림이 SIGINT를 쓴 뒤 worker가 슬롯을 ack 없이 지우면, 다음 점검이 `signal === 0`·`ack === snapshot`을 소실로 읽고 같은 번호로 다시 쓴다. 그 2가 핸들러 설치 전 pyodide 기본 폴링에 걸린다(요청 번호 규칙은 핸들러 안에 있어 설치 전에는 못 막는다).
+- 원인: 부팅 중 눌림이 SIGINT를 쓴다. worker가 슬롯을 ack 없이 지우면 다음 점검이 `signal === 0`·`ack === snapshot`을 소실로 읽는다. 송신기가 같은 번호로 다시 쓴다. 그 2가 핸들러 설치 전 pyodide 기본 폴링에 걸린다. 요청 번호 규칙은 핸들러 안에 있어 설치 전에는 못 막는다.
 - 새 구현이 지킬 규칙: 슬롯을 지우는 모든 곳은 지운 값이 2일 때 ack를 올린다(지울 눌림이 없으면 ack하지 않는다 — 과잉 ack는 살아 있는 송신기가 미전달을 전달로 읽게 한다). 송신기가 살아 있을 수 있는 상태에서 슬롯을 비우거나 worker를 바꾸는 코드는 `cancel()`이나 ack 중 하나를 반드시 동반한다. 핸들러를 interrupt buffer 연결보다 먼저 설치한다.
 - 검증 방법: 첫 프롬프트 _전에_ 누르는 브라우저 시나리오를 둔다(`page.goto`는 `waitUntil: 'commit'`, `waitForSelector`는 `state: 'attached'` — `domcontentloaded`는 늦고 xterm 헬퍼 textarea는 크기 0이라 기본 `visible`이 프롬프트까지 기다린다). 새 정리 지점을 더하면 "그 지점 전에 누른 눌림"을 시험한다.
 
@@ -234,7 +260,7 @@ TRAP-12는 공개 `read(prompt)`만 쓰지만 `refreshLineInner`의 재그리기
 ### TRAP-33 (TRP-033) 단어 경계 정규식은 tokenize 기반 판정의 사전 게이트로 건전하지 않음
 
 - 증상: `/\b(import|from)\b/` 게이트가 일반 코드에서 옳아 보인다(게이트 거짓 30줄 중 25줄에서 파서도 `None`). 어긋나는 5줄은 전부 문법 오류 입력이라 손으로 고른 시험 입력에는 안 나온다.
-- 원인: Python `tokenize`는 숫자 리터럴 바로 뒤 키워드를 `NUMBER` + `NAME('import')`로 나눈다. `1import os`, `1.5from os`, `0x1fimport os`는 숫자와 글자가 모두 `\w`라 `\b`가 경계로 안 보는데 파서는 후보를 낸다. 게이트가 거짓이면 파서를 건너뛰고 대체 동작을 해 오류 없이 3.14와 다른 결과가 나온다.
+- 원인: Python `tokenize`는 숫자 리터럴 바로 뒤 키워드를 `NUMBER` + `NAME('import')`로 나눈다. `1import os`, `1.5from os`, `0x1fimport os`는 숫자와 글자가 모두 `\w`다. `\b`가 경계로 안 보는데 파서는 후보를 낸다. 게이트가 거짓이면 파서를 건너뛰고 대체 동작을 한다. 오류 없이 3.14와 다른 결과가 나온다.
 - 새 구현이 지킬 규칙: 게이트는 "토큰 글자열이 텍스트에 부분 문자열로 있어야 한다"는 필요조건만 쓴다(`/import|from/`). 건전성이 구조로 보장된다. 대가는 식별자 안 키워드가 든 빈 스템 줄의 worker 왕복 1회 추가다. 식별자 시작 위치만 배제하는 식으로 좁히지 않는다(`0x1fimport`가 앞 글자 검사로 구분되지 않아 같은 함정이다).
 - 검증 방법: 실제 파서로 코퍼스(55줄 규모)를 돌려 게이트 거짓 줄이 전부 `None`임을 단정하고, 숫자 리터럴 5줄은 `\b` 게이트가 거짓인데 파서가 `None`이 아니며 부분 문자열 게이트는 참임을 단정한다. 게이트를 바꾸는 변경은 이 코퍼스를 통과해야 한다.
 
@@ -244,7 +270,14 @@ TRAP-12는 공개 `read(prompt)`만 쓰지만 `refreshLineInner`의 재그리기
 
 coincident 동기 브리지가 직접 원인이던 2건은 순수 Worker + MessageChannel 비동기 RPC 구조에서 사라진다.
 
-- **TRP-005 (main→worker 호출이 worker의 동기 대기 중 응답하지 않음)**: 대부분 제거. 남는 축소된 형태는 `input()` 전용 SharedArrayBuffer 메일박스 대기 중에만 worker JS 스레드가 `Atomics.wait`로 정지해 main→worker RPC에 응답하지 못한다는 것이다. 그 구간에 main이 worker를 능동 호출하는 기능(완성 등)을 배치하지 않고, 메일박스 대기 중 Ctrl+C는 interrupt buffer 경로로만 전달한다.
-- **TRP-010 (Error가 아닌 값으로 reject하면 worker가 함수 이름 문자열을 정상 반환값으로 받음)**: 제거. coincident `main.ts`의 `frame[2] || frame[1]` 응답 프레임 조립이 원인이므로 새 구조에는 없다. 대신 반환값·취소 표식의 인코딩은 자체 RPC·메일박스 프로토콜이 책임진다 — 취소를 예외나 `null`로 표현하지 말고 명시적 태그로 구분하고, 그 태그가 `pyodide.setStdin` 콜백 반환값으로 새지 않게 한다(`null`/`undefined`는 EOF가 된다, TRAP-05).
+- **TRP-005 (main→worker 호출이 worker의 동기 대기 중 응답하지 않음)**: 대부분 제거.
+  - 남는 축소된 형태: `input()` 전용 SharedArrayBuffer 메일박스 대기 중에만 worker JS 스레드가 `Atomics.wait`로 정지한다. 이때 main→worker RPC에 응답하지 못한다.
+  - 규칙: 그 구간에 main이 worker를 능동 호출하는 기능(완성 등)을 배치하지 않는다.
+  - 규칙: 메일박스 대기 중 Ctrl+C는 interrupt buffer 경로로만 전달한다.
+- **TRP-010 (Error가 아닌 값으로 reject하면 worker가 함수 이름 문자열을 정상 반환값으로 받음)**: 제거.
+  - 원인은 coincident `main.ts`의 `frame[2] || frame[1]` 응답 프레임 조립이다. 새 구조에는 없다.
+  - 반환값·취소 표식의 인코딩은 자체 RPC·메일박스 프로토콜이 책임진다.
+  - 취소를 예외나 `null`로 표현하지 않고 명시적 태그로 구분한다.
+  - 그 태그가 `pyodide.setStdin` 콜백 반환값으로 새지 않게 한다(`null`/`undefined`는 EOF가 된다, TRAP-05).
 
 참고: `/work/cp949/pyodide-samples/docs/repl/traps/TRP-005-sync-bridge-main-to-worker-call-blocked.md`, `/work/cp949/pyodide-samples/docs/repl/traps/TRP-010-sync-bridge-reject-non-error.md`

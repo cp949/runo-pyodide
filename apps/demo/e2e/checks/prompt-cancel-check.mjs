@@ -1,18 +1,17 @@
-// RD-008 브라우저 검증 ①: 입력줄(REPL 프롬프트) Ctrl+C 취소. 출처 RD-008,
-// `_works/_completed/20260922-08-rd-008-prompt-and-input-cancel/verify/`에서 이관(RD-018).
+// RD-008 브라우저 검증 ①: 입력줄(REPL 프롬프트) Ctrl+C 취소. 출처 RD-008에서 이관(RD-018).
 // 이전 구현 RD-012b의 브라우저 ID를 새 데모(하니스 lib.mjs)로 이식하고, 건너뛴 ID(RD-011a S14, RD-006b G3·W2)를
-// 복원하고, 빈 프롬프트 취소(B0)를 새로 넣었다. 건너뛰는 ID는 skipped-ids.md(G1 → RD-013, J1·J2 → RD-010).
+// 복원하고, 빈 프롬프트 취소(B0)를 새로 넣었다. 건너뛰는 ID는 G1(→ RD-013), J1·J2(→ RD-010).
 // 기대 바이트는 3.14.4 pty 재측정(`pty/results.md` ①②③④)과 같은 형태다: `\r\n` + 빨간 `KeyboardInterrupt` 한 줄,
 // `^C` 없음, 빈 줄 없음.
 // 규칙(TRP-005·006·008·011): 확인마다 Ctrl+L로 시작하고, 새 프롬프트가 보인 뒤 입력하며, 정확한 행 목록으로 단언한다.
-// 이식 시 고친 기대값(사유는 skipped-ids.md 4절):
+// 이식 시 고친 기대값:
 //   - E1·E2는 `input()` 취소가 생겨 트레이스백 + `NameError`로 바뀌었다(RD-012b 시절엔 취소가 없었다).
-// RD-018 DELTA-02 갱신(RD-013 자동 들여쓰기가 이식 뒤에 데모에 들어왔다):
+// RD-018 갱신(RD-013 자동 들여쓰기가 이식 뒤에 데모에 들어왔다):
 //   - C1의 본문 줄은 더 이상 수동으로 `    print(2)`를 치지 않는다 — `... ` 프리필(4칸)을 그대로 쓴다(화면 문자열 불변).
 //   - D1·D3의 Shift+Enter 둘째 줄도 같은 프리필(4칸)을 받으므로 기대 행이 `print(3)`에서 `    print(3)`로 바뀐다
 //     (D2는 화면 문자열을 보지 않아 영향 없음).
 // 사용: node prompt-cancel-check.mjs <url>(생략 시 http://localhost:5173)     ONLY=RM1,B0 node prompt-cancel-check.mjs <url>
-// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 DELTA-02 결정).
+// 결과 파일 label은 url 포트 4173이면 preview, 그 밖은 dev(RD-018 결정).
 import { checkEntry, exitWith, serverLabel } from "../check-runner.mjs";
 import { open, same, show } from "../lib.mjs";
 

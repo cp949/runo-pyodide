@@ -21,7 +21,7 @@ import type { CopyResult } from "@cp949/runo-pyodide-terminal";
 export type { CopyResult };
 
 /**
- * `runSource()`의 거부 오류·결과 유니온. core의 같은 클래스·타입이다(`createRunner`와 `instanceof`가 성립한다, 14.3.2).
+ * `runSource()`의 거부 오류·결과 유니온. core와 같은 클래스·타입이다. `createRunner`와 `instanceof`가 성립한다(14.3.2).
  */
 export { RunRejectedError };
 export type { RunRejectedReason, RunResult };
@@ -35,8 +35,8 @@ export const NOT_ISOLATED_WARNING =
 
 /**
  * 브라우저가 pyodide 런타임의 wasm 기능을 지원하지 않는 페이지에서 세션을 시작하지 않는 이유를 알리는 터미널 안내
- * 문구(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`). 런타임 floor 값을 하드코딩하지 않고
- * README 호환 절을 가리킨다.
+ * 문구(`docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
+ * 런타임 floor 값을 하드코딩하지 않는다. README 호환 절을 가리킨다.
  */
 export const UNSUPPORTED_BROWSER_WARNING =
   "경고: 이 브라우저는 pyodide 런타임이 요구하는 기능을 지원하지 않아 Python 세션을 시작하지 않습니다. 브라우저 호환(README) 절을 확인하세요.";
@@ -46,9 +46,12 @@ export const RESET_NOTICE =
   "[세션 리셋됨 — 이전 변수/import가 모두 초기화되었습니다]";
 
 /**
- * 세션의 생애를 앱에 알리는 값. RD-004는 `loading`·`ready`·`load-failed`·`not-isolated`를 발행하고, RD-005부터
- * `terminated`(`exit()`)를 발행한다. `crashed`는 RD-010이 발행한다. `unsupported`는 브라우저가 pyodide 런타임 wasm
- * 기능을 지원하지 않을 때다(판정 순서는 `detectRuntimeSupport()`, 결정: `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`).
+ * 세션의 생애를 앱에 알리는 값.
+ * - `loading`·`ready`·`load-failed`·`not-isolated`: RD-004가 발행한다.
+ * - `terminated`(`exit()`): RD-005부터 발행한다.
+ * - `crashed`: RD-010이 발행한다.
+ * - `unsupported`: 브라우저가 pyodide 런타임 wasm 기능을 지원하지 않을 때. 판정 순서는 `detectRuntimeSupport()`,
+ *   결정은 `docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md`.
  */
 export type ReplStatus =
   | "loading"
@@ -68,7 +71,7 @@ export interface ReplOptions {
   pyodide?: { indexURL?: string };
   /** 상태가 바뀔 때 부른다. `loading`은 `createRepl`이 반환하기 전에 동기로 온다. */
   onStatus?: (status: ReplStatus) => void;
-  /** worker `error` 이벤트 또는 `crashed` 알림(첫 신호만) 뒤, 또는 `reset()` 중 worker 생성 실패 뒤 `onStatus("crashed")` 다음에 부른다(RD-010). */
+  /** `onStatus("crashed")` 다음에 부른다(RD-010). 시점: worker `error` 이벤트 또는 `crashed` 알림(첫 신호만) 뒤, `reset()` 중 worker 생성 실패 뒤. */
   onCrash?: (message: string) => void;
   /** 기본 `false`. `=== true`일 때만 켠다. 바꾸려면 `reset({ topLevelAwait })`(RD-012, `02-console-core.md` 5.4). */
   topLevelAwait?: boolean;
@@ -90,12 +93,15 @@ export interface ReplHandle {
    */
   dispose(): void;
   /**
-   * 화면·history를 유지한 채 worker를 새로 만든다(변수·import는 사라진다). 청록 안내 줄(`RESET_NOTICE`) 뒤 새 배너가
-   * 뜬다. `dispose()` 뒤·`not-isolated`·`unsupported`면 no-op. 그 외 상태(`ready`·`terminated`·`crashed`·`load-failed`·`loading`)는
-   * 전부 허용한다. 동기이며 안에서 `loading`을 동기로 발행하고 이후 새 worker의 `ready`/`load-failed`가 재발행한다.
-   * `topLevelAwait`가 boolean이면 그 값으로 바꾸고, 생략·`undefined`면 마지막으로 적용한 값을 유지한다(RD-012).
-   * 확인 대화상자·디바운스 없음. 새 worker 생성(`createWorker`)이 던지면 던지지 않고 `loading` 대신 `crashed` → `onCrash`로
-   * 넘긴다(`createRunner.reset()`과 같다). 복구는 다시 `reset()`이다 — `onCrash` 안에서 동기로 부르면 생성이 계속 실패할 때 재귀한다.
+   * 화면·history를 유지한 채 worker를 새로 만든다. 변수·import는 사라진다.
+   * - 청록 안내 줄(`RESET_NOTICE`) 뒤 새 배너가 뜬다.
+   * - `dispose()` 뒤·`not-isolated`·`unsupported`면 no-op.
+   * - 그 외 상태(`ready`·`terminated`·`crashed`·`load-failed`·`loading`)는 전부 허용한다.
+   * - 동기다. 안에서 `loading`을 동기로 발행한다. 이후 새 worker의 `ready`/`load-failed`가 재발행한다.
+   * - `topLevelAwait`가 boolean이면 그 값으로 바꾼다. 생략·`undefined`면 마지막으로 적용한 값을 유지한다(RD-012).
+   * - 확인 대화상자·디바운스 없음.
+   * - 새 worker 생성(`createWorker`)이 던져도 던지지 않는다. `loading` 대신 `crashed` → `onCrash`로 넘긴다(`createRunner.reset()`과 같다).
+   * - 복구는 다시 `reset()`이다. `onCrash` 안에서 동기로 부르면 생성이 계속 실패할 때 재귀한다.
    */
   reset(options?: { topLevelAwait?: boolean }): void;
   /** `globalThis.crossOriginIsolated === true`. 거짓이면 worker가 없다(참이어도 `detectRuntimeSupport()`가 `unsupported`면 마찬가지다). */
@@ -103,16 +109,27 @@ export interface ReplHandle {
   /** 드래그 자동 복사 on/off를 바꾼다. 리셋 없음(`reset()`과 무관). `dispose()` 뒤 no-op(RD-017). */
   setCopyOnSelect(on: boolean): void;
   /**
-   * 코드를 REPL globals에서 실행하고 결말을 돌려준다(RD-022a). 입력 줄 에코 없이 출력만 화면에 내고, 치던 한 줄(텍스트·커서)은 보존해
-   * 실행이 끝나면 `>>> pri`처럼 다시 그린 뒤(그 읽기가 화면에 그려진 뒤) resolve한다. `input()`·Ctrl+C·Tab은 평소 명령 실행과 같다.
-   * history에 남기지 않는다. 결과 유니온은 `createRunner`와 같다(`ok`·`error`·`interrupted`·`exit`·`restarted`). `exit`(`SystemExit`)여도
-   * 세션은 유지된다.
+   * 코드를 REPL globals에서 실행하고 결말을 돌려준다(RD-022a).
+   * - 입력 줄 에코 없이 출력만 화면에 낸다.
+   * - 치던 한 줄(텍스트·커서)은 보존한다. 실행이 끝나면 `>>> pri`처럼 다시 그린다. 그 읽기가 화면에 그려진 뒤 resolve한다.
+   * - `input()`·Ctrl+C·Tab은 평소 명령 실행과 같다.
+   * - history에 남기지 않는다.
+   * - 결과 유니온은 `createRunner`와 같다(`ok`·`error`·`interrupted`·`exit`·`restarted`).
+   * - `exit`(`SystemExit`)여도 세션은 유지된다.
    *
-   * 실행하지 못하면 `RunRejectedError`로 reject한다: `disposed`(`dispose()` 뒤), `unavailable`(`not-isolated`·`unsupported`·`load-failed`·`crashed`·
-   * `terminated`), `busy`(블록 입력 중·Python 실행 중·`input()` 대기 중·다른 `runSource` 진행·대기 중·Tab 왕복 중·프롬프트가 그려지기
-   * 전). `code`가 문자열이 아니면 `TypeError`. `loading`(최초·리셋 직후)이면 슬롯을 차지하고 첫 `>>> `에서 실행한다. 대기 중 `reset()`은
-   * 유지하고(그 리셋의 worker 생성이 실패하면 `crashed`) `load-failed`는 `unavailable`, 실행 중 `reset()`은 `{ kind: "restarted" }`, 실행 중·대기 중 크래시는 `crashed`, 실행 중·대기
-   * 중 `dispose()`는 `disposed`다. 이미 정해진 결말을 그리는 도중의 사건은 그 결말을 바꾸지 않는다.
+   * 실행하지 못하면 `RunRejectedError`로 reject한다.
+   * - `disposed`: `dispose()` 뒤.
+   * - `unavailable`: `not-isolated`·`unsupported`·`load-failed`·`crashed`·`terminated`.
+   * - `busy`: 블록 입력 중·Python 실행 중·`input()` 대기 중·다른 `runSource` 진행·대기 중·Tab 왕복 중·프롬프트가 그려지기 전.
+   * - `code`가 문자열이 아니면 `TypeError`.
+   *
+   * `loading`(최초·리셋 직후)이면 슬롯을 차지하고 첫 `>>> `에서 실행한다.
+   * - 대기 중 `reset()`: 유지한다. 그 리셋의 worker 생성이 실패하면 `crashed`.
+   * - `load-failed`: `unavailable`.
+   * - 실행 중 `reset()`: `{ kind: "restarted" }`.
+   * - 실행 중·대기 중 크래시: `crashed`.
+   * - 실행 중·대기 중 `dispose()`: `disposed`.
+   * - 이미 정해진 결말을 그리는 도중의 사건은 그 결말을 바꾸지 않는다.
    */
   runSource(code: string): Promise<RunResult>;
   /** 지금 `runSource()`를 부르면 `busy`로 거부되는가. 판정은 `runSource()`와 같은 함수다. `dispose()` 뒤는 `false`다(`disposed`로 거부된다). */
@@ -134,8 +151,9 @@ export function createRepl(options: ReplOptions): ReplHandle {
   const readline = surface.readline;
   const onStatus = (next: ReplStatus) => callConsumer(options.onStatus, next);
   const onCrash = (message: string) => callConsumer(options.onCrash, message);
-  // `crossOriginIsolated`(getter 의미 그대로, ADR-0004)와 판정 순서(`unsupported` 먼저)를 소유한 `detectRuntimeSupport()`는
-  // 별개다 — `isolated`는 `ReplHandle.crossOriginIsolated`가 쓰고, `support`가 세션 시작 여부를 정한다(규칙:
+  // `crossOriginIsolated`(getter 의미 그대로, ADR-0004)와 `detectRuntimeSupport()`는 별개다.
+  // `detectRuntimeSupport()`는 판정 순서(`unsupported` 먼저)를 소유한다.
+  // `isolated`는 `ReplHandle.crossOriginIsolated`가 쓴다. `support`가 세션 시작 여부를 정한다(규칙:
   // `docs/design/14-runner.md` 14.3.1).
   const isolated = globalThis.crossOriginIsolated === true;
   const support = detectRuntimeSupport();
@@ -158,8 +176,8 @@ export function createRepl(options: ReplOptions): ReplHandle {
         ? "unavailable"
         : undefined;
   /**
-   * 상태를 알린다. 소비자 콜백이 안에서 `runSource`·`reset`·`dispose`를 부를 수 있으므로 슬롯·상태를 콜백 앞에 확정하고 슬롯의 결과는
-   * 콜백 뒤에 낸다(TRP-051).
+   * 상태를 알린다. 소비자 콜백이 안에서 `runSource`·`reset`·`dispose`를 부를 수 있다.
+   * 슬롯·상태는 콜백 앞에 확정한다. 슬롯의 결과는 콜백 뒤에 낸다(TRP-051).
    */
   const emitStatus = (next: ReplStatus) => {
     status = next;
@@ -185,7 +203,7 @@ export function createRepl(options: ReplOptions): ReplHandle {
     // 마지막으로 적용한 값(sticky). 무인자 reset()·reset({})·reset({ topLevelAwait: undefined })는 이 값을 그대로 쓴다.
     let topLevelAwait = options.topLevelAwait === true;
     // 벤더 `Readline`은 활성 읽기가 없을 때만 부른다(읽기 중 Ctrl+C는 벤더가 같은 프롬프트를 다시 그린다).
-    // 현재 세션을 `session` 변수로 늦게 읽는다: 리셋이 세션을 바꿔도 다시 등록할 필요가 없다.
+    // 현재 세션을 `session` 변수로 늦게 읽는다. 리셋이 세션을 바꿔도 다시 등록할 필요가 없다.
     readline.setCtrlCHandler(() => {
       session?.interrupt();
     });
@@ -218,8 +236,8 @@ export function createRepl(options: ReplOptions): ReplHandle {
       const run = slot.waiting ? undefined : slot.take();
       // `finally`: 정리 중 무엇이 던져도 슬롯에서 뗀 실행은 끝낸다. 옛 worker는 이미 교체됐으므로 `restarted`다.
       try {
-        // 열린 읽기를 끝내고 화면을 정리한다. `session.terminate()` 앞, 같은 동기 블록이어야 하고 세션이 없어도(앞
-        // 리셋의 worker 생성 실패) 부른다 — 규칙: `08-session.md` 8.1 1번, `docs/traps/TRP-083`.
+        // 열린 읽기를 끝내고 화면을 정리한다. `session.terminate()` 앞, 같은 동기 블록이어야 한다.
+        // 세션이 없어도(앞 리셋의 worker 생성 실패) 부른다. 규칙: `08-session.md` 8.1 1번, `docs/traps/TRP-083`.
         surface.promptRow.endRead({ screen: true });
         // 옛 세션 정리(순서: `08-session.md` 8.1 2번).
         if (session !== undefined) session.terminate();
@@ -229,8 +247,9 @@ export function createRepl(options: ReplOptions): ReplHandle {
         try {
           spawnSession();
         } catch (error) {
-          // 세션을 시작하지 못했다(`createWorker` 또는 프레임 전송이 던짐, core 세션이 만든 자원은 정리했다). runner `restart()`와 같이 던지지 않고 `loading`을 거치지 않은 채
-          // `crashed` 다음에 `onCrash`로 넘긴다. 대기 중이던 runSource는 `crashed`로 끝난다. 복구는 다시 `reset()`이다.
+          // 세션을 시작하지 못했다(`createWorker` 또는 프레임 전송이 던짐). core 세션이 만든 자원은 정리했다.
+          // runner `restart()`와 같이 던지지 않는다. `loading`을 거치지 않은 채 `crashed` 다음에 `onCrash`로 넘긴다.
+          // 대기 중이던 runSource는 `crashed`로 끝난다. 복구는 다시 `reset()`이다.
           emitStatus("crashed");
           if (!disposed) onCrash(String(error));
           return;
@@ -272,10 +291,10 @@ export function createRepl(options: ReplOptions): ReplHandle {
       const run = slot.take();
       // `finally`: 정리 중 무엇이 던져도 슬롯에서 뗀 실행은 끝낸다(`reset()`과 같은 이유).
       try {
-        // 알림 핸들러가 dispose된 줄 편집기에 쓰지 않도록 `surface.dispose()` 앞에서 세션을 끝낸다(게이트·송신기·
+        // 알림 핸들러가 dispose된 줄 편집기에 쓰지 않게 한다. `surface.dispose()` 앞에서 세션을 끝낸다(게이트·송신기·
         // RPC·worker, `08-session.md` 8.1 2번).
         session?.terminate();
-        // 선택 복사 리스너와 `Readline`을 뗀다(surface가 두 정리의 순서를 소유한다). 벤더 dispose가 멱등이라
+        // 선택 복사 리스너와 `Readline`을 뗀다(surface가 두 정리의 순서를 소유한다). 벤더 dispose가 멱등이다.
         // term.dispose()가 addon을 다시 dispose해도 안전하다.
         surface.dispose();
       } finally {

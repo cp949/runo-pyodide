@@ -1,3 +1,11 @@
+/**
+ * `terminal/auto-indent.ts` 시험(`docs/design/06-editing.md` 6.3, RD-013).
+ * - 순수 함수: `nextIndentation`·`indentUnitWidth`·`backspaceCount`.
+ * - 정책 객체: `createAutoIndent`가 `readOptions`로 내는 `prefill`·`onKey`.
+ *
+ * 기대값은 이전 구현의 python3.14 pty 실측이다.
+ * `_pyrepl.readline`과의 차분 대조는 `auto-indent-parity.test.ts`가 맡는다.
+ */
 import { InputType, type Input } from "@cp949/runo-xterm-readline";
 import { describe, expect, it } from "vitest";
 import {
@@ -7,7 +15,7 @@ import {
   nextIndentation,
 } from "../../src/terminal/auto-indent";
 
-// 커서가 버퍼 끝에 있을 때 Enter 뒤 개행 다음에 들어갈 공백.
+/** 커서가 버퍼 끝일 때 Enter로 개행한 뒤 다음 줄에 들어갈 공백을 돌려준다. */
 function indentationAfter(
   buffer: string,
   lastUsed: string | null = null,
@@ -15,7 +23,7 @@ function indentationAfter(
   return nextIndentation(buffer, buffer.length, lastUsed).indentation;
 }
 
-// 기대값은 python3.14 -q를 pty로 구동해 관찰한 이전 구현의 실측 결과를 옮긴 것이다.
+// 기대값은 이전 구현이 python3.14 -q를 pty로 구동해 관찰한 실측 결과다.
 describe("nextIndentation: 3.14 REPL 실측 동작", () => {
   it("`:`로 끝나는 줄 다음 줄은 4칸 들여쓴다", () => {
     expect(indentationAfter("for i in range(2):")).toBe("    ");
@@ -30,12 +38,14 @@ describe("nextIndentation: 3.14 REPL 실측 동작", () => {
   });
 
   it("블록에서 처음 나온 들여쓰기 폭을 단위로 쓴다", () => {
-    // 자동 4칸 위에 4칸을 더 타이핑해 8칸이 첫 들여쓰기가 된 경우, 다음 줄은 16칸(8 유지 + 8 추가).
+    // 자동 4칸 위에 4칸을 더 타이핑해 8칸이 첫 들여쓰기가 된 경우다.
+    // 다음 줄은 16칸이다(8 유지 + 8 추가).
     expect(indentationAfter("if True:\n        if True:")).toBe(" ".repeat(16));
   });
 
   it("이전 블록에서 본 들여쓰기 폭을 새 블록에서도 쓴다", () => {
-    // 2칸으로 쓴 블록 뒤 새 블록의 자동 들여쓰기는 2칸이다. 새 세션(null)은 4칸.
+    // 2칸으로 쓴 블록 뒤 새 블록의 자동 들여쓰기는 2칸이다.
+    // 새 세션(`null`)은 4칸이다.
     const buffer = "if True:\n  x=1";
     const { lastUsedIndentation } = nextIndentation(
       buffer,
@@ -49,7 +59,8 @@ describe("nextIndentation: 3.14 REPL 실측 동작", () => {
   });
 
   it("본문 없이 공백뿐인 줄에서 Enter를 눌러도 블록이 열려 있어 다시 4칸이 채워진다", () => {
-    // 공백뿐인 줄은 들여쓰기로 이어받지 않지만, 그 앞의 `:`를 거슬러 올라가 찾는다.
+    // 공백뿐인 줄은 들여쓰기로 이어받지 않는다.
+    // 그 앞의 `:`는 거슬러 올라가 찾는다.
     expect(indentationAfter("if True:\n    ")).toBe("    ");
   });
 
@@ -75,9 +86,11 @@ describe("indentUnitWidth", () => {
   });
 });
 
-// 기대값은 python3.14 -q에서 자동 4칸 뒤 Backspace 한 번에 0칸이 되는 실측과 `backspace_dedent` 소스를
-// 따른다. 3.14와 달리 이전 줄들의 들여쓰기 수준이 아니라 단위 배수를 쓴다(편차 12).
+// 기대값은 python3.14 -q 실측과 `backspace_dedent` 소스를 따른다.
+// 실측: 자동 4칸 뒤 Backspace 한 번에 0칸이 된다.
+// 3.14와 달리 이전 줄들의 들여쓰기 수준이 아니라 단위 배수를 쓴다(편차 12).
 describe("backspaceCount", () => {
+  // 연속 줄(`... ` 입력줄)로 가정하고 커서를 버퍼 끝에 둔다.
   const continuing = (buffer: string, unitWidth = 4) =>
     backspaceCount(buffer, buffer.length, unitWidth, true);
 
@@ -120,7 +133,11 @@ describe("backspaceCount", () => {
   });
 });
 
-/** `createAutoIndent`가 받는 `readline`의 가짜. 버퍼·커서를 실제로 편집해 `onKey`의 결과를 관찰한다. */
+/**
+ * `createAutoIndent`가 받는 `readline`의 가짜.
+ * 버퍼·커서를 실제로 편집해 `onKey`의 결과를 관찰한다.
+ * `backspaceCalls`는 `editBackspace`가 받은 글자 수의 기록이다.
+ */
 function createFakeReadline(
   initial: { buffer?: string; cursor?: number } = {},
 ) {
@@ -145,6 +162,7 @@ function createFakeReadline(
   };
 }
 
+/** 데이터 없는 키 입력 하나를 만든다. */
 function key(inputType: InputType): Input {
   return { inputType, data: [] };
 }
@@ -170,7 +188,7 @@ describe("createAutoIndent", () => {
   it("2칸 블록 뒤 새 블록 prefill은 2칸이다(세션 동안 유지)", () => {
     const autoIndent = createAutoIndent(createFakeReadline());
 
-    autoIndent.readOptions("if True:\n  x=1"); // lastUsedIndentation = "  "로 갱신된다.
+    autoIndent.readOptions("if True:\n  x=1"); // lastUsedIndentation이 "  "로 갱신된다.
     const options = autoIndent.readOptions("if True:");
 
     expect(options.prefill).toBe("  ");
@@ -202,7 +220,7 @@ describe("createAutoIndent", () => {
   it("Backspace는 단위 배수까지 지울 때만 소비한다", () => {
     const readline = createFakeReadline({ buffer: "    ", cursor: 4 });
     const autoIndent = createAutoIndent(readline);
-    // pending이 있는(연속 줄) 읽기로 continuation을 켠다.
+    // pending이 있는 읽기(연속 줄)라 continuation이 켜진다.
     const { onKey } = autoIndent.readOptions("if x:");
 
     const consumed = onKey!(key(InputType.Backspace));
@@ -215,7 +233,7 @@ describe("createAutoIndent", () => {
   it("`>>> ` 첫 줄의 Backspace는 소비하지 않는다", () => {
     const readline = createFakeReadline({ buffer: "    ", cursor: 4 });
     const autoIndent = createAutoIndent(readline);
-    // pending 없는(새 `>>> ` 줄) 읽기라 continuation이 꺼진다.
+    // pending이 없는 읽기(새 `>>> ` 줄)라 continuation이 꺼진다.
     const { onKey } = autoIndent.readOptions(undefined);
 
     const consumed = onKey!(key(InputType.Backspace));
@@ -236,7 +254,7 @@ describe("createAutoIndent", () => {
     const autoIndent = createAutoIndent(createFakeReadline());
 
     autoIndent.readOptions("if True:\n  x=1"); // lastUsedIndentation = "  "
-    autoIndent.readOptions(undefined); // 취소·새 프롬프트 흉내 — pending 없음
+    autoIndent.readOptions(undefined); // 취소 뒤 새 프롬프트를 흉내 낸다(pending 없음).
     const options = autoIndent.readOptions("if True:");
 
     expect(options.prefill).toBe("  ");
