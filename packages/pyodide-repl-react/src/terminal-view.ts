@@ -2,7 +2,7 @@
  * 컴포넌트가 공유하는 xterm 화면 수명(RD-024). 컨테이너에 `Terminal`을 만들어 열고 필요하면 `FitAddon`을 붙인다.
  * - 반환하는 `dispose()`는 fit 정리(observer·rAF·addon) → `Terminal.dispose()` 순서다.
  * - 이 뷰를 쓰는 쪽은 runner(또는 REPL)를 먼저 dispose한 뒤 이 `dispose()`를 불러야 한다.
- * - 이유(14.5.5): 열린 읽기의 abort가 `cancelRead()`를 돌린 뒤에 줄 편집기·터미널을 뗀다.
+ * - 이유: 열린 읽기의 abort가 `cancelRead()`를 돌린 뒤에 줄 편집기·터미널을 떼야 한다(14-runner.md 14.5.5).
  */
 import { FitAddon } from "@xterm/addon-fit";
 import * as xterm from "@xterm/xterm";
@@ -12,13 +12,20 @@ import type {
   Terminal,
 } from "@xterm/xterm";
 
+/** 컨테이너에 열린 xterm 화면 */
 export interface TerminalView {
+  /** 컨테이너에 열린 xterm `Terminal` */
   readonly terminal: Terminal;
+
+  /** fit 정리 → `Terminal.dispose()` 순으로 정리한다. */
   dispose(): void;
 }
 
+/** `mountTerminalView` 옵션 */
 export interface TerminalViewOptions {
+  /** xterm `Terminal` 옵션. 그대로 넘긴다(기본값을 더하지 않는다). */
   terminalOptions?: ITerminalOptions & ITerminalInitOnlyOptions;
+
   /** `true`면 `FitAddon`을 붙이고 컨테이너 크기 변화에 맞춘다. */
   fit: boolean;
 }
@@ -35,10 +42,19 @@ function resolveTerminal(): typeof Terminal {
   return (namespace.Terminal ?? namespace.default?.Terminal)!;
 }
 
+/**
+ * `container`에 xterm `Terminal`을 만들어 열고, `options.fit`이면 `FitAddon`을 붙인다.
+ * 여는 도중 던지면 만든 `Terminal`을 정리하고 다시 던진다.
+ *
+ * @param container `Terminal`을 열 요소. 크기를 가진 요소여야 fit이 동작한다.
+ * @param options `Terminal` 옵션과 fit 여부
+ * @returns `Terminal`과 정리 함수
+ */
 export function mountTerminalView(
   container: HTMLElement,
   options: TerminalViewOptions,
 ): TerminalView {
+  // `Terminal` 생성·열기·fit 연결 중 하나가 던지면 만든 것을 정리하고 다시 던진다.
   const terminal = new (resolveTerminal())(options.terminalOptions);
   let detachFit: (() => void) | undefined;
   try {
@@ -61,7 +77,9 @@ export function mountTerminalView(
 /**
  * `FitAddon`을 붙이고 컨테이너 `ResizeObserver`로 `fit()`을 부른다.
  * - 컨테이너 크기가 0이면(숨김·레이아웃 전) 건너뛴다. 0 크기로 `fit()`하면 xterm이 열·행을 최소로 줄인다.
- * - 연속 통지는 `requestAnimationFrame` 한 번으로 합친다. 리사이즈 드래그 중 통지 폭주를 프레임당 1회로 줄이고 xterm 렌더 중 리사이즈를 피한다.
+ * - 연속 통지는 `requestAnimationFrame` 한 번으로 합친다.
+ *   - 리사이즈 드래그 중 통지 폭주를 프레임당 1회로 줄인다.
+ *   - xterm 렌더 중 리사이즈를 피한다.
  * - 마운트 직후 1회 맞춘다.
  * - 반환 함수가 observer·대기 중 rAF·addon을 정리한다.
  */
@@ -69,10 +87,12 @@ function attachFit(terminal: Terminal, container: HTMLElement): () => void {
   const addon = new FitAddon();
   terminal.loadAddon(addon);
 
+  // 크기가 0이면 건너뛴다.
   const fitNow = () => {
     if (container.clientWidth === 0 || container.clientHeight === 0) return;
     addon.fit();
   };
+  // 프레임 안의 연속 통지를 rAF 한 번으로 합친다.
   let frame: number | undefined;
   const schedule = () => {
     if (frame !== undefined) return;

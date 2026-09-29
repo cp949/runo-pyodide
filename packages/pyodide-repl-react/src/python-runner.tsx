@@ -1,14 +1,21 @@
 /**
  * `<PythonRunner>`(RD-024): terminal 패키지의 `createTerminalRunner`(xterm 실행창)를 React 수명에 붙인다.
+ * 규칙은 `docs/design/15-react.md` 15.3·15.4.
+ *
+ * 수명:
  * - 컨테이너 `div`에 xterm `Terminal`을 만들고(필요하면 `FitAddon`), runner를 만든다.
- * - 언마운트(cleanup)에서 runner → fit → `Terminal` 순으로 정리한다(14.5.5).
+ * - 언마운트(cleanup)에서 runner → fit → `Terminal` 순으로 정리한다(14-runner.md 14.5.5).
  * - StrictMode에서는 worker가 2개 만들어지고 1개가 terminate된다. 살아 있는 것은 1개다.
  * - 첫 worker의 pyodide 로드 낭비는 수용한다(08-session.md 8.2).
- * - 콜백(`onStatus`·`onOutput`·`onCrash`·`onCopy`·`inputProvider`)은 latest-ref다. 인라인 람다여도 재마운트가 없다.
+ *
+ * props 변경:
+ * - 콜백(`onStatus`·`onOutput`·`onCrash`·`onCopy`)은 latest-ref다. 인라인 람다여도 재마운트가 없다.
+ * - `inputProvider`도 latest-ref다. 단, 마운트 때 공급자가 없었으면 그 뒤에 넣어도 기본 읽기(xterm 한 줄 읽기)가 계속 쓰인다.
  * - `copyOnSelect`를 재렌더로 바꾸면 `setCopyOnSelect`가 불린다.
  * - 나머지 생성 옵션(`createWorker`·`indexURL`·`filename`·`topLevelAwait`·`clearOnRun`·`terminalOptions`·`fit`)은 마운트 때만 읽는다.
- *   바꾸려면 소비자가 `key`로 재마운트한다.
- * - `xterm.css`는 소비자가 import한다.
+ * - 이 옵션을 바꾸려면 소비자가 `key`로 재마운트한다.
+ *
+ * `xterm.css`는 소비자가 import한다.
  */
 import {
   createTerminalRunner,
@@ -30,17 +37,26 @@ import {
 } from "./use-lifecycle";
 import { useTerminalWidget } from "./use-terminal-widget";
 
-/** `PythonRunner`의 ref handle. 살아 있는 runner가 없는 동안(마운트 전·재마운트 사이·언마운트 뒤)의 규칙은 14.3과 같다. */
+/**
+ * `PythonRunner`의 ref handle.
+ * 살아 있는 runner가 없는 동안(마운트 전·재마운트 사이·언마운트 뒤)의 규칙은 `14-runner.md` 14.3과 같다.
+ */
 export interface PythonRunnerHandle extends Pick<
   TerminalRunnerHandle,
   "run" | "stop" | "reset" | "clear" | "setCopyOnSelect"
 > {
-  /** 마지막으로 통지된 상태. 살아 있는 runner가 없으면 마지막 값이다. */
+  /** 마지막으로 통지된 상태. 살아 있는 runner가 없으면 마지막 값 */
   readonly status: TerminalRunnerHandle["status"];
+
   /** xterm 화면에 포커스를 준다. 살아 있는 `Terminal`이 없으면 아무것도 하지 않는다. */
   focus(): void;
 }
 
+/**
+ * `PythonRunner` props.
+ * `createTerminalRunner` 옵션에서 `terminal`·`pyodide`를 뺀 것과 `div` 속성을 합친다.
+ * `div` 속성은 컨테이너 `div`에 그대로 넘긴다.
+ */
 export interface PythonRunnerProps
   extends
     Omit<TerminalRunnerOptions, "terminal" | "pyodide">,
@@ -50,13 +66,22 @@ export interface PythonRunnerProps
     > {
   /** pyodide 배포 위치. 마운트 때만 읽는다. 없으면 core 기본값. */
   indexURL?: string;
+
   /** xterm `Terminal` 옵션. 마운트 때만 읽고 그대로 넘긴다(기본값을 더하지 않는다). */
   terminalOptions?: ITerminalOptions & ITerminalInitOnlyOptions;
+
   /** 컨테이너 크기에 맞춰 열·행을 조절한다. 기본 `true`. 마운트 때만 읽는다. */
   fit?: boolean;
+
+  /** `PythonRunnerHandle`을 받을 ref */
   ref?: Ref<PythonRunnerHandle>;
 }
 
+/**
+ * xterm 실행창 컴포넌트. 코드는 ref handle의 `run()`으로 실행한다.
+ * 컨테이너 `div` 하나를 그리고, 마운트 effect에서 `Terminal`과 runner를 붙인다.
+ * 나머지 props는 `div`에 넘긴다.
+ */
 export function PythonRunner({
   ref,
   createWorker,
@@ -74,6 +99,7 @@ export function PythonRunner({
   fit,
   ...divProps
 }: PythonRunnerProps) {
+  // 콜백은 호출 때 `latest.current`에서 읽고, 생성 옵션은 마운트 때 한 번 읽는다.
   const latest = useLatest({
     createWorker,
     indexURL,
@@ -93,6 +119,7 @@ export function PythonRunner({
   // 살아 있는 runner가 없을 때 `handle.status`가 돌려줄 마지막 통지 값.
   const lastStatus = useRef(initialRunnerStatus());
 
+  // xterm 화면과 runner 수명. 마운트 effect에서 만들고 cleanup에서 정리한다.
   const widget = useTerminalWidget<TerminalRunnerHandle>(containerRef, {
     // 렌더 스코프 값을 쓴다(`latest.current`가 아니다).
     // hook 내부의 latest-ref가 마운트 시점 최신 렌더의 `create` 클로저(와 이 `view`)를 골라 쓴다.
@@ -132,6 +159,7 @@ export function PythonRunner({
     copyOnSelect,
   });
 
+  // ref handle. 컴포넌트 수명 내내 같은 객체이고, 멤버는 그때그때 살아 있는 runner로 위임한다.
   const delegates = useRunnerDelegates(widget.live);
   const [handle] = useState<PythonRunnerHandle>(() => ({
     run: delegates.run,
