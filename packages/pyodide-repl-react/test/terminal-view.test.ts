@@ -2,10 +2,12 @@
  * `terminal-view.ts`의 fit 로직(`attachFit`) 시험. jsdom, React를 거치지 않는다.
  * - 진입점: `mountTerminalView(container, { fit: true })`.
  * - 확인: 크기 0 건너뜀, rAF 콜백의 실행 시점 크기 재확인, 연속 통지 합침, `dispose()`의 rAF 취소, `ResizeObserver` 없는 환경.
+ * - 확인: 마운트 도중 `fit()`이 던지면 `Terminal`(과 로드된 addon)을 정리하고 다시 던진다.
  * - 다른 파일과의 분담: 마운트 배선(FitAddon 부착·ResizeObserver 생성·`fit={false}`·StrictMode observer 2개)은
  *   `terminal-component.contract.test.tsx`의 "fit 배선" suite가 본다(`docs/design/15-react.md` 15.5).
  */
 import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { mountTerminalView, type TerminalView } from "../src/terminal-view";
 import { FakeResizeObserver, installFakeRaf, type FakeRaf } from "./harness";
@@ -155,5 +157,19 @@ describe("terminal-view: fit", () => {
     hostSize = { width: 400, height: 300 };
     mount();
     expect(fitSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("마운트 도중 fit()이 던지면 Terminal을 정리하고 다시 던진다", () => {
+    const failure = new Error("fit 실패");
+    fitSpy.mockImplementation(() => {
+      throw failure;
+    });
+    const terminalDispose = vi.spyOn(Terminal.prototype, "dispose");
+    const addonDispose = vi.spyOn(FitAddon.prototype, "dispose");
+    hostSize = { width: 400, height: 300 };
+    expect(() => mount()).toThrow(failure);
+    expect(terminalDispose).toHaveBeenCalledTimes(1);
+    expect(addonDispose).toHaveBeenCalledTimes(1);
+    expect(FakeResizeObserver.instances.length).toBe(0);
   });
 });

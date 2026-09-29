@@ -54,14 +54,14 @@ export function mountTerminalView(
   container: HTMLElement,
   options: TerminalViewOptions,
 ): TerminalView {
-  // `Terminal` 생성·열기·fit 연결 중 하나가 던지면 만든 것을 정리하고 다시 던진다.
   const terminal = new (resolveTerminal())(options.terminalOptions);
   let detachFit: (() => void) | undefined;
   try {
     terminal.open(container);
     if (options.fit) detachFit = attachFit(terminal, container);
   } catch (error) {
-    detachFit?.();
+    // `attachFit`이 던지면 `detachFit`은 아직 없다.
+    // 로드된 `FitAddon`은 `Terminal.dispose()`가 함께 정리한다.
     terminal.dispose();
     throw error;
   }
