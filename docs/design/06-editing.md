@@ -7,11 +7,11 @@
 - 소스를 **`packages/xterm-readline`(`@cp949/runo-xterm-readline`)으로 벤더링**한다([ADR-0003](../adr/0003-vendor-xterm-readline.md)).
   - upstream은 strtok/xterm-readline 1.2.2(MIT)다.
   - `LICENSE-MIT`와 저작권 고지를 패키지에 유지한다.
+  - 변경 목록은 `packages/xterm-readline/README.md`.
 - 수정 방침:
   - 아래 6.2 표의 수정 중 **TRAP-13(`readPaste` 탭 보존)·TRAP-15/TRAP-12(재그리기 전제)·TRAP-17(`moveCursorBack` 단위)은 소스에서 직접 고친다**.
   - `read()`의 write 콜백 타이밍(TRAP-14)은 공개 옵션 `ReadOptions.prefill?: string`으로 계약을 명시한다.
-    - RD-013 완료: write 콜백 안, `new State` 직후 1회 채운다.
-    - "onInputReady 콜백/ready Promise" 초안은 채택하지 않았다(6.3).
+    - RD-013: write 콜백 안, `new State` 직후 1회 채운다.
   - `InputType`은 export해 상수 복제를 없앤다.
   - `History`에 삭제 API(`replaceFrom`·`truncate` 류)는 추가하지 않았다(RD-014 결정).
     - 블록 히스토리는 `restore(entries)`로 스냅샷을 되돌리는 것만으로 충분하다.
@@ -26,22 +26,22 @@
 - `Tty`·`State`·`InputType`·`History`를 패키지에서 export한다.
   - 코어(`packages/pyodide-repl`)는 이 export만 쓰고 private 멤버에 손대지 않는다.
   - 코어가 필요로 하는 진입점은 벤더에 **공개 훅**으로 추가한다.
-  - 입력 준비 알림(프리필): `ReadOptions.prefill`, RD-013 완료.
+  - 입력 준비 알림(프리필): `ReadOptions.prefill`, RD-013.
   - 키 가로채기: `ReadOptions.onKey`. RD-013이 범용으로 추가했다. Tab은 RD-015가 그 훅을 그대로 쓴다(`07-tab-completion.md` 7.1).
-  - 입력줄 위 출력: `Readline.printAbove(text: string): Promise<void>`, RD-015 완료.
+  - 입력줄 위 출력: `Readline.printAbove(text: string): Promise<void>`, RD-015.
     - 활성 읽기를 그대로 둔 채 입력줄 위에 텍스트를 찍고 같은 읽기로 다시 그린다.
     - 재그리기 중 들어온 키는 큐에 쌓았다가 순서대로 재생한다.
     - 활성 읽기가 없으면 `println`과 같다.
     - 규칙은 `07-tab-completion.md` 7.3. 겹침·접두 규칙은 아래 RD-022b 항목.
-  - 열린 읽기 위 원시 출력: `isReading`·`abovePrefix`·`printAboveRaw`, RD-022b 완료, 아래 항목.
-  - 키 이벤트 가로채기: `ReadlineOptions.onKeyEvent?: (event: KeyboardEvent) => boolean`, RD-017 완료.
+  - 열린 읽기 위 원시 출력: `isReading`·`abovePrefix`·`printAboveRaw`, RD-022b, 아래 항목.
+  - 키 이벤트 가로채기: `ReadlineOptions.onKeyEvent?: (event: KeyboardEvent) => boolean`, RD-017.
     - xterm `attachCustomKeyEventHandler` 수준에서 벤더 처리 앞에 불린다.
     - `true`면 xterm 기본 처리를 생략한다.
     - 선택 중 Ctrl+C 복사가 쓴다(6.6).
-  - 붙여넣기 탭 보존(TRAP-13)은 훅이 아니라 `readPaste` 소스 수정으로 했다(RD-011 완료).
+  - 붙여넣기 탭 보존(TRAP-13)은 훅이 아니라 `readPaste` 소스 수정으로 했다(RD-011).
     - `readPaste`의 매핑 단계에서 `UnsupportedControlChar` + 단일 `\t` 토큰만 `Text`로 승격한다.
     - Tab은 REPL 읽기의 `onKey`(Tab 리더, `createTabReader`)가 소비한다.
-    - `input()` 읽기는 `readOptions`가 없어 벤더가 그대로 무시한다(RD-015 완료).
+    - `input()` 읽기는 `readOptions`가 없어 벤더가 그대로 무시한다(RD-015).
 - RD-019가 소스에 더한 내부 동작: 활성 읽기가 없는 구간에 들어온 키를 `Readline`이 쌓았다가 다음 읽기에서 재생한다.
   - 공개 API 추가는 없다. `index.ts` 값 export 목록은 불변이다.
   - 규칙은 6.7.
@@ -53,7 +53,6 @@
   - 생성 시 고정이다. 런타임 토글은 없다.
   - 실행창(`createTerminalRunner`)이 `false`로 만든다(`14-runner.md` 14.5.2).
   - 차단은 `pushTypeAhead` 한 곳이다.
-  - 변경 목록은 `packages/xterm-readline/README.md`.
 - RD-008이 소스에 더한 공개 API: `read(prompt: string): Promise<string>` / `read(prompt: string, options: ReadOptions): Promise<string | null>` 오버로드와 `ReadOptions = { cancelable?: boolean }`.
   - `cancelable` 기본값 `false`는 원본 `^C` + 같은 프롬프트 재그리기다.
   - `cancelable`이면 활성 읽기 중 Ctrl+C가 읽기를 `null`로 끝낸다(6.3).
@@ -172,7 +171,7 @@
     - `State.update(text, cursor = text.length)`로 한 번의 `refresh()`에 그린다.
     - 서로게이트 쌍 중간의 값은 검사하지 않는다(UTF-16 인덱스 그대로).
     - `takeRead()`가 돌려준 `cursor`를 그대로 넘기면 커서가 복원된다.
-  - 변경 목록은 `packages/xterm-readline/README.md`. 시험은 `take-read.test.ts`(jsdom + `VTerm`).
+  - 시험은 `take-read.test.ts`(jsdom + `VTerm`).
 - RD-022b가 소스에 더한 공개 API(terminal sink가 쓴다, `05-output.md` 4.4): `Readline.isReading(): boolean`, `Readline.abovePrefix(): string`, `Readline.printAboveRaw(lines: string, prefix: string): Promise<void>`, `State.setPromptPrefix(prefix: string): void`·`State.promptPrefix(): string`.
   - `takeRead()` 반환 형태는 그대로다.
   - `Readline.hasQueuedInput(): boolean`은 공개한다. `undrawnAbovePrefix(): string`은 private이다(아래, RD-026).
@@ -234,12 +233,12 @@
       - 합류한 재그리기가 남은 채 Tab 리더 규칙이 깨지지 않게 하려는 것이다.
       - Tab 리더는 `printAbove` 프로미스가 끝난 뒤 다음 Tab을 처리한다(`07-tab-completion.md` 7.3).
     - 무효 재그리기의 콜백은 뒤 읽기가 시작한 재그리기를 건드리지 않는다.
-    - 조회·편집 6곳은 `LineView` interface(`DRAWN`·`Offscreen implements LineView`, 둘 다 `line-view.ts`)로 위임한다.
-      - 6곳: `getCursor`·`updateLine`·`editInsert`·`editBackspace`·`hasQueuedInput`·private `undrawnAbovePrefix`.
+    - 조회·편집은 `LineView` interface(`DRAWN`·`Offscreen implements LineView`, 둘 다 `line-view.ts`)로 위임한다.
+      - 대상: `getCursor`·`updateLine`·`editInsert`·`editBackspace`·`hasQueuedInput`·private `undrawnAbovePrefix`.
       - `Readline.view()`가 `this.offscreen ?? DRAWN`을 고른다. 각 공개 메서드는 `this.view().xxx(this.state, ...)` 한 줄이다.
       - `state`는 읽기마다 새로 만들어진다. 그래서 호출마다 넘기고 뷰가 필드로 잡지 않는다.
-    - 전이 6곳은 `Offscreen`을 만들거나 떼는 지점이다. `Readline`에 남고 `this.offscreen` 유무만 판정한다.
-      - 6곳: `onResize` 리스너·`settleScreen`·`takeRead`·`printAbove`·`printAboveRaw`·`dispatch`.
+    - 전이는 `Offscreen`을 만들거나 떼는 지점이다. `Readline`에 남고 `this.offscreen` 유무만 판정한다.
+      - 지점: `onResize` 리스너·`settleScreen`·`takeRead`·`printAbove`·`printAboveRaw`·`dispatch`.
     - 나누는 기준:
       - 상태를 "읽고 편집"하느냐: 뷰. 부작용이 없다.
       - "만들고 없애느냐": 수명. `printAbove`·`printAboveRaw`가 `activeRead` 확인 뒤에만 만들고 `finishRedraw`·`endOpenReads`가 없앤다.
@@ -259,7 +258,7 @@
     - 이후 편집 재그리기·`eraseLine()`이 출력 행을 지우지 않는다.
     - 맨 아래 행에서 여러 행을 써 스크롤해도 입력줄은 마지막 행에 하나다.
     - 벤더 `VTerm` 시험과 브라우저 `bg-output-check.mjs`가 확인한다.
-  - **재그리기 대기 중 공개 편집 API**(RD-022b 리뷰 반영): 재그리기 대기 중(`Readline.offscreen`이 있을 때) 키는 `offscreen.queued`로 간다. 조회·편집 6곳은 위 "뷰 위임"대로 `Offscreen`에 위임한다.
+  - **재그리기 대기 중 공개 편집 API**(RD-022b 리뷰 반영): 재그리기 대기 중(`Readline.offscreen`이 있을 때) 키는 `offscreen.queued`로 간다. 조회·편집 메서드는 위 "뷰 위임"대로 `Offscreen`에 위임한다.
     - `editInsert`·`editBackspace`·`updateLine`은 입력줄이 화면에 없으므로 그리지 않는다.
       - 저장 커서(`offscreen.cursor`) 자리의 버퍼만 고친다.
       - 그 뒤 `offscreen.cursor`를 편집 뒤 커서로 바꾼다.
@@ -288,7 +287,7 @@
       - 큐의 키는 콜백에서 뒤에 재생돼 도착 순서(키 → 편집)가 뒤집힌다.
       - 호출자가 이 값을 보지 않으면 `imp` → Tab → 배경 출력 → `x` → 완성 응답에서 `importx`가 제출된다.
   - **알려진 경계**: (1)의 리사이즈 흔적은 jsdom `StubTerminal`에서 재현하고 고쳤다. 실제 xterm에서는 재현하지 못했다.
-    - 브라우저 `bg-output-check.mjs`의 `FIT=1` 셀이 수정 전 코드에서도 통과했다.
+    - 브라우저 `bg-output-check.mjs`의 `FIT=1` 셀은 이 결함을 검출하지 못한다.
     - 창 크기 변경이 재그리기 대기 창에 들었는지 셀이 기록하지 않는다.
     - 가설: 실제 xterm에서는 `onResize`의 `refresh()` 출력이 쓰기 큐에서 콜백의 앵커 읽기 뒤에 놓여 같은 자리에 겹쳐 그려진다. 결함이 눈에 보이지 않는다.
     - 판정은 jsdom 시험이 한다.
@@ -297,7 +296,6 @@
     - 벤더 `take-read.test.ts`: 재그리기 대기 중 리사이즈 뒤 `takeRead()` 포함.
     - 벤더 `tty.test.ts`: `width()`의 CSI 사설 접두·중간 바이트·최종 바이트 폭 0.
     - repl `create-repl/run-source.test.ts`: Tab 완성 응답과 배경 출력 재그리기의 겹침, 재그리기 대기 중 reset()의 접두 복원.
-    - 변경 목록은 `packages/xterm-readline/README.md`.
 - 업스트림 추적: 원격을 연결하지 않는다(runo-coincident와 같은 방식). 업스트림 변경을 가져올 때는 `CHANGELOG.md`의 버전 기준으로 수동 diff한다.
 
 ## 6.2 벤더링한 xterm-readline에 적용한 수정(무엇을 / 어떤 방법으로)
@@ -312,7 +310,7 @@
 | TRAP-13 | `readPaste`가 붙여넣은 `\t`를 버림                                                | 벤더 `readPaste`가 `UnsupportedControlChar` + 단일 `\t` 토큰만 `Text`로 승격해 버퍼에 보존한다(RD-011).                                                                                 |
 | TRAP-11 | StrictMode 이중 마운트에서 dispose된 인스턴스의 지연 콜백                         | `Readline.dispose()`가 `term`을 비워 소스에서 막는다(6.1). 마운트 직후 읽기를 시작해도 안전하다.                                                                                        |
 
-## 6.3 자동 들여쓰기 규칙(`createAutoIndent(readline)`, RD-013 완료)
+## 6.3 자동 들여쓰기 규칙(`createAutoIndent(readline)`, RD-013)
 
 - 기준은 `_pyrepl/readline.py`의 `maybe_accept`·`backspace_dedent`다.
   - `terminal/auto-indent.ts`의 순수 함수(`nextIndentation`·`backspaceCount`·`indentUnitWidth`, `DEFAULT_UNIT = '    '`)가 `_get_previous_line_indent`·`_get_first_indentation`·`_should_auto_indent`를 그대로 옮겼다.
@@ -366,7 +364,7 @@
   - 가드(`read-guard.ts`)와 RPC `readLine(prompt, pending, cancelable)` 핸들러는 `pending`을 그대로 통과시킨다.
   - stdin 읽기(`promptRow.read("", { cancelable })`, 실행창·REPL `input()` 공용)는 줄 편집기를 받지 않는다.
 
-## 6.4 블록 히스토리 규칙(`createBlockHistory(readline)`, RD-014 완료)
+## 6.4 블록 히스토리 규칙(`createBlockHistory(readline)`, RD-014)
 
 - 블록(`... `) 입력의 줄들을 history 항목 하나로 묶는 **세션 소유** 정책 객체다(`terminal/block-history.ts`).
   - `createLineEditor`가 `createAutoIndent` 옆에서 만든다(`08-session.md` 8.1).
@@ -401,7 +399,7 @@
     - `... `의 여러 줄 버퍼는 Shift+Enter·붙여넣기(둘 다 `editInsert` → `editing = true`)로만 생긴다.
   - `getLine()`에 개행이 있으면(여러 줄 버퍼) 삼키지 않는다. 벤더 줄 이동에 맡긴다.
   - ↓는 읽기 시작 시 `history.cursor === -1`이라 따로 막지 않는다.
-- `skipBlankHistory`(RD-013 완료)와 합성한다. `Readline` 생성자 옵션 `ReadlineOptions.skipBlankHistory`가 벤더 안에서 처리한다(6.1).
+- `skipBlankHistory`(RD-013)와 합성한다. `Readline` 생성자 옵션 `ReadlineOptions.skipBlankHistory`가 벤더 안에서 처리한다(6.1).
   - `createRepl`이 surface에 `readline: { persist: false, skipBlankHistory: true }`를 넘긴다. surface(`createTerminalSurface`)가 `new Readline`을 만든다.
   - 블록 히스토리는 이 옵션이 이미 거른 뒤의 Enter 제출(`historyEntry` 호출)만 본다.
 - `... `에서 Enter 1회로 제출된 여러 줄(붙여넣기·Shift+Enter)은 제출 텍스트 전체를 블록에 잇는다. `(pendingBlock + '\n' + 제출텍스트).trimEnd()`.
@@ -419,7 +417,7 @@
 
 - 개행은 `\n`으로 편집 버퍼에 삽입되고 자동 제출하지 않는다. Enter 1회로 실행한다(러너의 여러 줄 분할 규칙은 `02-console-core.md` 5.2).
 - `\t`는 벤더 `readPaste`가 보존한다(6.1·6.2, RD-011).
-  - 직접 Tab 키 입력은 REPL 읽기의 `onKey`(Tab 리더)가 소비한다(RD-015 완료, `07-tab-completion.md` 7.1).
+  - 직접 Tab 키 입력은 REPL 읽기의 `onKey`(Tab 리더)가 소비한다(RD-015, `07-tab-completion.md` 7.1).
   - 탭은 8칸 폭으로 표시된다.
 - 붙여넣기 토큰(`readPaste`)은 `onKey`를 거치지 않는다. Tab 리더의 `lastKeyWasTab` 판정에도 반영되지 않는다.
   - Tab, 붙여넣기, Tab 순서로 치면 두 번째 Tab도 "연속 두 번째"로 판정돼 목록이 열린다(RD-015 등록, `10-parity-deviations.md`).
@@ -431,9 +429,9 @@
   - 커서를 탭이 있는 줄 중간으로 옮긴 뒤(예: 화살표 키) Backspace로 그 탭을 지울 때, 벤더 레이아웃(`state.ts`)이 탭의 실제 폭(가변, 탭 스톱에 따라 달라짐)을 아는지는 확인하지 않았다.
   - 관찰만 했고 고치지 않았다.
 
-## 6.6 선택 복사(RD-017 완료 — 선택 시 자동 복사, 선택 중 Ctrl+C는 복사)
+## 6.6 선택 복사(RD-017 — 선택 시 자동 복사, 선택 중 Ctrl+C는 복사)
 
-규칙(사용자 결정 2026-09-23). Windows Terminal·VS Code 터미널의 "선택 있으면 Ctrl+C=복사, 없으면 SIGINT" 관례를 따른다.
+규칙은 Windows Terminal·VS Code 터미널의 "선택 있으면 Ctrl+C=복사, 없으면 SIGINT" 관례를 따른다.
 
 - **선택 시 자동 복사**: 마우스 드래그·더블클릭(단어)·트리플클릭(줄)으로 선택을 만들고 버튼을 뗀 순간 `term.getSelection()`을 `navigator.clipboard.writeText`로 복사한다.
   - 기본 켜짐이다. 앱이 끌 수 있다(`ReplOptions.copyOnSelect`, `ReplHandle.setCopyOnSelect(on)`, `00-architecture.md` 4.1).
@@ -488,7 +486,7 @@
 
 편차: 3.14 pty에는 선택 개념이 없다. Ctrl+C는 항상 SIGINT이고 자동 복사도 없다. `10-parity-deviations.md` 편차 43으로 등록했다.
 
-## 6.7 읽기가 없는 구간의 키 버퍼링(type-ahead, RD-019 완료)
+## 6.7 읽기가 없는 구간의 키 버퍼링(type-ahead, RD-019)
 
 3.14는 실행 중 tty가 입력을 큐에 쌓고 다음 프롬프트가 그 큐를 읽는다. 벤더 `Readline`이 같은 일을 한다. 코어 래퍼가 아니다.
 
@@ -499,7 +497,7 @@
 
 - **쌓는 구간**: `activeRead`가 없는 모든 때.
   - 실행 중.
-  - Enter 직후 `read()` write 콜백 대기 중(약 20ms, `10-parity-deviations.md` 32의 옛 측정).
+  - Enter 직후 `read()` write 콜백 대기 중(약 20ms, `10-parity-deviations.md` 편차 32).
   - `cancelSettling`.
   - 부팅·로딩 중. 부팅 중 친 키는 쌓였다가 첫 프롬프트에서 재생한다. 별도 코드는 없다.
 - **쌓는 대상**: `onData` 덩어리 중 아래 둘을 뺀 전부. 글자·Enter·Tab·방향키·Backspace·Ctrl+D·U·K·붙여넣기가 든다. 원본 문자열째 쌓는다.
@@ -562,8 +560,7 @@
 
 세션 소유 모듈이다(`terminal/line-editor.ts`). 6.3 자동 들여쓰기·6.4 블록 히스토리·7.1 Tab 리더 세 정책을 하나로 묶는다.
 
-- `repl-main-driver.ts`의 편집 정책 접점을 `begin`·`end`·`dispose`·`requesting` 네 메서드로 줄인다.
-
+- `repl-main-driver.ts`의 편집 정책 접점은 `begin`·`end`·`dispose`·`requesting` 네 메서드다.
 - **생성 순서**: autoIndent → blockHistory → tabReader. 세 정책의 수명 = 편집기 수명 = 세션.
 - **`begin(pending, restore?)`**: 읽기마다 한 번, `promptRow.read`의 `readOptions` thunk 안에서(flush 뒤, `readline.read()` 직전에) 부른다.
   - `blockHistory.readOptions(pending)` → `autoIndent.readOptions(pending)` → `tabReader.readOptions(pending)`을 **이 순서로** 불러 합성한다.
@@ -592,7 +589,7 @@
 
 ## 6.9 Ctrl+D(빈 입력줄 EOF, RD-048)
 
-3.14.4 pty 실측(`apps/demo/e2e/pty/rd-048/results.md`)이 화면 기대값을 확정했다(가설 H3, 아래 "pty 대조").
+3.14.4 pty 실측(`apps/demo/e2e/pty/rd-048/results.md`)이 화면 기대값을 확정했다(아래 "pty 대조").
 
 **규칙 정의(이 절 한 곳)**: 빈 입력줄의 Ctrl+D는, 그 Ctrl+D가 실제로 친 키일 때만 EOF다.
 
@@ -640,7 +637,7 @@
   - 실행 중이나 붙여넣기 도중 우연히 낀 `\x04` 한 글자가 다음 프롬프트나 `input()` 읽기를 조용히 끝낸다.
   - 사용자가 "지금 이 키를 쳐서" 세션을 끝낸다는 동작 모델(3.14 tty의 실시간 Ctrl+D)과 어긋난다.
   - `origin` 판정 하나로 live·replay·paste 세 경로를 가른다(6.7 "쌓는 대상").
-- **pty 대조**(3.14.4, `apps/demo/e2e/pty/rd-048/results.md`, 가설 H3 전부 참):
+- **pty 대조**(3.14.4, `apps/demo/e2e/pty/rd-048/results.md`):
   - `>>>` 빈 줄 Ctrl+D → 개행 한 번 뒤 프로세스 종료(P1).
   - `input()` 빈 줄 Ctrl+D → 입력줄 아래에서 시작하는 `EOFError` 트레이스백(P3). 프레임 모양은 웹과 달라 편차 35 계열로 흡수한다.
   - `...` 빈 줄 Ctrl+D → 화면·커서 완전히 불변(P2).
