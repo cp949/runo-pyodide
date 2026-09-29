@@ -131,7 +131,7 @@
     - 돌려준 문자열이 기록된다.
     - `resolve`는 원래 줄 그대로 돌려준다.
     - 취소(`cancelable` Ctrl+C)에는 부르지 않는다.
-- 2026-09-26 readline 읽기 종료 작업이 더한 공개 옵션: `ReadOptions.history?: false`. 생략하면 기록한다(원본 동작).
+- 공개 옵션: `ReadOptions.history?: false`. 생략하면 기록한다(원본 동작).
   - `false`면 그 읽기의 Enter 제출을 history에 넣지 않고 `historyEntry`도 부르지 않는다.
   - history 탐색 커서는 `skipBlankHistory`가 거른 공백 제출처럼 `history.resetCursor()`로 처음으로 되돌린다.
   - 읽는 동안 ↑·↓ 탐색은 그대로 된다.
@@ -175,7 +175,7 @@
   - 변경 목록은 `packages/xterm-readline/README.md`. 시험은 `take-read.test.ts`(jsdom + `VTerm`).
 - RD-022b가 소스에 더한 공개 API(terminal sink가 쓴다, `05-output.md` 4.4): `Readline.isReading(): boolean`, `Readline.abovePrefix(): string`, `Readline.printAboveRaw(lines: string, prefix: string): Promise<void>`, `State.setPromptPrefix(prefix: string): void`·`State.promptPrefix(): string`.
   - `takeRead()` 반환 형태는 그대로다.
-  - RD-026이 `Readline.undrawnAbovePrefix(): string`과 `Readline.hasQueuedInput(): boolean`을 더했다(아래). `undrawnAbovePrefix()`는 2026-09-26 private으로 내렸다.
+  - `Readline.hasQueuedInput(): boolean`은 공개한다. `undrawnAbovePrefix(): string`은 private이다(아래, RD-026).
   - **`isReading()`**: `activeRead !== undefined`.
     - 재그리기 대기 중 `true`다. `read()` write 콜백 전(`pendingReads`)은 `false`다.
     - Enter·취소·`takeRead`·`cancelRead`·`dispose` 뒤 `false`다.
@@ -217,8 +217,8 @@
     - 폭보다 긴 접두는 감긴 프롬프트로 계산된다.
     - 새 `State`(`read()`, 취소 불가 Ctrl+C의 재시작)는 접두 `""`로 시작한다.
     - Ctrl+L(`clearScreen`)은 같은 `State`를 다시 그리므로 접두째 맨 위에 다시 그린다.
-  - **재그리기 병합과 뷰 위임**(2026-09-26 RD-030):
-    - 재그리기 대기 상태를 객체 하나로 모았다: `Offscreen { calls, waiters, queued, cursor }`(벤더 `line-view.ts`, 패키지 밖으로 export하지 않는다).
+  - **재그리기 병합과 뷰 위임**(RD-030):
+    - 재그리기 대기 상태는 객체 하나다: `Offscreen { calls, waiters, queued, cursor }`(벤더 `line-view.ts`, 패키지 밖으로 export하지 않는다).
       - 초기화 누락으로 조각이 어긋나는 버그를 객체 하나로 구조상 막는다.
     - 객체 identity가 무효화 토큰이다.
       - `cancelRead()`·`takeRead()`·`dispose()`가 `Readline.offscreen`에서 떼어 내면 무효다.

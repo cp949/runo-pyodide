@@ -712,6 +712,8 @@ export function bridge(): Promise<WorkerBridge>; // { proxy, window, native }, w
 
 규칙(첫 정적 import·`plugins`·`runo.browser`·`native: false`·S5·순서 보장 없음·CSP)은 `16-dom-bridge.md`다. REPL과의 조합은 지원하지 않는다.
 
+> 5절은 결번이다. 6절 이후 번호는 그대로 둔다.
+
 ## 6. 호스팅 요구
 
 - dev·preview·정적 배포 모두 `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`를 응답 헤더로 보내야 한다.

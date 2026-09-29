@@ -89,9 +89,8 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
 
 실행 방법:
 
-- 루트 `pnpm test`는 기본 병렬도에서 CPU 부하로 시간 판정이 흔들릴 수 있다.
+- L0 전체 판정은 루트 `pnpm test`다. 옵션은 붙이지 않는다.
   - 부하 때문에 실패하면 실패한 파일만 단독 재실행한다.
-  - L0 전체 판정은 `pnpm test --force --concurrency=1`로 한다.
 - 파일 지정 실행: `pnpm --filter @cp949/runo-pyodide-repl test -- <이름>`은 필터가 적용되지 않아 패키지 전체를 돌린다.
   - 대상만 돌리려면 `cd packages/pyodide-repl && pnpm exec vitest run <파일 일부 이름...> [--reporter=verbose]`.
 - 빠른 실행: `pnpm --filter @cp949/runo-pyodide-repl test:fast`는 실제 pyodide 시험(`test/worker/**`, `terminal/auto-indent-parity.test.ts`, `terminal/sinks-pyodide.test.ts`)을 뺀다.
