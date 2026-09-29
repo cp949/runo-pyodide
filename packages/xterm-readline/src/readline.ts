@@ -561,25 +561,26 @@ export class Readline implements ITerminalAddon {
   /**
    * 터미널에 텍스트를 쓴다.
    * `\r`이 앞서지 않은 `\n`을 모두 `\r\n`으로 바꾼다.
-   * `term`이 없으면 쓰지 않는다.
+   * `term`이 없으면 쓰지 않고 `writeReady()`의 쓰기 양에도 세지 않는다.
    *
    * @param text 터미널에 쓸 텍스트.
    */
   public write(text: string) {
+    if (!this.term) {
+      return;
+    }
     text = text.replace(/\r?\n/g, "\r\n");
     const outputLength = text.length;
     this.watermark += outputLength;
     if (this.watermark > this.highWatermark) {
       this.highWater = true;
     }
-    if (this.term) {
-      this.term.write(text, () => {
-        this.watermark = Math.max(this.watermark - outputLength, 0);
-        if (this.highWater && this.watermark < this.lowWatermark) {
-          this.highWater = false;
-        }
-      });
-    }
+    this.term.write(text, () => {
+      this.watermark = Math.max(this.watermark - outputLength, 0);
+      if (this.highWater && this.watermark < this.lowWatermark) {
+        this.highWater = false;
+      }
+    });
   }
 
   /**
