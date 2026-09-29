@@ -1,3 +1,10 @@
+/**
+ * 터미널 입력 파서.
+ * `onData` 문자열을 키 단위 `Input`으로 쪼갠다.
+ * 규칙은 docs/design/06-editing.md 6.1.
+ */
+
+/** 입력 종류. 파서가 판정하지 못한 제어 문자·이스케이프는 `Unsupported*`다. */
 export enum InputType {
   Text,
   AltEnter,
@@ -24,15 +31,32 @@ export enum InputType {
   UnsupportedEscape,
 }
 
+/** 파서가 만든 입력 하나 */
 export interface Input {
+  /** 입력 종류 */
   inputType: InputType;
+
+  /** 원문 토큰. 코드 포인트 하나가 한 항목이다. `Text`는 여러 항목을 가진다. */
   data: string[];
 }
 
+/**
+ * `onData` 문자열을 `Input` 목록으로 쪼갠다.
+ * 제어 문자와 이스케이프 시퀀스는 각각 `Input` 하나다. 그 사이의 글자는 `Text` 하나로 묶는다.
+ */
 export function parseInput(data: string): Input[] {
   return Array.from(splitInput(data));
 }
 
+/**
+ * `parseInput`의 본체. 코드 포인트 단위로 읽으며 `Input`을 하나씩 내보낸다.
+ *
+ * 한계:
+ * - 서로게이트 쌍은 한 토큰으로 읽어 `Text`에 넣는다.
+ * - `ESC [ n ~`은 `n = 3`(Delete)만 매핑한다. 나머지는 `UnsupportedEscape`다.
+ * - `ESC [ 1 ; 5 C` 같은 수정자 시퀀스는 처리하지 않는다. 앞 세 문자를 버리고 나머지(`5C`)가 `Text`가 된다.
+ * - `ESC [` 뒤에서 입력이 끝나면 그 시퀀스를 버린다.
+ */
 function* splitInput(data: string) {
   let text = [];
 
@@ -61,7 +85,7 @@ function* splitInput(data: string) {
         continue;
       }
 
-      // 콘솔
+      // `ESC` 뒤가 `[`가 아니다: Alt 조합. Alt+Enter만 `AltEnter`다.
       let inputType = InputType.UnsupportedEscape;
       if (seq2.value !== "[") {
         switch (seq2.value) {
@@ -76,13 +100,13 @@ function* splitInput(data: string) {
         continue;
       }
 
-      // ANSI 이스케이프
+      // CSI 시퀀스(`ESC [`)
       const seq3 = it.next();
       if (seq3.done) {
         continue;
       }
 
-      // vt 시퀀스
+      // 숫자로 시작하는 CSI(`ESC [ n ~`). 자릿수는 한두 자리다.
       if (seq3.value >= "0" && seq3.value <= "9") {
         let digit = seq3.value;
         const nextDigit = it.next();
@@ -136,6 +160,7 @@ function* splitInput(data: string) {
       continue;
     }
 
+    // 제어 문자. 매핑이 없으면(`\t`·`\n` 등) `UnsupportedControlChar`다.
     if (val < 0x20 || val === 0x7f) {
       let inputType = InputType.UnsupportedControlChar;
       switch (val) {
@@ -180,7 +205,7 @@ function* splitInput(data: string) {
       continue;
     }
 
-    // 그 밖에는 텍스트다.
+    // 그 밖의 글자는 텍스트로 모은다.
     text.push(c);
   }
 

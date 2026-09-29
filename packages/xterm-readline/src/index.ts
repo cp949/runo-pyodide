@@ -1,3 +1,7 @@
+/**
+ * 패키지 진입점. 공개 API만 다시 내보낸다.
+ * 규칙은 docs/design/06-editing.md 6.1.
+ */
 export { History } from "./history";
 export type { HistoryOptions } from "./history";
 export { InputType } from "./keymap";
