@@ -7,17 +7,19 @@ JSPI 있음·없음 × 5 프로그램 × N=30 = 300시행이라 수 분 걸리�
 
 출처 RD-009에서 이관(RD-018).
 
-## 왜 훅이 두 개인가
+## 해석 훅
 
-RD-007(`apps/demo/e2e/node/rd-007/`)의 `press-loss.mjs`는 `node --import <ts-resolve-hook.mjs> …` 하나로
-충분했다. `console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 Python 소스를 `./*.py?raw`로 import하는데
-(vitest·tsdown은 각자 내장/플러그인으로 처리), 맨 node 실행에는 `?raw`를 아는 로더가 없다. 이 폴더의
-`py-raw-hook.mjs`가 그 역할을 한다.
+`console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 Python 소스를 `./*.py?raw`로 import한다.
+vitest·tsdown은 각자 내장·플러그인으로 처리한다. 맨 node 실행에는 처리가 없어 훅이 필요하다.
 
-**등록 순서가 중요하다**: `ts-resolve-hook.mjs`를 먼저, `py-raw-hook.mjs`를 **나중에** `--import`해야 한다.
-node의 훅 체인은 스택이라 나중에 등록한 훅이 먼저 실행된다. 순서가 바뀌면 `ts-resolve-hook.mjs`의 확장자 정규식
-(`\.[cm]?[jt]s$`)이 `?raw` 쿼리 문자열을 모르고 `./console-helpers.py?raw`를 `./console-helpers.py?raw.ts`로
-잘못 늘려(`?raw`로 끝나는지 검사가 어긋난다) `Unknown file extension ".py"` 오류가 난다.
+- `packages/pyodide-testkit/src/ts-resolve-hook.mjs` 하나로 충분하다.
+  - 확장자 없는 상대 import를 푼다.
+  - `?raw` import를 파일 내용 문자열 모듈로 읽는다.
+- 이 폴더의 `py-raw-hook.mjs`는 `?raw`만 처리한다. 단독으로는 확장자 없는 import를 못 푼다.
+- 아래 명령은 두 훅을 함께 등록한다. 함께 등록해도 문제가 없고, 등록 순서도 무관하다.
+- 실측(node v24.21.0): `ts-resolve-hook.mjs`만, 둘 다(두 순서), `py-raw-hook.mjs`만 등록해 `console.ts` 로드를 확인했다.
+  - `py-raw-hook.mjs`만 등록하면 `../worker/top-level-await`를 못 찾아 실패한다.
+  - 나머지 셋은 로드된다.
 
 ## 실행
 

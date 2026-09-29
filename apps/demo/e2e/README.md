@@ -107,9 +107,12 @@ preview`가 떠 있어야 함). `ONLY=<이름 접두어,…>` 환경변수로 �
 - `apps/demo/e2e/node/rd-009/`(유휴 sleep 중 Ctrl+C): 실행법·판정선·`--dry` 양성 대조는
   `apps/demo/e2e/node/rd-009/README.md`.
 
-두 폴더 모두 `console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 Python 소스를 `?raw`로 import하므로
-`ts-resolve-hook.mjs` **먼저**, `py-raw-hook.mjs`(`node/rd-009/py-raw-hook.mjs`, 두 폴더가 공유) **나중**
-순서로 `--import`해야 한다(node 훅 체인은 스택 — 나중 등록이 먼저 실행된다).
+두 폴더 모두 `console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 Python 소스를 `?raw`로 import한다.
+
+- `packages/pyodide-testkit/src/ts-resolve-hook.mjs` 하나로 충분하다. `?raw`도 처리한다.
+- 문서의 명령은 `node/rd-009/py-raw-hook.mjs`도 함께 `--import`한다. 두 폴더가 공유하고 등록 순서는 무관하다.
+- 실측과 근거는 `node/rd-009/README.md` "해석 훅".
+
 결과는 `E2E_RESULTS_DIR`(기본 `apps/demo/e2e/results/`)에 `node-*.json`으로 쓴다.
 
 ## 양성 대조(positive-controls)

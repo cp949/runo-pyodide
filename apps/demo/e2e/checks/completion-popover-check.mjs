@@ -103,7 +103,9 @@ for (const view of VIEWS) {
    * 배경 출력·스크롤·리사이즈 같은 닫기 신호가 없는 구간이다. 도중에 사라지면 그 자리에서 실패한다.
    * 마커 배리어를 둘 자리가 없어 단발 확인 대신 창 전체를 샘플링한다.
    * 30ms·300ms는 판정선이 아니라 관찰 밀도다.
-   * 열린 직후 지연 쓰기로 곧장 닫히는 결함이 있다면 Tab 완성 worker 왕복(`tab-check.mjs` C12가 기록) 시간 안에 드러난다.
+   * 열린 직후 지연 쓰기로 곧장 닫히는 결함이 있다면 Tab 완성 worker 왕복 시간 안에 드러난다.
+   * 왕복은 `tab-check.mjs` C12가 기록한다. 실측은 a. 속성 후보 중앙값 25.2ms·최대 35.8ms다(`BASELINE.md`).
+   * 30ms는 왕복 1회 정도이고 300ms는 최댓값의 약 8배다.
    */
   async function assertStaysOpen(windowMs, description) {
     const deadline = Date.now() + windowMs;

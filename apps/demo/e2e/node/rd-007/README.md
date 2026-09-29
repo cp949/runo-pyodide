@@ -30,12 +30,10 @@ node --import $H1 --import $H2 $N/poll-overhead.mjs --rounds 10
 `--import <훅>`은 확장자 없는 상대 import(`../protocol/rpc`)를 푸는 해석 훅이다(Node 타입 제거 실행).
 `enum`·`namespace`가 없는 소스만 이렇게 로드된다 — 현재 core `protocol/`·repl `worker/`가 그렇다.
 
-**두 훅이 모두 필요하다(RD-018에서 실측)**: RD-007 완료 시점에는 `ts-resolve-hook.mjs` 하나로
-충분했지만, 그 뒤 `console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 Python 소스를
-`./*.py?raw`로 import하도록 바뀌어 `createConsole`을 쓰는 이 폴더의 스크립트도 `apps/demo/e2e/node/rd-009/`의
-`py-raw-hook.mjs`가 필요하다(등록 순서는 rd-009 README와 같다 — `ts-resolve-hook.mjs` 먼저, `py-raw-hook.mjs`
-나중). `py-raw-hook.mjs` 사본을 이 폴더에 새로 두지 않고 rd-009 쪽을 참조한다(내용이 저장소 무관·범용이라
-중복을 피한다).
+훅은 `ts-resolve-hook.mjs` 하나로 충분하다. `?raw` import도 처리한다.
+`console.ts`·`sigint-handler.ts`·`sleep-slice.ts`가 Python 소스를 `./*.py?raw`로 import한다.
+위 명령은 `apps/demo/e2e/node/rd-009/py-raw-hook.mjs`도 함께 등록한다. 함께 등록해도 문제가 없고 순서는 무관하다.
+근거와 실측은 rd-009 README "해석 훅".
 
 ## 판정선
 

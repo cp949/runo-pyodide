@@ -179,7 +179,9 @@ await taStep("T03 실행 중 `ab`+Enter+`cd` → 첫 줄 `ab`만 제출(NameErro
 });
 
 // 이 셀은 Enter 직후(지연 0ms)에 키 1개를 친다.
-// 수정 전(RD-019 이전) 측정에서 0ms 유입이 1/10이었다(편차 32 실측). 이 셀 하나가 회귀를 잡을 확률은 약 90%다.
+// 수정 전(RD-019 이전) 측정에서 0ms 유입이 1/10이었다(편차 32 실측, `docs/design/10-parity-deviations.md`).
+// - 유입은 `z`가 다음 프롬프트에 들어온 것이다. 성공이다.
+// - 수정 전 코드에서는 10회 중 9회 `z`가 유실된다. 그래서 회귀가 있으면 이 셀 한 번이 실패할 확률이 약 90%다.
 // 회귀 검출력은 아래 둘이 결정적으로 맡는다.
 // - 벤더 단위 "콜백 대기 중 키" 시험
 // - T01의 `sleep` 셀
@@ -257,7 +259,8 @@ await taStep("T09b 리셋 뒤 부팅 중(loading) 친 키는 새 세션 첫 프�
 // - `(`·`)`가 왕복 응답 전에 삽입된다.
 // - 응답 적용 조건에 걸린다. 버퍼·커서가 요청 시점과 같아야 한다(`tab-reader.ts` `applyResume`, `docs/design/07-tab-completion.md` 7.1).
 // - 완성이 버려져 `>>> os.getc()`가 된다(실측).
-// 사람이 왕복(약 25ms)보다 빨리 이어 치는 경우와 같은 기존 경합 규칙이다. 이 셀에서 고치지 않는다.
+// 사람이 왕복보다 빨리 이어 치는 경우와 같은 기존 경합 규칙이다. 이 셀에서 고치지 않는다.
+// 왕복은 약 25ms다(`docs/design/09-testing.md` 9.6, `BASELINE.md` tab-check C12 실측 25.2ms).
 await taStep("T11 실행 중 Tab 포함 입력 `os.getc`+Tab → Tab 리더 훅을 거쳐 `>>> os.getcwd`", async () => {
   await startRunning("RUN11", 2);
   await page.keyboard.type("os.getc");

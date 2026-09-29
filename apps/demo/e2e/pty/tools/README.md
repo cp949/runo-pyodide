@@ -101,7 +101,7 @@ make_lines_C.py ─► lines_C.json ─┬─ native_complete.py ───┐
    저장소에서는 보통 실패한다(`check-dist`·`smoke:pack` 표면을 건드리지 않으려고 의존을 더하지 않았다).
 3. 워크스페이스 폴백: `pnpm-workspace.yaml`이 있는 조상 폴더의 `packages/{pyodide-core,pyodide-repl,pyodide-dom-bridge}/node_modules/pyodide`
 
-셋 다 없으면 종료 코드 2다(`pnpm install`을 먼저 실행한다). 실제 실행 로그의 첫 줄에 어느 규칙으로 찾았는지가 남는다:
+셋 다 없으면 `throw`한다. 잡는 곳이 없어 종료 코드는 1이다(`pnpm install`을 먼저 실행한다). 종료 코드 2는 인자 오류(usage)뿐이다. 실제 실행 로그의 첫 줄에 어느 규칙으로 찾았는지가 남는다:
 `pyodide 패키지(workspace:packages/pyodide-core): <경로> (package.json version 314.0.7)`.
 
 `pyodide/package.json`의 `version`은 다음 위치에 기록된다.
