@@ -1,11 +1,9 @@
 # 출력: sink 4종·전역 스트림·배너·열린 읽기 위 출력
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 확정했다. 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다. 새 구현은 통신 계층만 바꾸고(`docs/design/00-architecture.md`, `01-protocols.md`) 이 규칙은 그대로 지킨다. 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다.
 
-새 구현에서 sink 4종은 worker→main **단방향 RPC 알림**(`notify`)으로 전달된다.
+sink 4종은 worker→main **단방향 RPC 알림**(`notify`)으로 전달된다.
 
-- 이전 구현은 조각마다 worker를 멈추는 동기 호출이었다.
-- 그 동기성은 요구사항이 아니었다.
 - 순서 보장은 같은 MessagePort의 FIFO에 의존한다(`01-protocols.md` 1절).
 
 ## 4.1 sink 4종(`createTerminalSinks(readline)`)
@@ -219,6 +217,3 @@
   - core `output-tail.test.ts`(제어 문자 정규화).
   - 브라우저 `e2e:bg-output`. `\r`로 끝나는 진행률 조각과 커서 숨김 진행률 조각의 커서 열을 본다.
   - 결과는 `apps/demo/e2e/BASELINE.md`가 원천이다.
-
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/05-output-streaming.md`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/{terminal-sinks,sink-writer,output-tail}.ts`

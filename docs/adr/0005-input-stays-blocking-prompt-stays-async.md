@@ -32,5 +32,5 @@
 ## Consequences
 
 - 메일박스 대기 중 worker는 RPC에 답하지 못한다.
-- `input()` 안 Tab 완성은 이 구조로 풀리지 않아 보류로 남는다(이전 구현 RD-016b, `docs/design/12-previous-implementation.md`).
+- `input()` 안 Tab 완성은 이 구조로 풀리지 않아 보류로 남는다(이전 구현 RD-016b).
 - 배경 콜백의 `input()`은 read-guard로 REPL 읽기 뒤에 시작한다(`docs/design/04-stdin-input.md` 3.2).

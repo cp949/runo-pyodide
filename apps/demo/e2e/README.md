@@ -2,8 +2,7 @@
 
 실제 xterm 6 + 실제 브라우저(chromium)로 데모를 조작하는 Playwright 하니스. 판정 스크립트·측정
 스크립트·pty 기준 데이터·양성 대조 드라이버·node 통계를 전부 이 폴더 안에 저장소 코드로 커밋한다
-(RD-018부터. 이력은 `docs/design/12-previous-implementation.md`,
-각 RD 요약은 `docs/history/first-roadmap.md` 참고, 상세 인계는 보관하지 않음).
+(RD-018부터. 각 RD 요약은 `docs/history/first-roadmap.md` 참고, 상세 인계는 보관하지 않음).
 
 기준선(시나리오 ID별 현재 기대 결과)은 `apps/demo/e2e/BASELINE.md`에 있다. 이 문서는 실행법·폴더
 규칙·버전 차이·함정만 다룬다.

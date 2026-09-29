@@ -95,7 +95,7 @@ patch 절차 1~5에 더해:
 - 버전에 묶인 편차·함정의 영향 여부.
   - 후보를 찾는 명령: `git grep -n "3\.14\.2\|314\.0\.7" docs/design/10-parity-deviations.md docs/design/11-known-traps.md docs/traps`.
   - 버전에 묶인 것으로 지목된 후보(재확인 필요): 편차 13·18·19·26~29·34·35, 함정 TRAP-03·06·27, TRP-005·010·021.
-  - TRAP-06(TRP-019)은 업스트림(python/cpython#157548)이 수정됐는지도 본다.
+  - TRAP-06은 업스트림(python/cpython#157548)이 수정됐는지도 본다.
   - 재전송 장치 제거 조건은 `11-known-traps.md` TRAP-06의 검증 방법이다. 재전송을 끈 단일 눌림 N=3000에서 소실이 0이다.
 - 재측정 권고 여부(minor면 필수).
 

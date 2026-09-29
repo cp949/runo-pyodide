@@ -1,17 +1,14 @@
 # 편집: 벤더링한 xterm-readline·자동 들여쓰기·블록 히스토리·붙여넣기·선택 복사
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 확정했다. 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다. 새 구현은 통신 계층만 바꾸고(`docs/design/00-architecture.md`, `01-protocols.md`) 이 규칙은 그대로 지킨다. 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다.
 
-## 6.1 xterm-readline 사용 방식 (새 구현)
+## 6.1 xterm-readline 사용 방식
 
-- 이전 구현은 npm `xterm-readline@1.2.2`를 그대로 설치했다.
-  - 모든 수정을 **런타임 래핑**으로 넣었다. 타입상 private인 `readKey`·`state`·`activeRead`·`history`·`readPaste`를 감쌌다.
-  - 우회 7건 중 4건(TRAP-13·14·15·17)이 비공개 내부에 의존했다.
-- 새 구현은 소스를 **`packages/xterm-readline`(`@cp949/runo-xterm-readline`)으로 벤더링**한다([ADR-0003](../adr/0003-vendor-xterm-readline.md)).
-  - 원본은 strtok/xterm-readline 1.2.2(MIT)다.
+- 소스를 **`packages/xterm-readline`(`@cp949/runo-xterm-readline`)으로 벤더링**한다([ADR-0003](../adr/0003-vendor-xterm-readline.md)).
+  - upstream은 strtok/xterm-readline 1.2.2(MIT)다.
   - `LICENSE-MIT`와 저작권 고지를 패키지에 유지한다.
-- 벤더링 뒤 수정 방침:
-  - 아래 6.2 표의 우회 중 **TRAP-13(`readPaste` 탭 보존)·TRAP-15/TRAP-12(재그리기 전제)·TRAP-17(`moveCursorBack` 단위)은 소스에서 직접 고친다**.
+- 수정 방침:
+  - 아래 6.2 표의 수정 중 **TRAP-13(`readPaste` 탭 보존)·TRAP-15/TRAP-12(재그리기 전제)·TRAP-17(`moveCursorBack` 단위)은 소스에서 직접 고친다**.
   - `read()`의 write 콜백 타이밍(TRAP-14)은 공개 옵션 `ReadOptions.prefill?: string`으로 계약을 명시한다.
     - RD-013 완료: write 콜백 안, `new State` 직후 1회 채운다.
     - "onInputReady 콜백/ready Promise" 초안은 채택하지 않았다(6.3).
@@ -99,10 +96,10 @@
     `refreshUnhighlighted()`는 강조가 없어도 입력줄을 항상 다시 그린다.
     - `State.refreshUnhighlighted()`가 강조기를 잠시 바꾸고 `refresh()`를 무조건 부른다.
     - 그려진 활성 읽기 분기의 원시 쓰기는 입력줄 재그리기 조각 + `"\r\n"`이다.
-    - 화면 행은 옛 소비자 경로(`"\r\n"`만)와 같다.
+    - 화면에는 `"\r\n"`만 쓴다.
     - 원시 쓰기를 단언하는 시험은 `"\r\n"` 개수·마지막 조각으로 본다.
 
-  - **settle 도입 이유**: 이전에는 소비자 두 곳(REPL `reset()`, 실행창 abort)이 `undrawnAbovePrefix()`를 `cancelRead()` 앞에서 읽어 접두를 다시 쓰고 `"\r\n"`을 직접 썼다.
+  - **settle이 막는 결함**: 소비자(REPL `reset()`, 실행창 abort)가 `undrawnAbovePrefix()`를 `cancelRead()` 앞에서 읽어 접두를 다시 쓰고 `"\r\n"`을 직접 쓰면 두 문제가 생긴다.
     - 커서가 감긴 입력의 중간 행에 있으면 그 `"\r\n"`이 입력 둘째 행 위에서 났다.
     - 뒤 출력(트레이스백·리셋 안내 줄)이 입력 위에 겹쳤다. 예: 열 20·30자 입력·Home 뒤 abort → `"Traceback0123"`.
     - 커서가 입력 끝에 있는 시험만 있으면 통과한다.
@@ -222,7 +219,6 @@
     - Ctrl+L(`clearScreen`)은 같은 `State`를 다시 그리므로 접두째 맨 위에 다시 그린다.
   - **재그리기 병합과 뷰 위임**(2026-09-26 RD-030):
     - 재그리기 대기 상태를 객체 하나로 모았다: `Offscreen { calls, waiters, queued, cursor }`(벤더 `line-view.ts`, 패키지 밖으로 export하지 않는다).
-      - 이전에는 불리언 게터·합류 카운터·resolve 목록·저장 커서·재그리기 큐가 필드 네 조각으로 흩어져 있었다.
       - 초기화 누락으로 조각이 어긋나는 버그를 객체 하나로 구조상 막는다.
     - 객체 identity가 무효화 토큰이다.
       - `cancelRead()`·`takeRead()`·`dispose()`가 `Readline.offscreen`에서 떼어 내면 무효다.
@@ -304,17 +300,17 @@
     - 변경 목록은 `packages/xterm-readline/README.md`.
 - 업스트림 추적: 원격을 연결하지 않는다(runo-coincident와 같은 방식). 업스트림 변경을 가져올 때는 `CHANGELOG.md`의 버전 기준으로 수동 diff한다.
 
-## 6.2 이전 구현이 적용한 수정(무엇을 / 어떤 방법으로) — 새 구현은 6.1 방침대로 소스에서 처리
+## 6.2 벤더링한 xterm-readline에 적용한 수정(무엇을 / 어떤 방법으로)
 
-| 항목    | 증상                                                                              | 들어간 방법                                                                                                                                                                                          |
-| ------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TRAP-12 | `read(prompt)`가 커서 행을 열 0부터 다시 그려(`\r\x1b[J`) 개행 없는 출력이 지워짐 | 브리지에서 꼬리를 프롬프트로 넘겨 그 자리에 다시 그린다(`promptRow.read`, RD-027). 라이브러리는 고치지 않는다. 옛 `cursorX !== 0` 개행 가드는 제거했다. `cursorX`는 비동기 파싱 값이라 낡는다.       |
-| TRAP-14 | `read()`가 입력 상태를 **비동기로** 만들어 직후의 버퍼 조작이 사라짐              | 이전 구현은 `term.write('', cb)` 콜백 안에서 `updateLine`·커서 복원·`editing` 복원을 했다. 새 구현(RD-013)은 `ReadOptions.prefill`이 같은 콜백 안에서 처리한다. 코어가 콜백 타이밍을 알 필요가 없다. |
-| TRAP-15 | 여러 행으로 감기는 프롬프트의 첫 재그리기가 앞 행을 남김                          | `read()` 앞에 `rewindTail`이 `\x1b[nA`로 첫 행까지 올린다. flush 후 `isWrapped` 카운트를 쓴다.                                                                                                       |
-| TRAP-16 | 뷰포트를 채운 레이아웃에서 행이 늘 때 스크롤백 맨 윗행이 사라짐                   | **미해결**. 보이는 화면은 정상이라 관찰로만 남겼다. 꼬리 상한을 두려던 계획은 근거가 없어 폐기했다.                                                                                                  |
-| TRAP-17 | `moveCursorBack(0)`은 줄 맨 앞으로 가고 `n`은 코드포인트 수                       | 목록 재그리기 뒤 커서 복원에서 0이면 호출을 생략한다. 개수는 `[...text]` 코드포인트로 센다.                                                                                                          |
-| TRAP-13 | `readPaste`가 붙여넣은 `\t`를 버림                                                | 이전 구현은 `preservePastedTabs(readline)`가 `readPaste`를 런타임 패치했다. 새 구현(RD-011)은 벤더 `readPaste`가 `UnsupportedControlChar` + 단일 `\t` 토큰만 `Text`로 승격해 버퍼에 보존한다.        |
-| TRAP-11 | StrictMode 이중 마운트에서 dispose된 인스턴스의 지연 콜백                         | 이전 구현은 상시 `while read()` 루프를 없앴다(필요할 때만 `read()` 호출). 새 구현은 `Readline.dispose()`가 `term`을 비워 소스에서 막는다(6.1). 마운트 직후 읽기를 시작해도 안전하다.                 |
+| 항목    | 증상                                                                              | 들어간 방법                                                                                                                                                                             |
+| ------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TRAP-12 | `read(prompt)`가 커서 행을 열 0부터 다시 그려(`\r\x1b[J`) 개행 없는 출력이 지워짐 | 브리지에서 꼬리를 프롬프트로 넘겨 그 자리에 다시 그린다(`promptRow.read`, RD-027). 라이브러리는 고치지 않는다. `cursorX`로 개행을 가르지 않는다. `cursorX`는 비동기 파싱 값이라 낡는다. |
+| TRAP-14 | `read()`가 입력 상태를 **비동기로** 만들어 직후의 버퍼 조작이 사라짐              | `ReadOptions.prefill`이 write 콜백 안에서 처리한다(RD-013). 코어가 콜백 타이밍을 알 필요가 없다.                                                                                        |
+| TRAP-15 | 여러 행으로 감기는 프롬프트의 첫 재그리기가 앞 행을 남김                          | `read()` 앞에 `rewindTail`이 `\x1b[nA`로 첫 행까지 올린다. flush 후 `isWrapped` 카운트를 쓴다.                                                                                          |
+| TRAP-16 | 뷰포트를 채운 레이아웃에서 행이 늘 때 스크롤백 맨 윗행이 사라짐                   | **미해결**. 보이는 화면은 정상이라 관찰로만 남겼다.                                                                                                                                     |
+| TRAP-17 | `moveCursorBack(0)`은 줄 맨 앞으로 가고 `n`은 코드포인트 수                       | 목록 재그리기 뒤 커서 복원에서 0이면 호출을 생략한다. 개수는 `[...text]` 코드포인트로 센다.                                                                                             |
+| TRAP-13 | `readPaste`가 붙여넣은 `\t`를 버림                                                | 벤더 `readPaste`가 `UnsupportedControlChar` + 단일 `\t` 토큰만 `Text`로 승격해 버퍼에 보존한다(RD-011).                                                                                 |
+| TRAP-11 | StrictMode 이중 마운트에서 dispose된 인스턴스의 지연 콜백                         | `Readline.dispose()`가 `term`을 비워 소스에서 막는다(6.1). 마운트 직후 읽기를 시작해도 안전하다.                                                                                        |
 
 ## 6.3 자동 들여쓰기 규칙(`createAutoIndent(readline)`, RD-013 완료)
 
@@ -356,8 +352,8 @@
   - `lastUsedIndentation`은 세션이 그대로라 취소로 사라지지 않는다. 벤더는 들여쓰기 상태를 모른다.
 - REPL 읽기 phase `cancel-settling`은 **벤더 readline이 아니라 main 게이트의 항**이다(`08-session.md` 8.1, `03-ctrl-c.md` 2.7).
   - 취소 응답 뒤 다음 요청이 도착하기 전의 Ctrl+C를 에코도 전송도 하지 않는다.
-  - 이전 구현은 `activeRead`로 판단해야 했다. `read()` 호출과 입력 상태 생성 사이에 비동기 창이 있었기 때문이다(TRAP-14).
-  - 새 구조에서는 phase가 `opening`·`open`·`closing`인 구간(요청 도착 → 응답)이 그 창을 이미 덮는다. 두 구간이 이어져 빈틈이 없다.
+  - `read()` 호출과 입력 상태 생성 사이에 비동기 창이 있다(TRAP-14). `activeRead`로는 이 창을 판단할 수 없다.
+  - phase가 `opening`·`open`·`closing`인 구간(요청 도착 → 응답)이 그 창을 덮는다. 두 구간이 이어져 빈틈이 없다.
   - 벤더 readline은 REPL 정책을 모른다.
   - `input()` 취소에는 이 phase를 세우지 않는다(`04-stdin-input.md` 3.1).
 - 훅 호출 지점은 벤더 `readKey`에서 `activeRead === undefined` 검사 뒤, `switch` 앞이다.
@@ -492,10 +488,6 @@
 
 편차: 3.14 pty에는 선택 개념이 없다. Ctrl+C는 항상 SIGINT이고 자동 복사도 없다. `10-parity-deviations.md` 편차 43으로 등록했다.
 
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/03-selection-copy.md`,
-이전 구현 설계 문서 `09-auto-indent.md`, `10-block-history.md`,
-`/work/cp949/pyodide-samples/docs/repl/traps/`(TRP-001·004·006·008·016·017·030)
-
 ## 6.7 읽기가 없는 구간의 키 버퍼링(type-ahead, RD-019 완료)
 
 3.14는 실행 중 tty가 입력을 큐에 쌓고 다음 프롬프트가 그 큐를 읽는다. 벤더 `Readline`이 같은 일을 한다. 코어 래퍼가 아니다.
@@ -571,7 +563,6 @@
 세션 소유 모듈이다(`terminal/line-editor.ts`). 6.3 자동 들여쓰기·6.4 블록 히스토리·7.1 Tab 리더 세 정책을 하나로 묶는다.
 
 - `repl-main-driver.ts`의 편집 정책 접점을 `begin`·`end`·`dispose`·`requesting` 네 메서드로 줄인다.
-- 옛 `mergeReadOptions` 순수 함수(`terminal/read-options.ts`, 삭제)와 `terminal/source-bridge.ts`의 `restoreOptions`를 흡수했다.
 
 - **생성 순서**: autoIndent → blockHistory → tabReader. 세 정책의 수명 = 편집기 수명 = 세션.
 - **`begin(pending, restore?)`**: 읽기마다 한 번, `promptRow.read`의 `readOptions` thunk 안에서(flush 뒤, `readline.read()` 직전에) 부른다.

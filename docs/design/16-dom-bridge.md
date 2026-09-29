@@ -1,6 +1,6 @@
 # DOM 브리지(`pyodide-dom-bridge`)
 
-> RD-023 신규 절이다. 이전 구현에 대응 기능이 없어 `12-previous-implementation.md`의 참고 경로가 없다.
+> RD-023로 추가한 절이다.
 >
 > - 이름·옵션·오류 문구는 `packages/pyodide-dom-bridge/src/`의 export와 일치해야 한다.
 > - `apps/demo`의 `?view=dom-bridge`와 `e2e:dom-bridge`가 브라우저에서 확인한다.

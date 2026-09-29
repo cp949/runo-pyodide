@@ -1,13 +1,12 @@
 # Ctrl+C / SIGINT 프로토콜
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 CPython 3.14.4 pty 실측과 브라우저 회귀로 확정한 것이다.
-> 새 구현은 통신 계층만 바꾸고(`docs/design/00-architecture.md`, `01-protocols.md`) 이 규칙은 그대로 지킨다.
-> 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수는 CPython 3.14.4 pty 실측과 브라우저 회귀로 확정한 것이다.
+> 통신 계층은 `docs/design/00-architecture.md`, `01-protocols.md`가 정한다.
 
 interrupt buffer의 슬롯 배치와 전달 경로 자체는 `01-protocols.md` 3절에 있다.
 
 - 이 문서는 그 위의 프로토콜이다: 요청 번호·ack·재전송, Python 핸들러, 감시 타이머, 연결 순서.
-- 새 구현에서 달라지는 점은 하나다: `readInput` 진입은 main이 메일박스 요청 알림을 받는 시점이다.
+- `readInput` 진입은 main이 메일박스 요청 알림을 받는 시점이다.
 
 ## 2.1 버퍼 슬롯
 
@@ -20,7 +19,7 @@ interrupt buffer의 슬롯 배치와 전달 경로 자체는 `01-protocols.md` 3
   - 접근자·Proxy를 끼우면 소실은 0이 된다.
   - 그러나 폴링 경로 비용이 통과선(plain 대비 1.05)을 넘는다(하한 1.095, TRAP-23).
 - `hasProtocolSlots(buffer) = buffer.length > SEQ`.
-  - 길이 3 미만 버퍼(옛 하니스)에서는 ack·번호·재전송이 모두 no-op이다.
+  - 길이 3 미만 버퍼에서는 ack·번호·재전송이 모두 no-op이다.
   - SIGINT 슬롯만 동작한다.
 
 ## 2.2 쓰기·ack 규칙
@@ -60,7 +59,7 @@ interrupt buffer의 슬롯 배치와 전달 경로 자체는 `01-protocols.md` 3
   - 새 worker를 만들기 직전(RD-010, 2.6).
 - **main 게이트 `pythonRunning`**(RD-007, 2.7): 거짓이면 `send()` 자체를 하지 않는다.
   - `exit()`·로드 실패 뒤의 눌림이 슬롯에 SIGNAL 2를 영원히 남기지 않는다.
-  - 5ms 점검이 무한히 도는 일이 없다(이전 구현 RD-012h(a)).
+  - 5ms 점검이 무한히 도는 일이 없다.
 
 ## 2.4 worker 핸들러(core `worker/sigint-handler.py`, `worker/sleep-slice.py`)
 
@@ -341,9 +340,3 @@ worker: wait()가 {kind:"cancelled"} → signalInterrupt()(SEQ+=1, SIGNAL=2) →
         → 트레이스백 3줄(writeError) → req readLine(">>> ")
 main: 이 구간의 Ctrl+C는 게이트가 열려 있어 에코·전송한다(취소 뒤 사용자 코드가 계속 돌 수 있다)
 ```
-
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/02-ctrl-c.md`,
-이전 구현 설계 문서 `02a-prompt-cancel.md`, `02c-key-repeat.md`, `02d-idle-ctrl-c.md`, `02e-lost-press.md`,
-이전 구현 설계 문서 `02f-sleep-slice.md`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/{interrupt-protocol,interrupt-sender,interrupt-buffer,interrupt-watch,sigint-handler,webloop-reraise}.ts`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/sigint-handler.py`

@@ -1,8 +1,6 @@
 # npm 공개 배포
 
-> 2026-09-28 확정한 설계다.
-> 아직 저장소에 반영하지 않았다. 없는 것: `.release-it.json`, 루트 `release`·`release:check` 스크립트, 루트 `LICENSE`, 공개 매니페스트 필드(17.2), 17.2의 tarball 판정 함수.
-> 현재 공개 대상 패키지는 `private: true`이고 버전이 `0.0.0`이다.
+> release-it 도입 시 구현할 설계다.
 
 결론:
 

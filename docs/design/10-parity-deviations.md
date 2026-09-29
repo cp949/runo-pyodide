@@ -2,8 +2,7 @@
 
 동등성 기준은 CPython 3.14.4를 pty(24×80, `TERM=xterm`)로 띄운 실측이다.
 
-- 아래는 이전 구현이 확정한 편차·범위 밖 목록이다.
-- 새 구현도 같은 정책을 따른다.
+- 아래는 확정한 편차·범위 밖 목록이다.
 - 정책을 바꾸려면 이 문서에 근거를 기록한다.
 
 ## 1. 문서화된 편차
@@ -98,7 +97,6 @@ Tab 완성 배선(RD-015, `07-tab-completion.md` 7.1·`06-editing.md` 6.5):
   - 벤더 `readPaste`는 `onKey`를 거치지 않는다.
   - Tab, 붙여넣기, Tab 순서로 치면 `lastKeyWasTab`이 붙여넣기에 반응하지 않고 유지된다.
   - 두 번째 Tab도 "연속 두 번째"로 판정된다. 첫 Tab처럼 삽입/공백이 아니라 목록이 열린다.
-  - 이전 구현과 같은 동작이다.
 - **Tab 완성 중 Ctrl+C는 `exec()`/`eval()` 경계에서 한계가 있다.**
   - 사용자 코드가 REPL 프롬프트에 직접 입력된 경로(컴파일 파일명이 `<console>`)에서는 완성 계산(`console.complete`) 중 Ctrl+C가 즉시 `KeyboardInterrupt`로 복귀한다(실측 25.4ms).
   - `exec()`/`eval()` 등으로 정의된 코드(파일명이 `<console>`이 아님)의 `__getattr__`/`__repr__`이 블로킹이면 완성 평가가 멎을 수 있다.
@@ -192,11 +190,10 @@ stdin 읽기의 끝:
     - RD-008 브라우저 실측(N=20, 에코된 `^C` 수의 중앙값): 0ms 간격 2회는 1, 5회는 4, 키 반복 20회는 19다.
     - 트레이스백은 모든 셀·모든 시행에서 정확히 1개였다.
     - 3.14도 cooked mode에서 실행 중 `^C`를 에코한다. "Python이 도는 중" 표시로는 옳다.
-    - 방어를 걸면 `except KeyboardInterrupt` 뒤 계산 중 Ctrl+C가 무시된다. 이전 구현에서 3.0초였다. 걸지 않는 쪽을 골랐다.
+    - 방어를 걸면 `except KeyboardInterrupt` 뒤 계산 중 Ctrl+C가 무시된다. 걸지 않는 쪽을 골랐다.
 37. **`... ` 프롬프트 취소 연타는 여러 눌림이 `KeyboardInterrupt` 한 줄로 합쳐진다.** `cancelSettling`이 취소 응답 뒤 구간을 덮어 `^C`도 찍히지 않는다.
     - RD-008 실측(N=20): 0ms 2회·5회·키 반복 20회 모두 `^C`가 0개다.
     - `KeyboardInterrupt` 줄 수 중앙값은 1이다. 5회·키 반복에서 드물게 2가 나온다. 두 번째 취소가 새 읽기가 열린 뒤에 떨어진 경우다.
-    - 이전 구현은 1~5ms 간격에서 평균 2·9.65줄이었다. 합쳐짐이 더 강하다.
     - 3.14는 눌림마다 한 줄을 낸다. 줄 수 차이가 남는다.
 
 정지한 실행 중 Ctrl+C:
@@ -365,8 +362,6 @@ top-level await 대기 중 Ctrl+C는 **편차로 등록하지 않는다**.
   - 대기 중 Ctrl+C를 task 취소로 처리하고 한 줄만 내는 것은 3.14의 `python -m asyncio`와 같은 동작이다.
   - 우리 TLA 옵션의 기준이 기본 REPL이 아니라 `python -m asyncio`이기 때문이다(편차 1과 같은 정렬).
 - 2절 "범위 밖"에도 넣지 않는다. 재현하지 않기로 한 차이가 아니라 차이가 아니다.
-
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/02-ctrl-c.md`, `05-output-streaming.md`, `06-tab-completion.md`, `07-multiline-submit.md`, `09-auto-indent.md`, `10-block-history.md`, `/work/cp949/pyodide-samples/apps/repl/README.md`("알려진 제약"), RD-008 pty 재측정
 
 ## 2. 범위 밖 확정 (2026-09-21)
 

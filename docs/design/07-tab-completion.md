@@ -1,6 +1,6 @@
 # Tab 완성
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 확정했다. 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다. 새 구현은 통신 계층만 바꾸고(`docs/design/00-architecture.md`, `01-protocols.md`) 이 규칙은 그대로 지킨다. 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다.
 
 `complete(source, pending)` 요청은 main→worker RPC 요청이다(`01-protocols.md` 1절).
 
@@ -20,7 +20,7 @@
   - `createTabReader`는 세션 소유 정책 객체다. 줄 편집기 `terminal/line-editor.ts`가 `blockHistory`·`autoIndent` 옆에서 만든다(`06-editing.md` 6.8).
   - 가로채는 수단은 벤더 readline의 **키 가로채기 공개 훅**(`ReadOptions.onKey`)이다. RD-013이 범용으로 추가했다.
   - 가로채는 키는 Tab(`UnsupportedControlChar`, `data: ['\t']`)이다.
-  - 이전 구현은 private `readKey`를 런타임 래핑했다. 벤더링 뒤에는 `06-editing.md` 6.1 규칙대로 private 멤버를 쓰지 않는다.
+  - private 멤버는 쓰지 않는다(`06-editing.md` 6.1).
   - 노출은 `readOptions`·`readEnded` 둘과, popover용 `resetTabStreak()`·`requesting` 게터다.
     - `readOptions(pending)`: 다음을 초기화한다. 세대 `generation` +1, `ended=false`, `pendingBlock` 저장, `lastKeyWasTab=false`, `queuedTabs=[]`.
       - 줄 편집기의 `begin(pending, restore)`가 `blockHistory.readOptions(pending)`·`autoIndent.readOptions(pending)`과 함께 3항을 합성한다.
@@ -61,7 +61,6 @@
   - 프롬프트는 세지 않는다.
   - `\t`는 1로 센다.
 - **32칸 규칙**: 왕복 중 Tab을 큐에 두어 이어 처리한다. Tab 8회를 간격 0ms로 눌러도 공백이 **32칸**이다.
-  - 옛 동기 모드는 버려진 Tab 때문에 4칸이었다.
   - 게이트가 참인 빈 스템 줄(`important = ` 등)도 마찬가지다.
 
 ## 7.3 후보 표시
@@ -278,7 +277,3 @@
 - `terminal/tab-reader.test.ts`: 옵션 켬 `open` 분기·W1·W3·`onApplied` 리셋.
 - `terminal/line-editor.test.ts`: E0·C1·W4.
 - `apps/demo/e2e/checks/completion-popover-check.mjs`: 브라우저, `?completionPopover=1`.
-
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/06-tab-completion.md`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/{tab-completion,tab-reader,complete-source}.ts`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/complete-source.py`

@@ -1,6 +1,6 @@
 # runo-pyodide 설계
 
-브라우저 Python REPL(pyodide + xterm.js)을 `/work/cp949/pyodide-samples/apps/repl`(이전 구현)에서 coincident 동기 브리지 없이 재개발하는 기술 설계다. RD-001~RD-049 이관 작업(이력: `docs/history/first-roadmap.md`)은 이 문서와 `docs/design/`을 전제로 진행했다.
+브라우저 Python REPL(pyodide + xterm.js)을 coincident 동기 브리지 없이 만드는 기술 설계다([ADR-0001](docs/adr/0001-no-sync-bridge-library.md)). RD-001~RD-049 이관 작업(이력: `docs/history/first-roadmap.md`)은 이 문서와 `docs/design/`을 전제로 진행했다.
 
 이 문서는 색인이다. 내용은 `docs/design/NN-*.md`에 있다.
 
@@ -10,7 +10,7 @@
 
 1. **무엇을, 왜**: `docs/design/00-architecture.md`(목표·채널·생명주기·패키지·공개 인터페이스), `docs/adr/`(결정 8건)
 2. **통신 계약**: `docs/design/01-protocols.md`(RPC 메시지, stdin 메일박스, interrupt buffer, 초기화 프레임, 시퀀스)
-3. **기능 규칙**(이전 구현이 3.14 pty 실측으로 확정한 것을 계승):
+3. **기능 규칙**(3.14 pty 실측으로 확정):
    - `02-console-core.md` PyodideConsole·제출 실행·top-level await·종료, `runSource`(5.6)
    - `03-ctrl-c.md` SIGINT 프로토콜(요청 번호·ack·재전송, Python 핸들러, 감시 타이머, sleep 조각)
    - `04-stdin-input.md` `input()` 읽기·취소·read-guard·프롬프트 꼬리
@@ -23,7 +23,6 @@
    - `16-dom-bridge.md` DOM 브리지(`pyodide-dom-bridge`): `runo.browser`(`window`·`document`)·worker 조립과 첫 정적 import 규칙·`plugins` 계약·`native: false`·동기 호출 중 중단(S5)·출력·DOM 도착 순서 보장 없음·CSP 정적 검사(RD-023)
    - `17-release.md` npm 공개 배포: 공개 범위 6개·lockstep 버전·공개 매니페스트 규칙·MIT 라이선스·release-it 흐름(publish가 push보다 먼저)·실패 복구·사용자 준비물·`release:check`
 4. **검증과 한계**: `09-testing.md`(패키지 경계 검사 9.8 포함), `10-parity-deviations.md`(3.14 편차 55건 등록: 해소 22·28·32와 동등 항목 23 포함, 범위 밖은 별도), `11-known-traps.md`(함정 33건), `13-version-upgrade.md`(pyodide 버전 원천·업그레이드 절차·호환 탐지 등급표, [ADR-0007](docs/adr/0007-pyodide-single-version-policy.md))
-5. **이전 구현 참조**: `12-previous-implementation.md`(이전 RD 인벤토리·모듈 지도)
 
 ## 결정된 스택
 
@@ -48,12 +47,12 @@
 ## 문서 규칙
 
 - `docs/design/` 번호는 읽기 순서이지 의존 순서가 아니다. 새 절은 끝 번호 다음에 붙인다.
-- 각 기능 문서의 "참고:" 경로는 이전 구현의 근거 위치다. 이전 구현은 읽기 전용 참고이며 코드를 그대로 복사할 때는 통신 계층(coincident proxy)과 결합된 부분을 걸러낸다(`12-previous-implementation.md` 4절의 "통신과 격리된 것 / 결합된 것").
+- 12번은 결번이다. 다른 번호는 그대로 둔다.
 - 규칙·상수를 바꾸면 해당 절과 `10-parity-deviations.md`를 같은 DELTA에서 갱신한다. 새 함정은 `docs/traps/`(rubber-workflow)이고 `11-known-traps.md`는 이관본이라 수정하지 않는다.
 - 용어는 `CONTEXT-MAP.md`가 가리키는 `CONTEXT.md`를 따른다.
 
 ## 미확정 사항(구현 시점에 확인)
 
-- Firefox·Safari 동작. 이전 구현은 Chromium만 확인했다. 브라우저별 차이는 `10-parity-deviations.md`에 적는다. 엔진 범위 결정(Chrome 전용, 미검증 엔진은 `load-failed`)은 [ADR-0008](docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md).
+- Firefox·Safari 동작. Chromium만 확인했다. 브라우저별 차이는 `10-parity-deviations.md`에 적는다. 엔진 범위 결정(Chrome 전용, 미검증 엔진은 `load-failed`)은 [ADR-0008](docs/adr/0008-chrome84-build-floor-and-pyodide-runtime-floor.md).
 - Chrome 94~96(pyodide 런타임 floor 정적 판정 96과 실측 확인 97 사이)은 Debian snapshot에 해당 버전이 없어 미실측이다(ADR-0008).
 - dom-bridge의 실제 안전 런타임 floor(growable `SharedArrayBuffer` 판정 오탐 가능 구간, GitHub 이슈 #1)와 `check-escompat` 게이트가 못 잡는 Web API(GitHub 이슈 #2).

@@ -12,10 +12,9 @@
   - 격리되지 않은 페이지에서는 초기화 프레임이 요구하는 `SharedArrayBuffer` 뷰를 만들 수 없다.
   - 시작 시 감지해 worker 없이 터미널에 경고만 낸다(세션이 없다).
   - Service Worker 우회는 범위 밖이다.
-- 이전 구현(`/work/cp949/pyodide-samples/apps/repl`)이 쓰던 coincident 동기 브리지는 쓰지 않는다([ADR-0001](../adr/0001-no-sync-bridge-library.md)).
+- coincident 동기 브리지는 쓰지 않는다([ADR-0001](../adr/0001-no-sync-bridge-library.md)).
   - 예외는 worker Python의 DOM 접근 전용 플러그인 `pyodide-dom-bridge`뿐이다.
   - 그 경우에도 `input()`·출력·중단은 core 채널로 간다([ADR-0006](../adr/0006-pyodide-core-and-plugin-packages.md), `16-dom-bridge.md`).
-  - 그 위의 기능 규칙은 그대로 계승한다(`02`~`08`).
 
 ## 2. 프로세스 모델과 채널
 
@@ -428,7 +427,6 @@ export * from sinks · rewind-tail · selection-copy · surface · prompt-row
 
 깊은 모듈(작은 인터페이스, 큰 구현)을 seam으로 삼고 통신은 주입한다.
 
-- 이전 구현에서 순수 함수·콜백 주입으로 격리돼 있던 모듈은 이름을 유지한다(`12-previous-implementation.md` 4절).
 - 공통 부분(프로토콜·worker 커널·main 세션)은 `pyodide-core`에 있다(RD-020).
 - 시험 파일은 지도에서 뺀다(`09-testing.md`).
 
@@ -586,7 +584,7 @@ Python 소스는 `.py?raw`로 임포트한다.
 - repl `worker/`는 `repl-driver.ts`가 조립 모듈이라 core worker 진입점에서 `discardPendingInterrupt`와 driver 타입을 import한다.
 - `repl-loop.ts`·`submission-runner.ts`는 `readLine`·`run`·출력 함수를 주입받는다.
 - RPC 래퍼(`rpc.call("readLine", …)`·`rpc.notify(…)`)는 `repl-driver.ts`가 만든다.
-- 그래서 이전 구현의 시험(가짜 터미널, node+실제 pyodide)이 그대로 옮겨진다.
+- 그래서 시험은 가짜 터미널과 node+실제 pyodide로 돌 수 있다.
 
 ### 4.3 apps/demo
 
@@ -600,7 +598,7 @@ React 19 + Vite 8.
   - 쿼리 `?fit=1`일 때만 `fit`이 켜진다(`App.tsx`가 두 View에 prop으로 넘긴다).
 - `ReplView`는 UI 상태(세션 status, top-level await 스위치, 자동 복사 스위치, 크래시 메시지 등)만 React state로 둔다.
 - StrictMode 이중 마운트에서 `dispose()`가 두 번 불려도 안전해야 한다(`08-session.md` 8.2).
-- UI 라이브러리는 정하지 않았다. 이전 구현은 MUI v9였고, 이 데모에는 필수가 아니다.
+- UI 라이브러리는 정하지 않았다. 이 데모에는 필수가 아니다.
 
 `ReplView`의 요소는 plain 요소만 쓴다(라이브러리 없음). `data-testid`가 e2e 셀렉터다.
 
@@ -714,31 +712,10 @@ export function bridge(): Promise<WorkerBridge>; // { proxy, window, native }, w
 
 규칙(첫 정적 import·`plugins`·`runo.browser`·`native: false`·S5·순서 보장 없음·CSP)은 `16-dom-bridge.md`다. REPL과의 조합은 지원하지 않는다.
 
-## 5. 이전 구현 대비 무엇이 사라지고 무엇이 남는가
-
-사라지는 것:
-
-- coincident 의존과 포크.
-- reflected-ffi 옵션.
-- 응답 프레임 변환 함정(`11-known-traps.md` "새 구조에서 제거됨").
-- 초기 handshake와 공존하기 위한 "최초 `await` 이전 등록·`instanceof` 구분" 규칙.
-- 출력 조각마다 worker가 멈추는 동기 왕복.
-- worker가 main에 설정을 되묻는 호출. `getTopLevelAwait`는 초기화 프레임으로 대체됐다.
-- `reportSync`. `crossOriginIsolated`는 main이 직접 안다.
-
-남는 것:
-
-- cross-origin isolation 요구(interrupt buffer 때문에 어차피 필요).
-- `input()` 대기 중 worker 정지(의도된 의미).
-- read-guard.
-- SIGINT 프로토콜 전체(pyodide 폴링의 비원자성은 통신 방식과 무관).
-- xterm-readline 계열 함정(벤더링으로 소스에서 처리).
-
 ## 6. 호스팅 요구
 
 - dev·preview·정적 배포 모두 `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`를 응답 헤더로 보내야 한다.
-  - 이전 구현은 dev 서버에만 걸어 두었다. `vite preview`와 빌드 산출물에서 `crossOriginIsolated === false`였다.
-  - 새 구현은 `apps/demo/vite.config.ts`의 `server.headers`와 `preview.headers` 둘 다에 넣는다. README에 배포 시 요구를 적는다.
+  - `apps/demo/vite.config.ts`의 `server.headers`와 `preview.headers` 둘 다에 넣는다. README에 배포 시 요구를 적는다.
   - `apps/demo/src/vite-config.test.ts`가 두 곳과 `worker.format`을 시험한다.
   - RD-001에서 확인했다(Chromium): dev와 preview 모두 HTML과 worker 스크립트 응답에 두 헤더가 붙는다. 페이지와 worker의 `crossOriginIsolated`가 참이다.
   - 같은 빌드 산출물을 헤더 없는 서버로 서빙하면 둘 다 거짓이다.

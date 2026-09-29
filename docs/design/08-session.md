@@ -1,8 +1,6 @@
 # 세션: 리셋·이중 마운트·종료 후 상태
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 CPython 3.14.4 pty 실측과 브라우저 회귀로 확정한 것이다.
-> 새 구현은 통신 계층만 바꾼다(`docs/design/00-architecture.md`, `01-protocols.md`). 이 규칙은 그대로 지킨다.
-> 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다.
 
 ## 8.1 리셋 = worker 교체(`ReplHandle.reset()`, RD-010)
 
@@ -225,18 +223,12 @@ Ctrl+L(화면 지우기)과 리셋(Python 상태 초기화)은 별개 기능이�
 
 ## 8.2 StrictMode 이중 마운트
 
-이전 구현:
-
 - dev의 StrictMode는 mount → cleanup → mount를 한 번 더 돌린다.
-- `Readline.dispose()`는 리스너만 정리하고 `this.term` 참조를 남겼다.
-- 버려지는 첫 인스턴스의 지연된 `term.write("", cb)` 콜백이 이미 dispose된 xterm에 접근해 `DisposableStore` 경고를 냈다(TRAP-11, throw는 아님).
-- 대응: **상시 `while read()` 재귀 루프를 두지 않는다.** worker가 필요할 때만 읽기를 요청한다.
-- 이중 마운트로 interrupt buffer·송신기가 두 번 만들어지는 것은 수용했다. 정확성에 영향이 없다.
-
-새 구현:
-
-- 벤더 `Readline.dispose()`가 `term`을 비우고 대기 읽기를 reject한다(`06-editing.md` 6.1). 마운트 직후 읽기를 시작하는 루프도 안전하다.
+- 버려지는 첫 인스턴스의 지연된 `term.write("", cb)` 콜백이 이미 dispose된 xterm에 접근하면 `DisposableStore` 경고가 난다(TRAP-11, throw는 아님).
+- 벤더 `Readline.dispose()`가 `term`을 비우고 대기 읽기를 reject한다(`06-editing.md` 6.1). 마운트 직후 읽기를 시작해도 안전하다.
+- **상시 `while read()` 재귀 루프를 두지 않는다.** worker가 필요할 때만 읽기를 요청한다.
 - `dispose()` 뒤 읽기 promise는 `Error`로 reject된다. 읽기 루프는 dispose로 끝난 reject를 정상 종료로 처리한다.
+- 이중 마운트로 interrupt buffer·송신기가 두 번 만들어지는 것은 수용한다. 정확성에 영향이 없다.
 - 데모(`ReplView`)가 이 순서로 동작한다.
 - 브라우저 확인: `apps/demo/e2e/checks/react-strictmode-check.mjs`가 콘솔 경고 0건과 `.xterm` 1개를 단정한다(`15-react.md` 15.6).
 
@@ -308,7 +300,3 @@ worker가 죽거나(전역 `error` 이벤트) 부팅 뒤(REPL 루프)에서 잡�
 - `onRunAccepted`(X4).
 - `onOutput`·`onCopy`. 내부 갱신 뒤 마지막 호출이라 결말 누락이 없다. 던지면 그 갱신 호출자에게 그대로 전파된다.
 - terminal(`createTerminalRunner`)·React(`PythonRepl`·`PythonRunner`). 각자 받은 `onStatus`·`onCrash`를 REPL·core 옵션으로 그대로 전달하기만 한다. 위 두 경계의 격리로 덮인다. 별도 처리가 없다.
-
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/04-session-reset.md`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/ReplTerminal.tsx`,
-`/work/cp949/pyodide-samples/docs/repl/traps/TRP-001-strictmode-readline-dispose-race.md`

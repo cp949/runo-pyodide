@@ -1,6 +1,6 @@
 # 실행 driver와 실행창(runner)
 
-> RD-022 신규 절이다. 이전 구현에 대응 기능이 없어 `12-previous-implementation.md`의 참고 경로가 없다.
+> RD-022로 추가한 절이다.
 >
 > - 기준은 CPython 3.14의 `python main.py`(스크립트 한 파일 실행)다. REPL 기준(`02`~`08`)과 다르다.
 > - 코드 한 덩어리를 새 이름공간에서 실행한다.

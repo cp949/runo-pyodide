@@ -1,12 +1,10 @@
 # 콘솔 코어: PyodideConsole·제출 실행·top-level await·종료
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 CPython 3.14.4 pty 실측과 브라우저 회귀로 확정한 것이다.
-> 새 구현은 통신 계층만 바꾸고(`docs/design/00-architecture.md`, `01-protocols.md`) 이 규칙은 그대로 지킨다.
-> 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수는 CPython 3.14.4 pty 실측과 브라우저 회귀로 확정한 것이다.
+> 통신 계층은 `docs/design/00-architecture.md`, `01-protocols.md`가 정한다.
 
 worker 안에서 도는 REPL 코어의 규칙이다.
 
-- 5.6(`runSource`, RD-022a)은 이전 구현에 없는 신규 절이다.
 - main과의 통신은 `01-protocols.md`의 RPC(`readLine` 요청, 출력 알림)와 무관하게 이 규칙만으로 결정된다.
 
 ## 5.1 PyodideConsole 사용법
@@ -63,7 +61,7 @@ worker 안에서 도는 REPL 코어의 규칙이다.
     4. TLA 비트.
     5. 헬퍼 namespace.
   - `installStdioWriters`와 `createCoreConsole`은 core `worker/core-console.ts`가 제공한다.
-  - `sys.ps1/ps2`를 콘솔 생성 앞에 두는 것은 이전 구현 순서를 따른 것이다. 기능 제약은 아니다.
+  - `sys.ps1/ps2`를 콘솔 생성 앞에 두는 것은 기능 제약이 아니다.
     - pyodide 314.0.7 `pyodide/console.py`는 `ps1`·`ps2`를 읽지 않는다.
   - 뼈대 순서(Writer 등록 → 콘솔 생성)를 core 부팅이 소유하지 않는다(결정 2026-09-27).
     - 순서가 driver `createConsole` 한 함수에서 위에서 아래로 읽힌다.
@@ -449,7 +447,6 @@ worker 안에서 도는 REPL 코어의 규칙이다.
   - 호출은 프롬프트가 화면에 보인 뒤에 하는 것이 안전하다(입력 타이밍 규칙, `docs/traps/TRP-005`와 같은 취지).
 - **interrupt buffer는 세션마다 새로 만든다**: `reset()`은 새 세션에 새 interrupt buffer·송신기를 싣는다(`08-session.md` 8.1 4번, `14-runner.md` 14.3.5).
   - 실행 중(`runSource` 포함) `reset()` 직후 첫 Ctrl+C가 아직 종료되지 않은 옛 worker에 가로채이지 않도록 buffer를 나눈다(`docs/traps/TRP-049`).
-  - 이전에는 REPL이 buffer를 재사용했다. 그때 첫 Ctrl+C 유실이 관찰됐다(`runSource`가 아닌 REPL 명령 경로).
   - `session-reset-check.mjs`의 `ccafter` 절이 이 회귀를 잡는다.
   - `runSource` 경로는 같은 `reset()`을 쓴다. 전용 브라우저 셀이 없다. S08은 `restarted` 뒤 REPL 명령만 돌리고 Ctrl+C 셀이 없다.
 - Tab `printAbove` 재그리기 중의 `takeRead()`는 옛 입력줄을 지우지 못한다(`06-editing.md` 6.1).
@@ -480,8 +477,3 @@ worker 안에서 도는 REPL 코어의 규칙이다.
   - `run-source`(버튼).
   - `source-result`(JSON 텍스트, 거부는 `{"rejected":"<reason>"}`).
   - 배경 출력 뒤 `runSource`는 `e2e:bg-output` B05(`B05T` / `5` / `>>> pri`)가 맡는다.
-
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/01-console-core.md`,
-이전 구현 설계 문서 `07-multiline-submit.md`, `08-top-level-await.md`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/{submission-runner,multiline,top-level-await}.ts`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/multiline.py`

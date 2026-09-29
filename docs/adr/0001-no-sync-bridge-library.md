@@ -1,6 +1,6 @@
 # main↔worker 통신에 동기 브리지 라이브러리(coincident)를 쓰지 않는다
 
-이전 구현(`docs/design/12-previous-implementation.md`)은 `@cp949/coincident`로 worker→main 호출 8개를 전부 동기 프록시로 처리했다. `@cp949/coincident`는 WebReflection/coincident 4.1.1의 TypeScript 포크다.
+이전 구현은 `@cp949/coincident`로 worker→main 호출 8개를 전부 동기 프록시로 처리했다. `@cp949/coincident`는 WebReflection/coincident 4.1.1의 TypeScript 포크다.
 
 2026-09-21 평가 결과:
 

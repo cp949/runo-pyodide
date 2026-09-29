@@ -1,8 +1,8 @@
 # 테스트·검증 전략
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 확정했다. 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다. 새 구현은 통신 계층만 바꾸고(`docs/design/00-architecture.md`, `01-protocols.md`) 이 규칙은 그대로 지킨다. 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수는 CPython 3.14.4 pty 실측과 브라우저 회귀로 확정했다. 통신 계층은 `docs/design/00-architecture.md`, `01-protocols.md`를 따른다.
 
-새 구현은 이전 구현과 같은 검증 범위를 목표로 한다. 새로 생긴 시험 대상:
+통신 계층의 시험 대상:
 
 - `rpc`(실제 `MessageChannel`)
 - `stdin-mailbox`(node `worker_threads`로 실제 `Atomics.wait` 왕복·청크·취소)
@@ -440,11 +440,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
 - 후보를 비교할 때는 OK/HANG/CRASH/DIRTY 같은 판정 축과 n을 정해 표로 남긴다.
 - "간격 0ms"처럼 합쳐져 성공처럼 보이는 측정(TRAP-21)과 "재전송 수 = 소실 수"라는 오독(TRAP-24)을 피한다.
 
-참고: `/work/cp949/pyodide-samples/apps/repl/DESIGN.md`("테스트 전략"),
-`/work/cp949/pyodide-samples/apps/repl/src/repl/*.test.ts`,
-`/work/cp949/pyodide-samples/apps/repl/src/test/`
-
-## 9.5 검증 하니스 설계 규칙 (이전 구현의 측정 함정 압축)
+## 9.5 검증 하니스 설계 규칙 (측정 함정 압축)
 
 측정·테스트 방법론 함정은 전부 "측정이 통과했는데 사실이 아니다"라는 같은 모양이다. 규칙으로 압축한다.
 
@@ -471,55 +467,27 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
     - 문턱에서 5~10ms 안쪽 결과는 다른 시계로 한 번 더 재기 전에 회귀로 보고하지 않는다.
     - 실패한 1차 측정 로그는 판단을 되돌릴 근거이므로 버리지 않는다.
 
-참고: `/work/cp949/pyodide-samples/docs/repl/traps/`
-
-## 9.6 이전 구현의 검증 자산 위치
-
-이전 구현의 자산은 새 저장소의 시험 설계 근거다. 새 저장소가 이식한 것은 9.6.5·9.6.6이다.
+## 9.6 검증 자산 위치
 
 ### 9.6.1 단위 시험 (vitest)
 
-- 실행: `pnpm --filter repl test`(= `vitest run`).
-- 기본 환경은 jsdom(`vite.config.ts`의 `test.environment`)이다. 셸 컴포넌트는 Testing Library 렌더 스모크 하나뿐이다.
-- **핵심은 `// @vitest-environment node` 파일들이다.** 여기서는 실제 pyodide를 로드한다.
-  - `pyodide`(catalog가 고정한 버전, `13-version-upgrade.md` 13.1)가 devDependency로 설치돼 있다.
-  - 실제 `PyodideConsole`·SIGINT 핸들러·stdin 콜백·완성 후처리·sink 바이트·`Readline` 출력까지 진짜로 돌린다.
-- 대표 영역(전부 `/work/cp949/pyodide-samples/apps/repl/src/repl/` 아래): SIGINT 핸들러 4종, 인터럽트 버퍼·연결·프로토콜·송신기·감시, stdin 콜백, 읽기 가드, rpc, Tab 완성 계열, 다중 행, 자동 들여쓰기(파서 동등 포함), sink, 제출 러너, top-level await, webloop 재보고, 블록 기록.
-- 보조 도구: `src/test/fake-terminal.ts`(실제 sink 동작을 모사해야 한다는 교훈이 반영된 fake), `src/test/interrupt-presser.ts`(node worker_threads로 눌림 주입), `src/test/setup.ts`.
-- 시험 품질 관행: 새 방어선은 **RED를 확인**하고, 구현을 뒤집는 **변이 검사**로 시험이 실제로 잡는지 확인했다.
+- 배치·실행 방법은 9.0·9.1이다.
+- 새 방어선은 **RED를 확인**한다. 구현을 뒤집는 **변이 검사**로 시험이 실제로 잡는지 확인한다.
 
 ### 9.6.2 브라우저 회귀 하니스
 
-- 형태: 이전 구현의 **Node 스크립트**(`browser-check*.mjs`, `*-probe.mjs`).
-  - Playwright `chromium.launch({ headless: true })`로 dev 서버에 접속해 `.xterm-rows > div`의 텍스트 행을 읽는다(NBSP→공백, 행 끝 공백 제거). 기대 행과 대조한다.
-  - `page.on('pageerror')`로 페이지 예외도 센다.
-- 실행: `run-harness.sh <스크립트 절대경로> <라벨>`.
-  - 포트가 비어 있는지 확인하고 dev 서버를 띄운 뒤 `timeout ${HARNESS_TIMEOUT:-420} node <스크립트>`를 돌리고 서버를 죽인다.
-  - 결과·스크린샷은 `results/`에 남는다. `STOP_AFTER=<시나리오 ID>`로 일부만 돌릴 수 있다.
-- 회귀 기준선은 RD별로 "같은 수·같은 실패 ID"를 요구했다. 새 저장소의 기준선은 `apps/demo/e2e/BASELINE.md`다.
-- Ctrl+C 계열은 조합별 매트릭스(조합마다 N=20)를 따로 돌렸다.
-- 시나리오 단발 프로브(RD-021)는 각각 "배선을 빼면 실패한다"까지 확인했다: `bg-input-guard-probe.mjs`, `bg-output-probe.mjs`, `getattr-loop-probe.mjs`, `stale-sigint-probe.mjs`.
+- 하니스는 9.6.5, 기준선은 `apps/demo/e2e/BASELINE.md`다.
 
 ### 9.6.3 CPython 3.14 pty 실측 스크립트
 
-- 하니스: `ptyrepl.py`.
-  - `python3.14`를 pty로 띄우고 `pyte`로 화면을 렌더링한다(`TERM=xterm`, 인터프리터는 `PY314` 환경변수로 교체 가능).
-  - `pyte`/`wcwidth`는 폴더 안 `pylib`에서 읽어 재현성을 확보했다.
+- 하니스 `ptyrepl.py`는 `python3.14`를 pty로 띄우고 `pyte`로 화면을 렌더링한다(`TERM=xterm`).
   - 키는 바이트로 보낸다(`\x1bOD` 등, 여러 줄은 bracketed paste `\x1b[200~…\x1b[201~`).
-- Tab 완성 측정 일습(RD-016a `measure-3.14/`): 케이스 실행기, 네이티브·pyodide 프로브, 네이티브 대 pyodide 대조기, 게이트 코퍼스 생성기, zip 보정 확인, 기대값 검증기, 요약 `SUMMARY-import.md`.
-- 이름·속성 완성 측정(RD-016 `measure-3.14/`): 시나리오 스크립트 `s3`~`s13`, `compare.py`.
-- 프롬프트·stdin 측정: `probe*.py`(RD-006b), `pty_input*.py`(RD-006a), `pty_stderr.py`(RD-011b).
-- sleep·인터럽트 Node 프로브: `probe-*.mjs`(RD-012f).
-- 이 측정 스크립트는 이전 구현의 것이다. 새 저장소에서 재활용하려면 기준 인터프리터 버전(3.14.4)과 pyodide 번들 버전(3.14.2)의 차이를 명시해야 한다.
-- → 저장소 이식본은 9.6.6.
+- 도구·데이터는 9.6.6이다.
 
 ### 9.6.4 그 밖의 관행
 
-- 각 RD는 착수 전 설계 문서의 해당 절을 읽었다. 규칙을 정하기 전에 **3.14 pty로 먼저 재보는**("그릴링") 절차를 거쳤다. 후보 안을 비교해 기각 사유(성능 수치 포함)를 남겼다.
-- 함정은 `TRP-0NN` 번호로 따로 기록했다. 예: pyodide 시그널 폴링의 비원자성, `println`의 개행 추가, Python 인덱스와 JS 인덱스, 부분 문자열 게이트의 대가. 새 저장소의 함정은 `docs/traps/`, 이전 구현 함정은 `11-known-traps.md`다.
-- 이전 구현은 프로덕션 빌드(`vite build`)를 지원하지 않았다. worker의 top-level `await`를 Vite가 기본 `iife`로 번들링하려다 실패한다. 실행 환경을 로컬 dev로 한정했기 때문에 고치지 않았다.
-
-참고: `/work/cp949/pyodide-samples/apps/repl/src/`
+- 규칙을 정하기 전에 **3.14 pty로 먼저 재본다**("그릴링"). 후보 안을 비교해 기각 사유(성능 수치 포함)를 남긴다.
+- 함정은 `docs/traps/`에 `TRP-NNN` 번호로 기록한다. 예: pyodide 시그널 폴링의 비원자성, `println`의 개행 추가, Python 인덱스와 JS 인덱스, 부분 문자열 게이트의 대가. 설계 문서 쪽 함정 목록은 `11-known-traps.md`다.
 
 ### 9.6.5 이 저장소의 브라우저 하니스(RD-010부터)
 
@@ -661,7 +629,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
 
 ### 9.6.6 이 저장소의 pty 캡처 도구(RD-025)
 
-Tab 완성 기준 데이터를 만든 도구를 `apps/demo/e2e/pty/tools/`로 옮겼다.
+Tab 완성 기준 데이터를 만든 도구는 `apps/demo/e2e/pty/tools/`에 있다.
 
 - 사용법·전제·설치: [`apps/demo/e2e/pty/README.md`](../../apps/demo/e2e/pty/README.md).
 - 파일별 생성 명령·소요 시간·허용 차이: `apps/demo/e2e/pty/REGEN.md`.
@@ -670,7 +638,7 @@ Tab 완성 기준 데이터를 만든 도구를 `apps/demo/e2e/pty/tools/`로 �
 
 요약:
 
-- **이식한 것**: 하니스(`ptyrepl.py` 등), rd-016 파이프라인(입력 줄 생성·네이티브·pyodide 프로브·비교기·게이트 코퍼스 생성기·보조 도구), rd-015 실행기 `runcases.py`, 비교기 `compare_baseline.py`, 공용 `resolve_pyodide.mjs`, `requirements.txt`.
+- **도구**: 하니스(`ptyrepl.py` 등), rd-016 파이프라인(입력 줄 생성·네이티브·pyodide 프로브·비교기·게이트 코퍼스 생성기·보조 도구), rd-015 실행기 `runcases.py`, 비교기 `compare_baseline.py`, 공용 `resolve_pyodide.mjs`, `requirements.txt`.
 - **인터프리터**: `--python` > 환경변수 `PTY_PYTHON` > `PATH`의 `python3.14`. 홈 절대경로 기본값은 없다.
   - 대상 `sys.version_info[:3]`이 `3.14.4`가 아니면 `--allow-version-mismatch` 없이는 중단한다.
   - 대상이 venv이거나 `pyte`·`wcwidth`가 import되면 중단한다. 자식 REPL의 후보 집합이 바뀐다(TRAP-27).
@@ -679,12 +647,7 @@ Tab 완성 기준 데이터를 만든 도구를 `apps/demo/e2e/pty/tools/`로 �
   - `rd-015/res_s1.json`은 측정 당시 하니스 폴더의 `.py` 파일명 14개를 기준 후보에서 제외한 뒤 비교한다(근거는 `REGEN.md`).
 - **읽기 전용**: `apps/demo/e2e/pty/rd-015|016/**` 데이터는 도구가 덮어쓰지 않는다. 재생성물은 트리 밖에 쓴다.
 - **재측정**: 새 CPython(3.15 등)으로 다시 재는 절차는 `13-version-upgrade.md` 13.4와 `REGEN.md` "3.15 재측정 시 실행 순서"다. 재측정 여부는 사용자가 정한다(ADR-0007).
-- **이식하지 않은 것**(이전 구현 RD-016의 `measure-3.14/`에 있다):
-  - 이름·속성 완성 탐색 스크립트 `s*.py`. 화면 출력만 내고 저장소 기준 데이터를 만들지 않는다.
-  - 이전 구현 대조기 `compare.py`·`node_complete.mjs`·`node_edge.mjs`와 입력 `cases_extra.json`.
-  - pyodide 소스 읽기용 사본 `pyodide__base.py`·`pyodide_console.py`·`pyodide_rlcompleter.py`. 다른 스크립트가 import하지 않는다.
-  - `pylib/`(`pyte`·`wcwidth` 사본)는 rd-016a 측정 폴더(9.6.3)에 있고 LGPLv3라 복사하지 않았다.
-  - `rd-008/pty_cancel.py`·`rd-019/pty_type_ahead.py`는 이미 저장소에 있는 자립형이라 그대로 두었다. 인터프리터는 `PY314` 환경변수, 결과는 사람 판정이다.
+- **자립형 스크립트**: `rd-008/pty_cancel.py`·`rd-019/pty_type_ahead.py`. 인터프리터는 `PY314` 환경변수, 결과는 사람 판정이다.
 
 ## 9.7 시간을 쓰는 판정 (2026-09-24 사용자 확정)
 

@@ -1,11 +1,9 @@
 # stdin: input() 읽기·취소·read-guard·프롬프트 꼬리
 
-> 이 문서의 규칙·상수는 이전 구현(`/work/cp949/pyodide-samples/apps/repl`, 읽기 전용 참고)이 확정했다.
-> 근거는 CPython 3.14.4 pty 실측과 브라우저 회귀다.
-> 새 구현은 통신 계층만 바꾸고(`docs/design/00-architecture.md`, `01-protocols.md`) 이 규칙은 그대로 지킨다.
-> 절 끝의 "참고:" 경로는 이전 구현의 근거 위치다.
+> 이 문서의 규칙·상수는 CPython 3.14.4 pty 실측과 브라우저 회귀로 확정한 것이다.
+> 통신 계층은 `docs/design/00-architecture.md`, `01-protocols.md`가 정한다.
 
-새 구현에서 `readInput(cancelable)`은 coincident proxy 호출이 아니라 **stdin 메일박스**(`01-protocols.md` 2절)다.
+`readInput(cancelable)`은 **stdin 메일박스**(`01-protocols.md` 2절)로 간다. coincident proxy 호출이 아니다.
 
 - worker가 RPC 알림 `readInput`을 보낸 뒤 `Atomics.wait`로 멈춘다.
 - main이 메일박스에 줄(또는 취소 표식)을 써서 깨운다.
@@ -58,7 +56,7 @@
 - main은 이 경로에서 버퍼를 쓰지 않는다.
 - `input()` 취소에는 main 게이트의 REPL 읽기 phase를 `cancel-settling`으로 세우지 않는다(`08-session.md` 8.1, `06-editing.md` 6.3, `03-ctrl-c.md` 2.7).
   - 취소 뒤에도 사용자 코드가 계속 돈다. 그 구간의 Ctrl+C는 실행 중단이어야 한다.
-  - 실측(RD-008 브라우저 판정 항목, 이전 구현):
+  - 실측(RD-008 브라우저 판정 항목):
     - 방어를 걸면 `except KeyboardInterrupt` 뒤 4초 계산 중 Ctrl+C가 3.0초 무시된다.
     - 방어를 걸지 않으면 33~58ms에 중단된다.
 - 의미:
@@ -245,7 +243,3 @@
 - `input()` 시작 전에 친 키는 벤더 readline이 버리지 않고 쌓았다가 읽기가 시작될 때 재생한다. 그 키가 `input()` 값이 된다(RD-019, `06-editing.md` 6.7, 편차 32 해소).
   - 대상: 프롬프트 글자가 그려진 뒤 `readline.read()`가 시작되기 전에 친 키. 실행 중 친 키를 포함한다.
   - 읽기당 소비라 첫 줄만 값이 된다. 나머지는 다음 읽기가 받는다.
-
-참고: `/work/cp949/pyodide-samples/apps/repl/docs/design/02b-input-ctrl-c.md`,
-이전 구현 설계 문서 `11-stdin-prompt.md`,
-`/work/cp949/pyodide-samples/apps/repl/src/repl/{stdin-callback,read-guard,stdin-reader,output-tail}.ts`

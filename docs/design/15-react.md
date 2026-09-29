@@ -1,6 +1,6 @@
 # React 컴포넌트와 hook
 
-> RD-024 신규 절이다. 이전 구현에 대응 기능이 없어 `12-previous-implementation.md`의 참고 경로가 없다.
+> RD-024로 추가한 절이다.
 >
 > - 이름·props·상태 문자열은 `packages/pyodide-repl-react/src/`의 export와 일치해야 한다.
 > - `apps/demo`(`ReplView`·`RunnerView`)와 `e2e:react-strictmode`·`e2e:react-fit`이 브라우저에서 확인한다.
