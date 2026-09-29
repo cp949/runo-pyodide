@@ -29,8 +29,7 @@ e2e 스크립트의 시간 판정(고정 대기·ms 상한)은 `docs/design/09-t
 
 `DESIGN.md`가 색인이다. RD 항목을 시작하기 전에 `DESIGN.md`의 읽기 순서를 따라
 `docs/design/00-architecture.md`, `01-protocols.md`, 해당 기능 절을 읽는다. 결정 기록은
-`docs/adr/`, 용어는 `CONTEXT-MAP.md`. 이전 구현(`/work/cp949/pyodide-samples/apps/repl`)은
-읽기 전용 참고이며 coincident 동기 브리지는 쓰지 않는다(ADR-0001).
+`docs/adr/`, 용어는 `CONTEXT-MAP.md`. coincident 동기 브리지는 쓰지 않는다(ADR-0001).
 
 ### 주석·문서 작성
 
