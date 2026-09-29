@@ -48,14 +48,19 @@ export function parseInput(data: string): Input[] {
   return Array.from(splitInput(data));
 }
 
+/** CSI에서 최종 바이트 앞에 올 수 있는 바이트(파라미터·중간, 0x20-0x3F)인가. */
+function isCsiParamByte(c: string): boolean {
+  return c.length === 1 && c >= "\x20" && c <= "\x3f";
+}
+
 /**
  * `parseInput`의 본체. 코드 포인트 단위로 읽으며 `Input`을 하나씩 내보낸다.
  *
  * 한계:
  * - 서로게이트 쌍은 한 토큰으로 읽어 `Text`에 넣는다.
- * - `ESC [ n ~`은 `n = 3`(Delete)만 매핑한다. 나머지는 `UnsupportedEscape`다.
- * - `ESC [ 1 ; 5 C` 같은 수정자 시퀀스는 처리하지 않는다. 앞 세 문자를 버리고 나머지(`5C`)가 `Text`가 된다.
- * - `ESC [` 뒤에서 입력이 끝나면 그 시퀀스를 버린다.
+ * - 파라미터가 붙은 CSI는 최종 바이트까지 읽는다. `ESC [ 3 ~`(Delete)만 매핑하고 나머지는 `UnsupportedEscape`다.
+ *   `ESC [ 1 ; 5 C` 같은 수정자 시퀀스도 `UnsupportedEscape` 하나다.
+ * - 파라미터가 붙은 CSI의 최종 바이트 앞에서 입력이 끝나면 그 시퀀스를 버린다. `ESC [`만 남은 경우도 같다.
  */
 function* splitInput(data: string) {
   let text = [];
@@ -106,27 +111,24 @@ function* splitInput(data: string) {
         continue;
       }
 
-      // 숫자로 시작하는 CSI(`ESC [ n ~`). 자릿수는 한두 자리다.
-      if (seq3.value >= "0" && seq3.value <= "9") {
-        let digit = seq3.value;
-        const nextDigit = it.next();
-        if (nextDigit.done) {
-          return;
-        }
-        if (nextDigit.value >= "0" && nextDigit.value <= "9") {
-          digit += nextDigit.value;
-        } else if (nextDigit.value !== "~") {
-          continue;
-        }
-        switch (digit) {
-          case "3":
-            inputType = InputType.Delete;
+      // 파라미터(0x30-0x3F)·중간(0x20-0x2F) 바이트로 시작하는 CSI.
+      // 최종 바이트(0x40-0x7E)까지 읽어 `Input` 하나로 낸다. `ESC [ 3 ~`만 Delete다.
+      if (isCsiParamByte(seq3.value)) {
+        const seq = ["\x1b", "[", seq3.value];
+        for (;;) {
+          const more = it.next();
+          if (more.done) {
+            return;
+          }
+          seq.push(more.value);
+          if (!isCsiParamByte(more.value)) {
             break;
+          }
         }
-        yield {
-          inputType,
-          data: ["\x1b", "[", digit, "~"],
-        };
+        if (seq.join("") === "\x1b[3~") {
+          inputType = InputType.Delete;
+        }
+        yield { inputType, data: seq };
         continue;
       }
 
