@@ -1,12 +1,15 @@
 /**
  * dom-bridge worker 플러그인의 `prepare`.
+ * 규칙은 docs/design/16-dom-bridge.md 16.4·16.7.
  *
- * - 브리지 준비(`bridge`)와 부트스트랩 수신 여부(`receivedBootstrap`)를 주입받는다. coincident 없이 순서·오류 경로를 시험할 수 있다.
+ * - 브리지 준비(`bridge`)와 부트스트랩 수신 여부(`receivedBootstrap`)를 주입받는다.
+ * - coincident 없이 순서·오류 경로를 시험할 수 있다.
  * - `./worker`가 실제 coincident와 관찰기를 물려 `domBridge()`로 낸다.
  *
  * 순서:
  * 1. 부트스트랩 미수신이면 명시 오류를 던진다. `bridge()`는 부르지 않는다(부르면 영원히 대기한다).
- *    원인은 첫 정적 import 위반이거나, main이 `createBridgeMain()`의 `Worker`가 아닌 전역 `Worker`로 만든 것이다.
+ *    - 원인 하나: 첫 정적 import 위반.
+ *    - 원인 둘: main이 `createBridgeMain()`의 `Worker`가 아닌 전역 `Worker`로 만들었다.
  * 2. `await bridge()`.
  * 3. `native === false`면 명시 오류를 던진다. 동기 DOM이 오류 없이 무효가 되는 것을 막는다(TRP-065).
  * 4. `runo` 모듈을 등록한다.
@@ -17,11 +20,19 @@ import type { WorkerPlugin } from "@cp949/runo-pyodide-core/worker";
 import { guardedWindow } from "./guarded-window";
 import type { WorkerBridge } from "./worker-bridge";
 
+/** `createDomBridgePlugin`이 주입받는 의존성. */
 export interface DomBridgePluginDeps {
+  /** 부트스트랩 메시지를 받았는가. 관찰기의 `received`를 읽는다. */
   receivedBootstrap(): boolean;
+
+  /** coincident 브리지를 준비한다. */
   bridge(): Promise<WorkerBridge>;
 }
 
+/**
+ * `dom-bridge` worker 플러그인을 만든다.
+ * `prepare`에서 브리지를 확인하고 Python `runo.browser`(`window`·`document`)를 등록한다.
+ */
 export function createDomBridgePlugin(deps: DomBridgePluginDeps): WorkerPlugin {
   return {
     name: "dom-bridge",

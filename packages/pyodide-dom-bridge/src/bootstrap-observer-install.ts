@@ -2,15 +2,22 @@
  * 부트스트랩 관찰기를 worker 전역에 설치하는 부수효과 모듈.
  *
  * - `worker.ts`가 `coincident/window/worker`보다 **먼저** import한다.
- * - 관찰 리스너가 coincident의 부트스트랩 리스너보다 먼저 등록돼야 메시지를 볼 수 있다(등록 순서가 성립 조건, `bootstrap-observer.ts`).
+ * - 관찰 리스너가 coincident의 부트스트랩 리스너보다 먼저 등록돼야 메시지를 볼 수 있다.
+ * - 등록 순서가 성립 조건이다(`bootstrap-observer.ts`).
+ * - 규칙은 docs/design/16-dom-bridge.md 16.5.
  *
  * dist 구조:
- * - ESM은 import 순서대로 평가한다. 번들러는 외부 import(`coincident/window/worker`)를 파일 맨 위로 올린다.
+ * - ESM은 import 순서대로 평가한다.
+ * - 번들러는 외부 import(`coincident/window/worker`)를 파일 맨 위로 올린다.
  * - 그래서 이 모듈을 별도 진입점(`tsdown.config.ts`)으로 두어 dist에서 별도 파일로 남긴다.
- * - 두 진입점(`worker`·`bootstrap-observer-install`)이 이 모듈을 공유한다. 실제 본문은 해시 청크(`dist/bootstrap-observer-install-<hash>.mjs`)에 들어간다.
- * - `dist/worker.mjs`는 그 해시 청크를 coincident보다 먼저 import한다(`scripts/check-dist.mjs --allow-sync-bridge`가 순서를 검사한다).
+ * - 두 진입점(`worker`·`bootstrap-observer-install`)이 이 모듈을 공유한다.
+ * - 실제 본문은 해시 청크(`dist/bootstrap-observer-install-<hash>.mjs`)에 들어간다.
+ * - `dist/worker.mjs`는 그 해시 청크를 coincident보다 먼저 import한다.
+ * - `scripts/check-dist.mjs --allow-sync-bridge`가 이 순서를 검사한다.
  * - `dist/bootstrap-observer-install.mjs`는 해시 청크를 다시 내보내는 스텁이다.
- * - `package.json` `sideEffects`는 이 파일 이름만이 아니라 글로브(`./dist/bootstrap-observer-install*.mjs`)로 해시 청크까지 덮는다.
+ *
+ * `package.json` `sideEffects`:
+ * - 글로브(`./dist/bootstrap-observer-install*.mjs`)로 해시 청크까지 덮는다.
  * - 덮지 않으면 부수효과 전용 import에서 관찰기가 사라진다.
  */
 import { createBootstrapObserver } from "./bootstrap-observer";
@@ -22,7 +29,10 @@ function isWorkerGlobalScope(): boolean {
   return typeof scope === "function" && globalThis instanceof scope;
 }
 
-// 모듈 평가 시점에 건다(`prepare`가 아니라). 부트스트랩은 이 시점 이후에만 볼 수 있다.
+/**
+ * worker 전역에 설치한 관찰기. worker 전역이 아니면 `undefined`.
+ * `prepare`가 아니라 모듈 평가 시점에 건다. 부트스트랩은 이 시점 이후에만 볼 수 있다.
+ */
 export const observer = isWorkerGlobalScope()
   ? createBootstrapObserver(self)
   : undefined;
