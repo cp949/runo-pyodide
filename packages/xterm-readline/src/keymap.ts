@@ -48,9 +48,14 @@ export function parseInput(data: string): Input[] {
   return Array.from(splitInput(data));
 }
 
-/** CSI에서 최종 바이트 앞에 올 수 있는 바이트(파라미터·중간, 0x20-0x3F)인가. */
-function isCsiParamByte(c: string): boolean {
-  return c.length === 1 && c >= "\x20" && c <= "\x3f";
+/** CSI에서 최종 바이트 앞에 올 수 있는 바이트(파라미터 0x30-0x3F·중간 0x20-0x2F)인가. */
+function isCsiNonFinalByte(c: string): boolean {
+  return c >= "\x20" && c <= "\x3f";
+}
+
+/** CSI의 최종 바이트(0x40-0x7E)인가. */
+function isCsiFinalByte(c: string): boolean {
+  return c >= "\x40" && c <= "\x7e";
 }
 
 /**
@@ -58,16 +63,29 @@ function isCsiParamByte(c: string): boolean {
  *
  * 한계:
  * - 서로게이트 쌍은 한 토큰으로 읽어 `Text`에 넣는다.
- * - 파라미터가 붙은 CSI는 최종 바이트까지 읽는다. `ESC [ 3 ~`(Delete)만 매핑하고 나머지는 `UnsupportedEscape`다.
- *   `ESC [ 1 ; 5 C` 같은 수정자 시퀀스도 `UnsupportedEscape` 하나다.
- * - 파라미터가 붙은 CSI의 최종 바이트 앞에서 입력이 끝나면 그 시퀀스를 버린다. `ESC [`만 남은 경우도 같다.
+ * - 파라미터가 붙은 CSI는 최종 바이트까지 읽는다.
+ *   `ESC [ 3 ~`(Delete)만 매핑한다. 나머지는 `UnsupportedEscape` 하나다(`ESC [ 1 ; 5 C` 같은 수정자 시퀀스 포함).
+ * - 파라미터가 붙은 CSI가 최종 바이트 없이 끝나면 그 시퀀스를 버린다. `ESC [`만 남은 경우도 같다.
+ * - CSI 중간에 제어 문자·ESC·서로게이트 쌍이 오면 그 시퀀스를 버리고 그 글자를 다시 읽는다.
  */
 function* splitInput(data: string) {
   let text = [];
 
   const it = data[Symbol.iterator]();
-  for (let next = it.next(); !next.done; next = it.next()) {
-    const c = next.value;
+  // 시퀀스 중간에서 읽었지만 시퀀스에 속하지 않는 글자. 다음 반복이 먼저 읽는다.
+  let pending: string | undefined;
+  for (;;) {
+    let c: string;
+    if (pending !== undefined) {
+      c = pending;
+      pending = undefined;
+    } else {
+      const next = it.next();
+      if (next.done) {
+        break;
+      }
+      c = next.value;
+    }
 
     if (c.length > 1) {
       text.push(c);
@@ -111,24 +129,33 @@ function* splitInput(data: string) {
         continue;
       }
 
-      // 파라미터(0x30-0x3F)·중간(0x20-0x2F) 바이트로 시작하는 CSI.
-      // 최종 바이트(0x40-0x7E)까지 읽어 `Input` 하나로 낸다. `ESC [ 3 ~`만 Delete다.
-      if (isCsiParamByte(seq3.value)) {
+      // 파라미터·중간 바이트로 시작하는 CSI.
+      // 최종 바이트까지 읽어 `Input` 하나로 낸다. `ESC [ 3 ~`만 Delete다.
+      if (isCsiNonFinalByte(seq3.value)) {
         const seq = ["\x1b", "[", seq3.value];
-        for (;;) {
+        let final = false;
+        while (!final) {
           const more = it.next();
           if (more.done) {
             return;
           }
-          seq.push(more.value);
-          if (!isCsiParamByte(more.value)) {
+          if (isCsiNonFinalByte(more.value)) {
+            seq.push(more.value);
+          } else if (isCsiFinalByte(more.value)) {
+            seq.push(more.value);
+            final = true;
+          } else {
+            // 최종 바이트가 아니다: 시퀀스를 버리고 이 글자를 다시 읽는다.
+            pending = more.value;
             break;
           }
         }
-        if (seq.join("") === "\x1b[3~") {
-          inputType = InputType.Delete;
+        if (final) {
+          if (seq.join("") === "\x1b[3~") {
+            inputType = InputType.Delete;
+          }
+          yield { inputType, data: seq };
         }
-        yield { inputType, data: seq };
         continue;
       }
 

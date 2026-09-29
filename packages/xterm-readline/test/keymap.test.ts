@@ -146,3 +146,27 @@ test("Delete 시퀀스 뒤의 글자는 Text가 된다", () => {
 test("최종 바이트 없이 끝난 CSI 시퀀스는 버린다", () => {
   expect(parseInput("\x1b[1;5")).toEqual([]);
 });
+
+test("최종 바이트가 아닌 글자를 만나면 CSI 시퀀스를 버리고 그 글자를 다시 읽는다", () => {
+  // 제어 문자는 자기 키로 읽는다.
+  expect(parseInput("\x1b[1;5\x03")).toEqual([
+    { inputType: InputType.CtrlC, data: ["\x03"] },
+  ]);
+  expect(parseInput("\x1b[1\r")).toEqual([
+    { inputType: InputType.Enter, data: ["\r"] },
+  ]);
+  expect(parseInput("\x1b[1\x7f")).toEqual([
+    { inputType: InputType.Backspace, data: ["\x7f"] },
+  ]);
+
+  // 새 ESC 시퀀스는 그대로 읽는다.
+  expect(parseInput("\x1b[1\x1b[Ax")).toEqual([
+    { inputType: InputType.ArrowUp, data: ["\x1b", "[", "A"] },
+    { inputType: InputType.Text, data: ["x"] },
+  ]);
+
+  // 서로게이트 쌍은 Text가 된다.
+  expect(parseInput("\x1b[1😀")).toEqual([
+    { inputType: InputType.Text, data: ["😀"] },
+  ]);
+});

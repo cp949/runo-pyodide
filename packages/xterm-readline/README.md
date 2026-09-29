@@ -21,7 +21,7 @@
 - **훅 추가**: `onKey`(키 하나마다, `true`면 벤더 처리 생략), `onKeyEvent`(모든 keydown/keypress/keyup, `true`면 xterm 기본 처리까지 생략), `historyEntry`(기록될 문자열 교체).
 - **신규 API**: `getCursor`·`editInsert`·`editBackspace`(활성 읽기 없이도 현재 줄 조작), `getHistory`, `History.restore`, `printAbove`·`printAboveRaw`(읽기 위에 배경 출력), `takeRead`(열린 읽기를 제출 없이 가로챔), `isReading`·`hasPendingRead`·`abovePrefix`.
 - **동작 수정**: `moveLineUp`이 도착 열 0·빈 도착 줄에서 도착 줄 처음으로 가도록 고침, `write`가 연속한 `\n`을 모두 `\r\n`으로 바꿈, `term` 없는 `write`가 `writeReady()` 쓰기 양을 늘리지 않음, 파라미터가 붙은 CSI(`ESC [ 1 ; 5 C` 등)를 최종 바이트까지 하나로 읽음, `dispose()`가 대기 중인 읽기를 reject하도록 강화, `Tty.width()`의 CSI 파싱을 ECMA-48대로 고침(폭 오계산 버그), 재그리기 대기 로직을 `LineView`로 통합.
-- **시험**: 원본 jest 8개를 vitest로 이식. 옵션·훅·신규 API마다 시험 파일 추가.
+- **시험**: 원본 jest 8개를 vitest로 이식. 옵션·훅·신규 API마다 시험 파일 추가. 결함 수정마다 `line`·`keymap` 시험을 늘리고 `write.test.ts`를 신규로 둔다.
 - **빌드·설정**: tsdown(ESM + d.ts), `noUncheckedIndexedAccess: false`·`tty.ts` 한정 lint 예외는 원본 코드 스타일을 그대로 두기 위함.
 
 ## 업스트림 추적

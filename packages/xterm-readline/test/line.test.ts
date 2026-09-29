@@ -153,3 +153,11 @@ test("moveLineUp은 도착 줄이 비어 있으면 그 줄에 머문다", () => 
   expect(line.moveLineUp(2)).toBeTruthy();
   expect(line.pos).toBe(0);
 });
+
+test("moveLineUp은 프롬프트 폭이 도착 열보다 크면 0번 줄 처음으로 간다", () => {
+  const line = new LineBuffer();
+  // 1행의 시각 열 2가 0번 줄에서는 프롬프트 안(5열)이라 버퍼 열이 0 아래로 내려간다.
+  line.update("abc\nde", 6);
+  expect(line.moveLineUp(1, 5)).toBeTruthy();
+  expect(line.pos).toBe(0);
+});
