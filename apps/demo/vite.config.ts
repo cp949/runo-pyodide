@@ -17,10 +17,12 @@ export default defineConfig({
   // 시작 때 미리 찾아 최적화한다. 안 그러면 브라우저가 worker를 처음 요청할 때 "새 의존성 최적화 → 전체 다시 불러오기"가 일어나 e2e가
   // 도중에 리셋된다.
   optimizeDeps: { entries: ["index.html", "src/*.worker.ts"] },
-  // 빌드 floor(ADR-0008). worker 파일은 module worker(es)라 top-level await 문법 자체는 쓸 수 있지만 Chrome 89 미만은 지원하지
-  // 않으므로 쓰지 않는다(async IIFE로 감싼다, `check-escompat`가 강제). `format: "es"`를 쓰는 이유는 TLA가 아니라 module worker이기
-  // 때문이다(기본 iife로는 이 데모의 worker 구성 — 정적 import를 쓰는 여러 worker 진입점 — 이 프로덕션 빌드에서
-  // 실패했다, 실측. 원인을 코드 분할로 좁히지는 않았다).
+  // 빌드 floor(ADR-0008).
+  // - worker 파일은 module worker(es)다.
+  // - top-level await 문법 자체는 쓸 수 있다. Chrome 89 미만은 지원하지 않으므로 쓰지 않는다(async IIFE로 감싼다, `check-escompat`가 강제).
+  // - `format: "es"`를 쓰는 이유는 TLA가 아니라 module worker이기 때문이다.
+  // - 기본 iife로도 현재 프로덕션 빌드는 성공한다(vite 8.3.1, rolldown 1.2.11 실측).
+  // - 이전 실측에서는 정적 import를 쓰는 여러 worker 진입점이 iife 빌드에서 실패했다. 지금은 재현되지 않는다. 원인은 알 수 없음.
   build: { target: [...BROWSER_TARGET] },
   worker: { format: "es" },
 });

@@ -30,7 +30,7 @@ describe("cross-origin isolation 헤더", () => {
 });
 
 describe("worker 번들", () => {
-  test("top-level await를 담을 수 있도록 형식이 es다", () => {
+  test("worker 형식이 es다", () => {
     expect(config.worker?.format).toBe("es");
   });
 });

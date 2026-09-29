@@ -170,7 +170,7 @@ function App() {
 - 페이지가 cross-origin isolated여야 한다(COOP/COEP, dev·preview·배포 모두, ADR-0004). 아니면 worker를 만들지 않는다. 상태는
   `not-isolated`다. 브라우저가 pyodide 런타임 wasm 기능을 지원하지 않으면(빌드 floor 이상이어도 런타임 floor 미만일 수
   있다) worker를 만들지 않고 `unsupported`다(상태 규칙: `14-runner.md` 14.3.1).
-- worker 파일은 앱이 만든다(`createWorker`가 마운트 때 함수를 그대로 쓴다). worker 번들러 형식은 `'es'`여야 한다(Vite `worker.format`).
+- worker 파일은 앱이 만든다(`createWorker`가 마운트 때 함수를 그대로 쓴다). Vite `worker.format`은 `'es'`로 둔다(module worker와 맞춘다, `00-architecture.md` 4.1).
 - `@xterm/xterm`(`^6.0.0`)·`react`·`react-dom`(`^19.0.0`)은 소비자가 설치한다(peer). `xterm.css`는 소비자가 import한다. worker 파일이 `@cp949/runo-pyodide-core/worker`를 import하면 그 타입 때문에 소비자가 `pyodide` 타입(+`@types/node`·`@types/emscripten`)을 설치해야 한다(`packages/pyodide-core/README.md`). react·core·terminal·repl의 `.` 진입점 `.d.mts`에는 `pyodide` import가 없다(`grep`으로 확인. `pyodide`를 뺀 소비자의 `tsc`는 실행하지 않았다: `pnpm smoke:pack` 소비자는 `pyodide`를 설치한다).
 - `fit`이 켜졌으면 컨테이너에 크기를 준다(위 예의 `style`). 높이가 0이거나 `display: none`이면 `fit()`을 건너뛴다.
 - `@xterm/xterm` 6.0.0은 `main`이 CommonJS다. 번들 없는 Node ESM(SSR 서버가 패키지를 외부 모듈로 평가)에서 `import { Terminal }`이 던진다. 패키지는 네임스페이스로 받고 마운트 때 `Terminal`을 고른다(`terminal-view.ts` `resolveTerminal`, `docs/traps/TRP-063`).

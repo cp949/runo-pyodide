@@ -243,7 +243,16 @@ main의 `readLine` 핸들러:
 - 코어는 `createTerminalSurface`로 `terminal.loadAddon(readline)`과 `readline.dispose()`(surface의 `dispose()`)만 한다. `Terminal`은 dispose하지 않는다.
 - `term.dispose()`도 로드된 addon을 dispose한다. `Readline.dispose()`는 멱등이다(`06-editing.md` 6.1).
 
-앱의 worker 파일은 두 줄이다: `import { runReplWorker } from '@cp949/runo-pyodide-repl/worker'; runReplWorker()`. 앱은 `new Worker(new URL('./repl.worker.ts', import.meta.url), { type: 'module' })`로 만든다. worker 파일에 top-level `await`가 들어갈 수 있으므로 Vite `worker.format`은 `'es'`여야 한다. RD-001에서 확인했다: `es`는 빌드가 성공하고 번들 끝에 `await`가 남는다. 기본 `iife`는 `[UNSUPPORTED_FEATURE] Top-level await is currently not supported with the 'iife' output format`으로 실패한다. 앱의 얇은 worker 파일이 패키지 서브패스를 import하는 이 방식은 dev(소스 해석)와 build·preview(`dist` 해석) 양쪽에서 동작한다(4.4).
+앱의 worker 파일은 두 줄이다: `import { runReplWorker } from '@cp949/runo-pyodide-repl/worker'; runReplWorker()`. 앱은 `new Worker(new URL('./repl.worker.ts', import.meta.url), { type: 'module' })`로 만든다. Vite `worker.format`은 `'es'`로 둔다.
+
+- 이유: module worker와 맞춘다. worker에 top-level `await`를 넣으려면 `es`가 필요하다.
+- RD-001 실측: `es`는 빌드가 성공하고 번들 끝에 `await`가 남는다.
+- RD-001 실측: top-level `await`가 있으면 기본 `iife`는 `[UNSUPPORTED_FEATURE] Top-level await is currently not supported with the 'iife' output format`으로 실패한다.
+- 현재 worker에는 top-level `await`가 없다(`packages/*/src`·`packages/*/dist`·`apps/demo/src` AST 스캔).
+- 기본 `iife`로도 데모의 프로덕션 빌드는 현재 성공한다(vite 8.3.1, rolldown 1.2.11 실측).
+- `apps/demo/vite.config.ts` 주석에 이전 실측의 iife 실패 이력이 있다. 지금은 재현되지 않으며 원인은 알 수 없음.
+
+앱의 얇은 worker 파일이 패키지 서브패스를 import하는 이 방식은 dev(소스 해석)와 build·preview(`dist` 해석) 양쪽에서 동작한다(4.4).
 
 #### core export(`@cp949/runo-pyodide-core`, 내부 계약)
 
