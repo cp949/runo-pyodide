@@ -251,7 +251,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
   - 메일박스 대기 중 `complete`가 큐잉되는 프로토콜 쪽은 `protocol/thread-scenario.test.ts`의 스레드 시험이 본다.
 - `exit()`·중단·`input()` 취소는 asyncio가 `SystemExit`·`KeyboardInterrupt`를 WebLoop로 다시 던진다. vitest가 `Unhandled Rejection`으로 실패 종료한다.
   - `suppressWebLoopReraise`(RD-009)가 이 재보고를 없앤다.
-  - `vitest.config.ts`에 `onUnhandledError` 필터를 두지 않는다. 억제 없이 필터만 떼면 개별 시험이 다 통과해도 `Errors 210` + 종료코드 1이 된다(실측).
+  - `vitest.config.ts`에 `onUnhandledError` 필터를 두지 않는다. 억제 없이 필터만 떼면 개별 시험이 다 통과해도 vitest가 오류 집계로 종료코드 1을 낸다(실측).
   - 실제 pyodide를 직접 로드하는 시험 파일은 core `worker/boot.ts`(`bootWorker`)의 배선이 닿지 않는다. **그 파일의 콘솔 조립 지점에서 `suppressWebLoopReraise`를 직접 불러야** 한다.
   - `process.on("unhandledRejection")`은 쓰지 않는다. 집계에서 빠진다(TRAP-22).
 - `time.sleep`의 무효 인자 문구(`-1`·`'a'`·NaN·inf·키워드·인자 2개·`9.3e9`)를 단정하는 시험의 기준은 **로컬 CPython 3.14.4**로 재 둔 문자열이다. 번들 pyodide는 3.14.2다(편차 19).
@@ -367,8 +367,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
 
 **`pageerror` 기준선은 총계 0이다.**
 
-- webloop 재보고를 억제하기 전에는 확인 스크립트가 재보고를 분류해 빼고 셌다(`isWebLoopReraise`).
-- 이제 정상 중단·`input()` 취소·`exit()` 어디서도 재보고가 나지 않는다.
+- 정상 중단·`input()` 취소·`exit()` 어디서도 webloop 재보고가 나지 않는다.
 - 의도적으로 worker를 죽이는 크래시 유발 시험(RD-010, 아래)만 그 1건을 허용한다.
 
 **정지한 실행 12조합의 판정**은 복귀 여부 + 복귀 지연 + **화면 형식** + 우리 프레임 0 + `pageerror` 0을 따로 센다.
@@ -380,10 +379,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
 - 감시 타이머를 제거하면 `arun5` 지연이 초 단위로 뛴다.
 - 각각 해당 확인만 실패하고 원복 후 통과해야 한다. 절차: 변조 → dev 재시작(TRP-007) → 실행 → `git checkout --`.
 
-**지연 측정**은 **눌림 시각과 화면 변화 시각을 둘 다 페이지 안에서** 잡는다(keydown 리스너 + `MutationObserver`).
-
-- Node 쪽에서 `page.$$eval` 폴링으로 재면 CDP 왕복이 끼어 5~8ms 과대 측정된다.
-- 문턱 근처에서 가짜 회귀가 난다(`docs/traps/TRP-022`).
+**지연 측정**은 **눌림 시각과 화면 변화 시각을 둘 다 페이지 안에서** 잡는다(keydown 리스너 + `MutationObserver`). 이유는 9.5 12다.
 
 **연타 화면 판정**은 행 감김·스크롤 아웃·프롬프트 재그리기에 깨진다(TRP-016).
 
@@ -411,7 +407,6 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
   - `clear()` → 제출 → `cancelWhenReading` 순서만 쓴다.
 - 출력 유무를 **부분일치로 판정하지 않는다.** 제출한 소스 줄이 화면에 에코되므로 `exec("…print('wrong')")`을 제출하면 화면에 `wrong`이 있다.
   - 행 정확일치나 눌림 직전 개수를 기준선으로 잡은 증가분으로 본다.
-  - RD-008에서 이 버그로 확인 하나가 거짓 통과했다.
 - 취소 전 마지막 행이 이미 `>>>`인 확인(빈 프롬프트 취소)은 `waitPrompt(">>>")`가 낡은 행에 즉시 통과한다. 취소 줄(`KeyboardInterrupt`)이 나타나는 것을 먼저 기다린다.
 - 출력이 나온 시점을 "행에 마커 포함"으로 기다릴 때는 입력한 코드 행을 뺀다. 코드 행이 같은 마커를 포함해 즉시 통과한다(`docs/traps/TRP-011`). 시간을 재는 확인은 경과 시간과 화면 끝을 로그에 남긴다.
 - "이 로그가 없다"는 확인은 후속 출력에 밀려 뷰포트 밖으로 나간 행을 놓친다.
@@ -427,7 +422,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
   - 취소 트레이스백 직후 곧바로 타이핑하면 첫 글자가 드물게 드롭된다(`docs/traps/TRP-005`류). `h.settled()`로 화면이 멈춘 뒤 입력한다.
 - `crashed` 유발은 `pyodide.code.run_js("setTimeout(() => { throw new Error('forced') }, 0)")`다. 동기 throw는 `JsException`이 되어 worker를 안 죽이므로 타이머 경로가 필요하다.
 
-**리셋 안내 줄의 개행 판정**은 io 꼬리로 한다(RD-028, 옛 `cursorX===0` 분기는 폐기).
+**리셋 안내 줄의 개행 판정**은 io 꼬리로 한다(RD-028).
 
 - `create-repl/reset.test.ts`의 "리셋 안내 줄" 시험은 커서를 직접 지정하지 않는다. 실제 배경 출력(`workerRpc.notify("write", "t")`)으로 현재 io 꼬리를 만들거나 비운다.
 - 두 분기(꼬리 있음 → 개행, 꼬리 없음 → 개행 없음)를 단위 시험으로 고정한다.
@@ -461,7 +456,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
 9. **TRAP-26 블로킹 대기의 눌림은 별도 스레드로 넣는다.** 블로킹 대기 동안 Node 이벤트 루프가 멈춘다. `setTimeout` 눌림이 대기가 끝난 뒤 도착해도 `pressed > 0` 그리고 `sincePress < 1s`가 만족된다. `worker_threads` 눌림 스레드와 `process.hrtime.bigint()` 공유 시계를 쓴다. 눌림 뒤 지연뿐 아니라 실행 전체 시간과 `screen.stderr`(트레이스백)도 단언한다. 새 시험은 기준선 코드에서 RED인지 확인한다.
 10. **TRAP-27 모듈 완성 후보는 개수·전체 목록을 단정하지 않는다.** `sys.path[0] == ''`라 cwd의 `.py` 파일이 후보가 된다. 환경 모듈 집합도 다르다(3.14.4 네이티브 192개, pyodide 178개, 하니스 폴더 pty 196개). 시험·문서는 접두사·포함 여부·삽입 결과·구조(열 우선 배치, 200개 상한)를 단정한다. 후보 리터럴은 네이티브와 pyodide가 같은 케이스에만 쓴다. 문서에 개수를 적을 때는 측정 환경(빈 임시 cwd, 번들 버전)을 함께 적는다. pty 측정 하니스는 자식 REPL의 cwd를 빈 임시 폴더로 고정한다.
 11. **TRAP-28 SIGINT를 심는 프로브는 실제 경로와 같은 순서로 쓰고 ack로 판정한다.** 핸들러가 요청 번호(슬롯 2)가 그대로면 재전송으로 보고 무시한다. 슬롯 0에만 쓴 프로브는 "영향 없음"으로 오판된다. 프로브도 `Atomics.add(buffer, 2, 1)` 뒤 `Atomics.store(buffer, 0, 2)` 순서로 쓴다. 소비 여부는 슬롯 0이 아니라 ack(슬롯 1) 증가로 본다. "영향 없음" 결론 전에 같은 대상이 실제 Ctrl+C 경로에서는 끊기는지 양성 대조를 둔다.
-12. **(TRP-022) 브라우저 지연은 페이지 안의 한 시계로 잰다.** `keyboard.press` 직전 Node `performance.now()` + `page.$$eval` 폴링은 폴링마다 CDP 왕복이 최소 2회 껴 평균 5~8ms를 보탠다. 실측에서 이 방식이 12셀 중 8셀을 30ms 문턱 바로 위로 밀어 가짜 회귀를 만들었다. 같은 시행을 페이지 내부 keydown 리스너 + `MutationObserver`(같은 `performance.now()` 시계)로 재니 12셀이 모두 문턱 안이었다.
+12. **(TRP-022) 브라우저 지연은 페이지 안의 한 시계로 잰다.** `keyboard.press` 직전 Node `performance.now()` + `page.$$eval` 폴링은 폴링마다 CDP 왕복이 최소 2회 껴 평균 5~8ms를 보탠다. 문턱 근처 결과가 가짜 회귀로 보인다. 페이지 내부 keydown 리스너 + `MutationObserver`(같은 `performance.now()` 시계)로 재면 이 오차가 없다.
     - 측정 대상(눌림 → 새 프롬프트가 보인 시각)은 바꾸지 않고 시계만 옮긴다.
     - 문턱에서 5~10ms 안쪽 결과는 다른 시계로 한 번 더 재기 전에 회귀로 보고하지 않는다.
     - 실패한 1차 측정 로그는 판단을 되돌릴 근거이므로 버리지 않는다.
@@ -527,8 +522,8 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
   - 회차 로그의 클릭→Ctrl+C 시간(정보용, 판정 아님)이 창 안인지 본다. 부팅 지연으로 창을 넘긴 회차는 유실을 검출하지 못한다.
   - 유실된 눌림은 옛 worker가 ack해 재전송이 없다. 루프가 스스로 끝나지 않는다.
   - 판정은 고정 대기 뒤 부재 확인이 아니다. 정지 감지용 조건 대기 시간 초과로 판정한다(9.7).
-  - 수정 전(REPL이 buffer를 재사용하던 코드)의 유실률이 낮아 이 절 하나만으로는 수정 효과를 통계적으로 입증하지 못한다.
-  - 인과는 두 가지가 뒷받침한다.
+  - 유실률이 낮아 이 절 하나만으로는 유실을 통계적으로 검출하지 못한다.
+  - buffer 분리는 두 가지가 뒷받침한다.
     - 단위 시험(`packages/pyodide-repl/test/create-repl/reset.test.ts`): 리셋 뒤 새 프레임의 buffer가 옛 것과 다르고 눌림이 새 buffer에만 쓰인다.
     - core 폴백 프로브(`14-runner.md` 14.3.5).
 
@@ -567,7 +562,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
 **dom-bridge 확인(RD-023)**
 
 - `dom-bridge-check.mjs`(`e2e:dom-bridge`)는 `run.mjs` `SETS`(dev 전용)·`package.json`·`BASELINE.md` 행·`e2e/README.md` 명령 표에 배선돼 있다.
-- 화면 `?view=dom-bridge`를 쿼리로 나눠(기본·`mode=slow`·`native=0`·`native=0&gate=off`·`mode=late`·`mode=late-run`·`runner=core`) 페이지 7개를 돈다.
+- 화면 `?view=dom-bridge`를 쿼리로 나눠(기본·`mode=slow`·`native=0`·`native=0&gate=off`·`mode=late`·`mode=late-run`·`runner=core`) 페이지를 돈다.
   - S1~S4·S7: 초기화·`ready`, `document.title`·canvas 픽셀·guarded `window`, `input()`·취소·재입력, `while True`·`time.sleep` Ctrl+C, 전역 패치 뒤 core 채널.
   - S5: 동기 호출 도중 `interrupt()`는 호출 반환 뒤 결말·다음 줄 `interrupted`, `stop()` → `restarted`.
   - S6: 출력·DOM 도착 순서.
@@ -622,7 +617,7 @@ core를 공개 export(`@cp949/runo-pyodide-core`·`/worker`)로 import하는 rep
   - `apps/demo/e2e/sets.mjs`의 `SETS`.
   - `README.md` 명령 표.
   - `BASELINE.md` 2절 표.
-- 네 곳 모두 등록을 빠뜨린 새 스크립트도 잡는다. 전례: SETS 누락으로 L2에서만 드러난 회귀.
+- 네 곳 모두 등록을 빠뜨린 새 스크립트도 잡는다.
 - `measure/*.mjs`·`cpu-throttle-probe`(기록용)는 이 대조 범위 밖이다.
 - `run.mjs`는 파일 끝에서 `process.argv[2]`로 subcommand를 실행하는 CLI다. 그대로 import하면 시험이 CLI를 실행시킨다. 그래서 `SETS`·`MEASURE_SET`·서버 URL 상수를 `sets.mjs`로 분리했다. `run.mjs`는 그 파일을 import만 한다.
 
@@ -648,7 +643,7 @@ Tab 완성 기준 데이터를 만든 도구는 `apps/demo/e2e/pty/tools/`에 �
 - **재측정**: 새 CPython(3.15 등)으로 다시 재는 절차는 `13-version-upgrade.md` 13.4와 `REGEN.md` "3.15 재측정 시 실행 순서"다. 재측정 여부는 사용자가 정한다(ADR-0007).
 - **자립형 스크립트**: `rd-008/pty_cancel.py`·`rd-019/pty_type_ahead.py`. 인터프리터는 `PY314` 환경변수, 결과는 사람 판정이다.
 
-## 9.7 시간을 쓰는 판정 (2026-09-24 사용자 확정)
+## 9.7 시간을 쓰는 판정
 
 장비 성능이 달라도 판정 결과가 같아야 한다. 시간 값은 아래 규칙 안에서만 판정에 쓴다. 새로 쓰거나 고치는 e2e 스크립트와 L0 단위 시험(vitest)에 적용한다. 기존 고정 대기(`checks/`·`measure/`의 `waitForTimeout(`·`sleep(`·`settled(`)는 그 스크립트를 고칠 때 바꾸고 일괄 수정하지 않는다.
 
@@ -674,10 +669,7 @@ Tab 완성 기준 데이터를 만든 도구는 `apps/demo/e2e/pty/tools/`에 �
    - 배율 환경변수는 `E2E_TIME_SCALE`(기본 1)이다. `lib.mjs`가 읽어 핸들의 `timeScale`로 노출하고 결과 JSON `notes`에 값을 기록한다. e2e 전용이고 L0 vitest 상수에는 적용하지 않는다.
    - 상한은 **결함 시 값과 정상 값 사이**를 가른다. 정상 쪽에 동시 실행 부하 여유를 둔다.
    - L0의 SIGINT 계열 상한은 1초다(`PRESS_LIMIT_MS`·`WATCH_LIMIT_MS`, `run-driver-pyodide.test.ts`).
-   - 같은 장비에서도 눌림 뒤 `KeyboardInterrupt`까지가 3배 넘게 벌어진다(실측).
-     - 파일 단독 42.8~56.9ms.
-     - 패키지 전체 병렬 63.5~92.1ms.
-     - 루트 전체 실행 133.2ms.
+   - 같은 장비에서도 실행 조건에 따라 눌림 뒤 `KeyboardInterrupt`까지가 3배 넘게 벌어진다(실측: 파일 단독 실행 대 루트 전체 실행).
    - 단독 실측의 2배 같은 좁은 상한은 거짓 실패를 낸다.
    - 조각·타이머가 멈추면 값이 초 단위(5초·10초·무한)로 뛴다. 1초로도 회귀는 잡힌다(변이 검사).
 3. **마커 배리어**: 대상 동작 뒤 결과가 정해진 입력(예: `print('MARK')`)을 보낸다. 마커 **출력 행**이 보일 때까지 `waitFor`로 기다린 뒤 부재를 판정한다. 입력이 순서대로 처리되면 마커 도착 = 앞선 처리 완료다.
@@ -803,7 +795,7 @@ turbo 태스크:
 
 절차:
 
-1. 배포 패키지 6개(xterm-readline·core·terminal·repl·react·dom-bridge)를 `pnpm pack`한다.
+1. 배포 패키지(xterm-readline·core·terminal·repl·react·dom-bridge)를 `pnpm pack`한다.
    - 각 tarball `package.json`의 `exports`를 재귀로 훑어 모든 대상 경로가 tarball 파일 목록에 있는지 본다. 정적 검사이고 조건 이름과 무관하다. `./package.json`을 포함한다.
    - tarball 안 `package.json`의 `dependencies`·`peerDependencies`·`optionalDependencies`에 `workspace:`가 남지 않았는지 확인한다.
    - 모든 필드에 `catalog:`가 남지 않았는지 확인한다.
@@ -812,10 +804,7 @@ turbo 태스크:
      - 셋이 `dependencies`에 없어야 한다.
      - `dependencies`의 `@xterm/addon-fit`이 정확 버전이어야 한다.
      - 소비자가 셋을 직접 설치하므로 2~4단계로는 선언 누락이 드러나지 않는다.
-   - dom-bridge는 `dependencies`가 `@cp949/runo-coincident`·`@cp949/runo-reflected-ffi` 포크뿐이어야 한다.
-     - 둘 다 `file:` 로컬 경로 고정이라 exact-버전 규칙 대상이 아니다.
-     - core가 `dependencies`가 아니라 `peerDependencies`에 있어야 한다.
-     - `sideEffects`가 배열이어야 한다.
+   - dom-bridge는 9.8.1의 dom-bridge 선언 규칙(포크 `file:` 고정·core peer·`sideEffects` 배열)을 tarball `package.json`에서도 확인한다. 포크는 exact-버전 규칙 대상이 아니다.
    - exact-버전 규칙(`@xterm/addon-fit` 등)은 대상이면 모두 작업공간 `package.json` 선언과 같아야 한다. 규칙 목록의 원천은 `MANIFEST_POLICY`다.
    - 이어서 진입점을 도출한다: 각 tarball `exports` 키 중 값이 `null`이 아니고 `./package.json`이 아닌 것. `.`은 패키지 이름이다.
    - 도출 목록과 `ENTRY_EXPORTS` 키가 양방향으로 같아야 한다. 다르면 설치 전에 진입점 이름을 찍고 실패한다.
@@ -884,11 +873,9 @@ turbo 태스크:
 - `vite`: `apps/demo/package.json`.
 - `@types/node`·`@types/emscripten`: 스크립트에 적은 범위라 시간이 지나면 해석되는 버전이 바뀐다.
 
-소요 시간은 pnpm 저장소에 필요한 패키지가 이미 있고 `pnpm build`가 turbo 캐시인 상태에서 수 초~십수 초다. 저장소가 비어 있는 첫 실행은 재지 않았다.
-
 tarball `exports` 규칙(RD-023):
 
-- 6개 패키지의 `package.json`이 `publishConfig.exports`에 `development`를 뺀 `exports`를 둔다.
+- 배포 패키지의 `package.json`이 `publishConfig.exports`에 `development`를 뺀 `exports`를 둔다.
 - `pnpm pack`(pnpm 11.25.0)이 이것을 tarball의 `exports`로 쓴다. tarball `package.json`에 `development`·`publishConfig`가 남지 않는 것을 직접 확인했다.
 - 이 규칙이 없으면 tarball `exports`가 배포되지 않은 `./src/…ts`를 가리킨다.
   - 1단계 정적 검사가 실패한다.
